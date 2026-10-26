@@ -81,7 +81,14 @@ pub fn open(app: &AppHandle, source: BgSource, navigate: bool, show: bool, link:
         .inner_size(1100.0, 760.0)
         .min_inner_size(600.0, 400.0)
         .visible(show)
-        .initialization_script(INJECT_JS);
+        .initialization_script(INJECT_JS)
+        // Must match the main window (tauri.conf.json): windows sharing one browser data folder
+        // must agree on this, or WebView2 refuses to create the second one.
+        .browser_extensions_enabled(true);
+    // uBlock Origin Lite and any other bundled extension (see extensions.rs).
+    if let Some(dir) = app.try_state::<crate::extensions::Extensions>().and_then(|e| e.0.clone()) {
+        builder = builder.extensions_path(dir);
+    }
     // Owned by the main window: it stays above it (never lost behind it), minimises with it, and
     // can sit exactly on the Background screen's middle area (see `dock`).
     if let Some(main) = app.get_webview_window("main") {

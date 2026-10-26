@@ -1,6 +1,6 @@
 # Builds StageGremlin on this laptop and publishes it as a GitHub Release.
 # Same result as the old GitHub Actions build (.github/workflows/build-windows.yml), but local:
-#   - StageGremlin-portable.zip : StageGremlin.exe + portable.txt + data/bin (yt-dlp, ffmpeg)
+#   - StageGremlin-portable.zip : StageGremlin.exe + portable.txt + data/bin (yt-dlp, ffmpeg) + data/extensions (uBlock Origin Lite)
 #   - StageGremlin-setup.exe    : the installer (per user, no admin rights)
 #
 # Run from the repo root:   powershell -ExecutionPolicy Bypass -File scripts/release.ps1
@@ -55,6 +55,21 @@ $tag = "$prefix$next"
 $env:SG_BUILD_TAG = $tag
 Write-Host "Building $tag"
 
+# uBlock Origin Lite (Edge build) for the background player window: cleans up the players' pages.
+# GPL-3.0, from github.com/uBlockOrigin/uBOL-home. Fetched once like the tools; -FreshTools gets the newest.
+$ubol = "tools/extensions/ubol-lite"
+if ($FreshTools -or -not (Test-Path "$ubol/manifest.json")) {
+  Write-Host "Downloading uBlock Origin Lite..."
+  $tmp = Join-Path $env:TEMP "sg-ubol"
+  Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
+  New-Item -ItemType Directory -Force $tmp | Out-Null
+  gh release download -R uBlockOrigin/uBOL-home --pattern "*.edge.zip" -D $tmp
+  if ($LASTEXITCODE) { throw "Couldn't download uBlock Origin Lite." }
+  Remove-Item -Recurse -Force $ubol -ErrorAction SilentlyContinue
+  Expand-Archive (Get-ChildItem "$tmp/*.edge.zip" | Select-Object -First 1).FullName -DestinationPath $ubol
+  Remove-Item -Recurse -Force $tmp
+}
+
 # 3. Build: UI + Rust + installer. tauri.release.conf.json adds tools/bin as installer resources.
 npm install
 if ($LASTEXITCODE) { throw "npm install failed" }
@@ -68,6 +83,7 @@ New-Item -ItemType Directory -Force "$out/portable/data/bin" | Out-Null
 Copy-Item target/release/stagegremlin.exe "$out/portable/StageGremlin.exe"
 New-Item -ItemType File -Force "$out/portable/portable.txt" | Out-Null
 Copy-Item tools/bin/* "$out/portable/data/bin/"
+Copy-Item -Recurse tools/extensions "$out/portable/data/extensions"
 Compress-Archive -Path "$out/portable/*" -DestinationPath "$out/StageGremlin-portable.zip" -Force
 $setup = Get-ChildItem target/release/bundle/nsis/*.exe | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 Copy-Item $setup.FullName "$out/StageGremlin-setup.exe"
