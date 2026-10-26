@@ -11,6 +11,7 @@ import { ModeSwitch } from "./ModeSwitch";
 import { MasterMeter } from "./MasterMeter";
 import { Gear } from "./Icons";
 import { FileMenuButton } from "./FileMenu";
+import logoHead from "../assets/logo-head.png";
 import { BackgroundButton } from "./background/BackgroundPanel";
 import { AudacButton } from "./audac/AudacPanel";
 import { useAudacConfigured } from "../lib/audac";
@@ -23,8 +24,12 @@ export function TopBar({ preflightOk }: { preflightOk: boolean }) {
 
   return (
     <header style={{ height: 56, flex: "none", display: "flex", alignItems: "center", gap: 14, padding: "0 16px", borderBottom: "1px solid var(--line)", background: "var(--bg)", position: "relative", zIndex: 30 }}>
-      <span className="cond" style={{ fontSize: 22, fontWeight: 800, letterSpacing: ".06em", whiteSpace: "nowrap" }}>
-        STAGE<span style={{ color: "var(--acc)" }}>GREMLIN</span>
+      <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {/* The gremlin's head: the full logo is too busy at this size (the whole artwork is in Settings › About). */}
+        <img src={logoHead} alt="" width={34} height={34} style={{ borderRadius: 8, flex: "none" }} />
+        <span className="cond" style={{ fontSize: 22, fontWeight: 800, letterSpacing: ".06em", whiteSpace: "nowrap" }}>
+          STAGE<span style={{ color: "var(--acc)" }}>GREMLIN</span>
+        </span>
       </span>
       <FileMenuButton />
       <ModeSwitch preflightOk={preflightOk} />
