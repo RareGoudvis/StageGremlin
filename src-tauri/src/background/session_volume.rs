@@ -28,26 +28,26 @@ impl SessionVolume {
         }
     }
 
-    /// Looks for sessions again (new ones appear when the page starts playing) and gives every
-    /// session found the volume `gain`. Returns how many sessions were found.
-    pub fn refresh(&mut self, gain: f32) -> usize {
+    /// Looks for sessions again (new ones appear when the page starts playing) and gives each one
+    /// the volume `gain_of(its engine's process id)`. Returns how many sessions were found.
+    pub fn refresh(&mut self, gain_of: &dyn Fn(u32) -> f32) -> usize {
         #[cfg(windows)]
         {
-            self.inner.refresh(gain)
+            self.inner.refresh(gain_of)
         }
         #[cfg(not(windows))]
         {
-            let _ = gain;
+            let _ = gain_of;
             0
         }
     }
 
-    /// Sets every known session to `gain` (0.0 = silent, 1.0 = unity, the Windows maximum).
-    pub fn set(&mut self, gain: f32) {
+    /// Sets every known session to `gain_of(engine)` (0.0 = silent, 1.0 = unity, the Windows maximum).
+    pub fn set(&mut self, gain_of: &dyn Fn(u32) -> f32) {
         #[cfg(windows)]
-        self.inner.set(gain);
+        self.inner.set(gain_of);
         #[cfg(not(windows))]
-        let _ = gain;
+        let _ = gain_of;
     }
 }
 

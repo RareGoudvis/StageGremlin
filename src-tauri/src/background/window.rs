@@ -2,7 +2,13 @@
 //! `background-spotify`), so several services can stay open: Spotify keeps playing while you look for
 //! a playlist on SoundCloud. One of them is ACTIVE: the one the controls, "now playing" and the
 //! Background screen's middle area follow (`get`). Switching sources only switches which is active.
-//! All of them share one Windows audio session, so duck and level apply to all of them together.
+//!
+//! ENGINES. Normally every ACCOUNT gets its own browser engine (its own data folder under
+//! `<dataDir>/players/<account>`): Google (YouTube + YouTube Music), Spotify, SoundCloud, Beatport,
+//! Soundtrack. Windows then sees each engine as a separate program with its own audio session, so
+//! StageGremlin can give each service its own fader and crossfade between them (mod.rs, "mixer").
+//! Logins are kept per engine: sign in once per account. LOW SPEC MODE puts every player in the main
+//! window's engine instead (one browser engine, less memory): no separate faders then.
 //!
 //! - It uses the same WebView2 profile as the app, so sign-ins are kept between sessions
 //!   (in portable mode that profile lives in `<exe folder>/data/webview`).
@@ -10,6 +16,9 @@
 //!   main window closes.
 //! - `inject.js` is loaded into every page it shows (remote control + now playing).
 
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
 use tauri::{AppHandle, Manager, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
@@ -21,6 +30,47 @@ pub const LABEL_PREFIX: &str = "background-";
 
 /// The source whose window the controls follow.
 static ACTIVE: Mutex<Option<BgSource>> = Mutex::new(None);
+
+/// Low spec mode: every player shares the main window's engine (see the module comment).
+static LOW_SPEC: AtomicBool = AtomicBool::new(false);
+
+/// Each source's browser engine process (WebView2's BrowserProcessId), to find its audio session.
+static ENGINE_PID: Mutex<Option<HashMap<BgSource, u32>>> = Mutex::new(None);
+
+pub fn set_low_spec(on: bool) {
+    LOW_SPEC.store(on, Ordering::Relaxed);
+}
+
+pub fn low_spec() -> bool {
+    LOW_SPEC.load(Ordering::Relaxed)
+}
+
+/// The engine process playing `source`, once known.
+pub fn engine_pid(source: BgSource) -> Option<u32> {
+    ENGINE_PID.lock().unwrap_or_else(|e| e.into_inner()).as_ref().and_then(|m| m.get(&source).copied())
+}
+
+/// Services that share a login share an engine (and so a fader): one Google sign-in covers both.
+fn account(source: BgSource) -> &'static str {
+    match source {
+        BgSource::Ytmusic | BgSource::Youtube => "google",
+        BgSource::Spotify => "spotify",
+        BgSource::Beatport => "beatport",
+        BgSource::Soundtrack => "soundtrack",
+        BgSource::Soundcloud => "soundcloud",
+    }
+}
+
+/// Where `source`'s engine keeps its data (logins, cache). None = the default folder (installed app,
+/// low spec): the same one the main window uses.
+fn data_dir(app: &AppHandle, source: BgSource) -> Option<PathBuf> {
+    let dirs = app.try_state::<super::WebviewDirs>()?;
+    if low_spec() {
+        dirs.main.clone()
+    } else {
+        Some(dirs.players.join(account(source)))
+    }
+}
 
 pub fn label(source: BgSource) -> String {
     // The serde name ("spotify", "ytmusic", …) is also what the UI uses.
@@ -36,9 +86,9 @@ fn set_active(source: Option<BgSource>) {
     *ACTIVE.lock().unwrap_or_else(|e| e.into_inner()) = source;
 }
 
-/// Is this the active window? (Only it reports "now playing".)
-pub fn is_active_label(label: &str) -> bool {
-    active().is_some_and(|s| self::label(s) == label)
+/// Which source a player window's label belongs to.
+pub fn source_of_label(label: &str) -> Option<BgSource> {
+    super::ALL_SOURCES.iter().copied().find(|s| self::label(*s) == label)
 }
 
 /// Every open player window.
@@ -55,6 +105,9 @@ pub fn open_sources(app: &AppHandle) -> Vec<BgSource> {
 pub fn close(app: &AppHandle, source: BgSource) {
     if let Some(win) = app.get_webview_window(&label(source)) {
         let _ = win.destroy();
+    }
+    if let Some(m) = ENGINE_PID.lock().unwrap_or_else(|e| e.into_inner()).as_mut() {
+        m.remove(&source);
     }
     if active() == Some(source) {
         set_active(super::ALL_SOURCES.iter().copied().find(|s| *s != source && app.get_webview_window(&label(*s)).is_some()));
@@ -128,6 +181,8 @@ pub fn open(app: &AppHandle, source: BgSource, show: bool, link: Option<Url>) ->
     }
 
     let mut builder = WebviewWindowBuilder::new(app, label(source), WebviewUrl::External(url))
+        // Same account, same engine (see `data_dir`); low spec: the main window's.
+
         .title("StageGremlin · Background music")
         .inner_size(1100.0, 760.0)
         .min_inner_size(600.0, 400.0)
@@ -140,6 +195,10 @@ pub fn open(app: &AppHandle, source: BgSource, show: bool, link: Option<Url>) ->
     if let Some(dir) = app.try_state::<crate::extensions::Extensions>().and_then(|e| e.0.clone()) {
         builder = builder.extensions_path(dir);
     }
+    // Same account, same engine; low spec or the installed app's default: the main window's folder.
+    if let Some(dir) = data_dir(app, source) {
+        builder = builder.data_directory(dir);
+    }
     // Owned by the main window: it stays above it (never lost behind it), minimises with it, and
     // can sit exactly on the Background screen's middle area (see `dock`).
     if let Some(main) = app.get_webview_window("main") {
@@ -149,6 +208,7 @@ pub fn open(app: &AppHandle, source: BgSource, show: bool, link: Option<Url>) ->
         builder = builder.user_agent(ua);
     }
     let win = builder.build().map_err(|e| e.to_string())?;
+    remember_engine_pid(&win, source);
 
     // X = hide, so a mis-click never stops the music. The main window's close destroys it.
     let for_close = win.clone();
@@ -165,6 +225,23 @@ pub fn open(app: &AppHandle, source: BgSource, show: bool, link: Option<Url>) ->
         let _ = win.set_focus();
     }
     Ok(())
+}
+
+/// Ask WebView2 which browser process runs this window (the engine); its audio session is found by it.
+fn remember_engine_pid(win: &WebviewWindow, source: BgSource) {
+    let _ = win.with_webview(move |webview| {
+        #[cfg(windows)]
+        {
+            let mut pid = 0u32;
+            // SAFETY: plain WebView2 COM calls on the webview's own thread (with_webview runs there).
+            let ok = unsafe { webview.controller().CoreWebView2().and_then(|core| core.BrowserProcessId(&mut pid)) };
+            if ok.is_ok() && pid != 0 {
+                ENGINE_PID.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert_with(HashMap::new).insert(source, pid);
+            }
+        }
+        #[cfg(not(windows))]
+        let _ = (webview, source);
+    });
 }
 
 /// The Background screen shows the player in its middle area: no frame, placed exactly over that area.
@@ -215,6 +292,11 @@ pub fn hide(app: &AppHandle) {
     for win in all(app) {
         let _ = win.hide();
     }
+}
+
+/// Runs a line of JavaScript in one particular service's page (a deck).
+pub fn eval_on(app: &AppHandle, source: BgSource, js: &str) -> bool {
+    app.get_webview_window(&label(source)).map(|w| w.eval(js).is_ok()).unwrap_or(false)
 }
 
 /// Runs a line of JavaScript in the ACTIVE player page (play, pause, next, previous).
