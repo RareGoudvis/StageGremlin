@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useDoc } from "../store";
+import { useT } from "../i18n";
 import { useEngine } from "../engineStore";
 import { usePreflight, type Check } from "../lib/preflight";
 import { call, type AudioOutput } from "../lib/tauri";
@@ -16,17 +17,18 @@ export function PreflightView() {
   const setManual = useDoc((s) => s.setManualCheck);
   const setMode = useDoc((s) => s.setMode);
   const pct = (passed / checks.length) * 100;
+  const t = useT();
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(0, 1fr) 400px" }}>
       <section aria-label="Preflight checks" className="scroll" style={{ padding: "26px 40px", display: "flex", flexDirection: "column", gap: 6, borderRight: "1px solid var(--line)" }}>
-        <span className="cond" style={{ fontSize: 40, fontWeight: 800, letterSpacing: ".02em" }}>Preflight</span>
+        <span className="cond" style={{ fontSize: 40, fontWeight: 800, letterSpacing: ".02em" }}>{t("pre.title")}</span>
         <span style={{ fontSize: 15, color: "var(--dim)", marginBottom: 14, maxWidth: 640 }}>
           The app checks what it can by itself; tick the rest yourself. Nothing here blocks you, but it's better to see a problem now than during the show.
         </span>
-        <span className="k" style={{ marginTop: 4 }}>Checked by the app</span>
+        <span className="k" style={{ marginTop: 4 }}>{t("pre.byApp")}</span>
         {checks.filter((c) => c.kind === "auto").map((c) => <CheckRow key={c.key} check={c} />)}
-        <span className="k" style={{ marginTop: 14 }}>Your checks</span>
+        <span className="k" style={{ marginTop: 14 }}>{t("pre.yours")}</span>
         {checks.filter((c) => c.kind === "manual").map((c) => (
           <CheckRow key={c.key} check={c} onToggle={() => setManual(c.key, !c.ok)} />
         ))}
@@ -35,7 +37,7 @@ export function PreflightView() {
       <aside className="scroll" style={{ padding: "26px 30px", display: "flex", flexDirection: "column", gap: 14 }}>
         <span className="k">Status</span>
         <span className="cond" style={{ fontSize: 30, fontWeight: 800, color: allOk ? "var(--acc)" : "var(--amb)" }}>
-          {allOk ? "Ready for the show" : `${checks.length - passed} open`}
+          {allOk ? t("pre.ready") : `${checks.length - passed} ${t("pre.open")}`}
         </span>
         <div style={{ height: 10, background: "var(--p3)", borderRadius: 5, overflow: "hidden" }}>
           <div style={{ width: `${pct}%`, height: "100%", background: allOk ? "var(--acc)" : "var(--amb)", transition: "width .2s" }} />
@@ -45,7 +47,7 @@ export function PreflightView() {
           onClick={() => canEnterRun() && setMode("run")}
           style={{ height: 76, borderRadius: 14, fontSize: 26, fontWeight: 800, letterSpacing: ".08em", background: "var(--gobg)", color: "var(--ongo)" }}
         >
-          GO TO RUN
+          {t("pre.goRun")}
         </button>
         <span style={{ fontSize: 13, color: "var(--mute)" }}>
           Run switches to black, locks editing and turns Space into GO. Leave it with Ctrl+1 pressed twice, or hold Build for a second.

@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import { useUi } from "../uiStore";
+import { translate } from "../i18n";
+import { useSettings } from "../settingsStore";
 
 export function ConfirmDialog() {
   const req = useUi((s) => s.confirm);
@@ -28,7 +30,7 @@ export function ConfirmDialog() {
         <span className="cond" style={{ fontSize: 24, fontWeight: 800 }}>{req.title}</span>
         <span style={{ fontSize: 15, color: "var(--dim)", lineHeight: 1.4 }}>{req.body}</span>
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <button className="b btn" onClick={() => answer(false)} style={{ height: 40 }}>{req.cancelLabel ?? "Cancel"}</button>
+          <button className="b btn" onClick={() => answer(false)} style={{ height: 40 }}>{req.cancelLabel ?? translate(useSettings.getState().ui.lang, "cancel")}</button>
           <button
             ref={okRef}
             className="b btn"

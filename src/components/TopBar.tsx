@@ -7,7 +7,8 @@ import { useUi } from "../uiStore";
 import { basename } from "../lib/tauri";
 import { ModeSwitch } from "./ModeSwitch";
 import { MasterMeter } from "./MasterMeter";
-import { Auto, Moon, Sun } from "./Icons";
+import { Auto, Gear, Moon, Sun } from "./Icons";
+import { useT } from "../i18n";
 
 export function TopBar({ preflightOk }: { preflightOk: boolean }) {
   const path = useDoc((s) => s.path);
@@ -15,8 +16,10 @@ export function TopBar({ preflightOk }: { preflightOk: boolean }) {
   const fileDisplay = useDoc((s) => s.fileDisplay);
   const toggleFileDisplay = useDoc((s) => s.toggleFileDisplay);
   const dirty = useDirty();
+  const mode = useDoc((s) => s.mode);
+  const t = useT();
 
-  const fileText = path ? (fileDisplay === "path" ? path : basename(path)) : `${showName} (not saved yet)`;
+  const fileText = path ? (fileDisplay === "path" ? path : basename(path)) : `${showName} (${t("top.notSaved")})`;
 
   return (
     <header style={{ height: 56, flex: "none", display: "flex", alignItems: "center", gap: 14, padding: "0 16px", borderBottom: "1px solid var(--line)", background: "var(--bg)", position: "relative", zIndex: 30 }}>
@@ -41,6 +44,11 @@ export function TopBar({ preflightOk }: { preflightOk: boolean }) {
       <MasterMeter />
       <BoothMenu />
       <ThemeButton />
+      {mode !== "run" && (
+        <button className="b btn btn-icon" onClick={() => useUi.getState().openDialog({ kind: "settings" })} aria-label={t("top.settings")} title={t("top.settings")} style={{ width: 36, height: 36, background: "var(--p2)" }}>
+          <Gear />
+        </button>
+      )}
     </header>
   );
 }
@@ -61,6 +69,7 @@ function OutputChip() {
 }
 
 function WallClock() {
+  const t = useT();
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -68,7 +77,7 @@ function WallClock() {
   }, []);
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-      <span className="k">Time</span>
+      <span className="k">{t("top.time")}</span>
       <span className="mono" style={{ fontSize: 15, fontWeight: 600 }}>
         {now.toLocaleTimeString("nl-BE", { hour: "2-digit", minute: "2-digit" })}
       </span>
@@ -78,6 +87,7 @@ function WallClock() {
 
 /** Booth settings for a dark hall: dimmer, red night mode, Big mode. */
 function BoothMenu() {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const booth = useUi((s) => s.booth);
   const setBooth = useUi((s) => s.setBooth);
@@ -86,7 +96,7 @@ function BoothMenu() {
     <div style={{ position: "relative" }}>
       <button className="b btn mono" tabIndex={-1} onClick={() => setOpen(!open)} aria-expanded={open}
         style={{ height: 36, background: active ? "var(--ambbg)" : "var(--p2)", color: active ? "var(--ambtx)" : "var(--text)", fontSize: 12, fontWeight: 700 }}>
-        BOOTH
+        {t("top.booth")}
       </button>
       {open && (
         <div role="dialog" aria-label="Booth settings" style={{ position: "absolute", right: 0, top: 44, width: 300, background: "var(--p1)", border: "1px solid var(--line)", borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 12, boxShadow: "0 16px 40px rgba(0,0,0,.35)", zIndex: 40 }}>

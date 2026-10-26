@@ -11,6 +11,7 @@ import { SwapDialog } from "./components/run/SwapDialog";
 import { ResumeDialog, useResumeCheck } from "./components/ResumeDialog";
 import { PrintDialog, PrintSheet } from "./components/PrintSheet";
 import { useUi } from "./uiStore";
+import { SettingsDialog } from "./components/SettingsDialog";
 import { BuildView } from "./views/BuildView";
 import { PreflightView } from "./views/PreflightView";
 import { RunView } from "./views/RunView";
@@ -58,6 +59,7 @@ export default function App() {
       {dialog?.kind === "swap" && <SwapDialog cueId={dialog.cueId} />}
       {dialog?.kind === "resume" && <ResumeDialog />}
       {dialog?.kind === "print" && <PrintDialog />}
+      {dialog?.kind === "settings" && <SettingsDialog />}
       <ConfirmDialog />
       <Toast />
     </div>

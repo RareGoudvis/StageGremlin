@@ -12,6 +12,11 @@ on:
   push:
   workflow_dispatch:
 
+# A newer push cancels the build that's still running, so only the latest code gets built.
+concurrency:
+  group: build-windows-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: windows-latest
