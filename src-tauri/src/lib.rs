@@ -111,6 +111,8 @@ pub fn run() {
             commands::audio_list_outputs,
             commands::audio_set_output,
             commands::audio_output_status,
+            commands::audio_default_output,
+            commands::open_sound_settings,
             commands::show_open,
             commands::show_save,
             commands::analyze_file,

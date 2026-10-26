@@ -67,6 +67,20 @@ fn collect_files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
+/// Opens Windows' Settings › Sound page. Other systems: does nothing.
+pub fn open_sound_settings() -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        // Explorer knows how to open `ms-settings:` links; no console window involved.
+        let mut child =
+            Command::new("explorer").arg("ms-settings:sound").spawn().map_err(|e| format!("Cannot open Sound settings: {e}"))?;
+        std::thread::spawn(move || {
+            let _ = child.wait();
+        });
+    }
+    Ok(())
+}
+
 /// Opens the file manager with `path` selected (Windows), or its folder (elsewhere).
 pub fn show_in_folder(path: &Path) -> Result<(), String> {
     #[cfg(windows)]
