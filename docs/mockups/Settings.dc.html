@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>StageGremlin — Settings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&amp;family=IBM+Plex+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#3F6600}a:hover{color:#2B4600}
+button{font-family:inherit;cursor:pointer}
+.mono{font-family:'IBM Plex Mono',monospace}
+.cond{font-stretch:75%}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; display: flex; flex-direction: column; background: #F4F3EE; color: #17180F; font-family: Archivo, system-ui, sans-serif">
+
+  <header style="height: 64px; flex: none; display: flex; align-items: center; gap: 16px; padding: 0 24px; border-bottom: 1px solid #D2D1C7">
+    <a href="Main.dc.html" aria-label="Back to Build" style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border: 1px solid #D2D1C7; border-radius: 10px; background: #FFFFFF; color: #17180F; text-decoration: none; font-size: 14px; font-weight: 600">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>Back to Build
+    </a>
+    <span class="cond" style="font-size: 26px; font-weight: 800; letter-spacing: .04em">SETTINGS</span>
+    <div style="flex: 1"></div>
+    <span style="font-size: 13px; color: #55574D">Changes save by themselves · Esc closes</span>
+  </header>
+
+  <div style="flex: 1; min-height: 0; display: flex">
+    <nav aria-label="Settings sections" style="width: 280px; flex: none; padding: 18px 14px; border-right: 1px solid #D2D1C7; display: flex; flex-direction: column; gap: 4px">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="8">
+        <sc-if value="{{t.head}}" hint-placeholder-val="{{ false }}">
+          <span style="padding: 14px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: .1em; color: #64665B">{{t.label}}</span>
+        </sc-if>
+        <sc-if value="{{t.tab}}" hint-placeholder-val="{{ true }}">
+          <button onClick="{{t.pick}}" style="{{t.style}}">
+            <span style="flex: 1; text-align: left">{{t.label}}</span>
+            <span style="font-size: 12px; font-weight: 400; color: {{t.hintColor}}">{{t.hint}}</span>
+          </button>
+        </sc-if>
+      </sc-for>
+    </nav>
+
+    <main style="flex: 1; min-width: 0; overflow: auto; padding: 28px 40px 40px">
+      <div style="max-width: 860px; display: flex; flex-direction: column; gap: 22px">
+
+        <!-- AUDIO & OUTPUT -->
+        <sc-if value="{{isAudio}}" hint-placeholder-val="{{ true }}">
+          <h1 style="margin: 0; font-size: 28px; font-weight: 800">Audio &amp; output</h1>
+          <section style="background: #FFFFFF; border: 1px solid #D2D1C7; border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px">
+            <div style="display: flex; align-items: center; gap: 12px">
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+                <span style="font-size: 16px; font-weight: 700">Show output</span>
+                <span style="font-size: 13px; color: #55574D">Where every cue and pad plays. Remembered on this laptop.</span>
+              </div>
+              <span class="mono" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border-radius: 8px; background: #E9F7C8; color: #2B4600; font-size: 12px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #3F8A00"></span>Connected</span>
+            </div>
+            <div style="display: flex; gap: 10px">
+              <span style="flex: 1; height: 44px; padding: 0 14px; border: 1px solid #D2D1C7; border-radius: 10px; display: flex; align-items: center; justify-content: space-between; font-size: 15px; font-weight: 600">Qu-24 USB (Allen &amp; Heath)<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></span>
+              <button style="height: 44px; padding: 0 16px; border: 1px solid #D2D1C7; border-radius: 10px; background: #FFFFFF; font-size: 14px; font-weight: 600">Refresh</button>
+            </div>
+            <span style="font-size: 13px; color: #5A3600; background: #FFEDC7; padding: 8px 12px; border-radius: 8px">Switching output cuts any sound that's playing — do it before the show, not during.</span>
+            <label style="display: flex; align-items: center; gap: 10px; font-size: 14px"><input type="checkbox" checked style="width: 18px; height: 18px">If the Qu-24 disappears mid-show, keep playing on the laptop and switch back when it returns</label>
+          </section>
+          <section style="background: #FFFFFF; border: 1px solid #D2D1C7; border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 12px">
+            <span style="font-size: 16px; font-weight: 700">Headphone preview</span>
+            <span style="font-size: 13px; color: #55574D">For checking a cue or a swap without the hall hearing it.</span>
+            <span style="height: 44px; padding: 0 14px; border: 1px solid #D2D1C7; border-radius: 10px; display: flex; align-items: center; justify-content: space-between; font-size: 15px; font-weight: 600">Headphones (Realtek Audio)<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></span>
+          </section>
+          <section style="background: #FFFFFF; border: 1px solid #D2D1C7; border-radius: 14px; padding: 20px 22px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px">
+            <div style="display: flex; flex-direction: column; gap: 10px">
+              <span style="font-size: 16px; font-weight: 700">Test tones</span>
+              <div style="display: flex; gap: 8px">
+                <button style="height: 40px; padding: 0 14px; border: none; border-radius: 10px; background: #17180F; color: #F4F3EE; font-size: 13px; font-weight: 700">Pink noise −14 LUFS</button>
+                <button style="height: 40px; padding: 0 14px; border: 1px solid #D2D1C7; border-radius: 10px; background: #FFFFFF; font-size: 13px; font-weight: 700">1 kHz</button>
+                <button style="height: 40px; padding: 0 14px; border: 1px solid #D2D1C7; border-radius: 10px; background: #FFFFFF; font-size: 13px; font-weight: 700">Stop</button>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px">
+              <span style="font-size: 16px; font-weight: 700">Limiter ceiling</span>
+              <div style="display: flex; align-items: center; gap: 12px"><div style="flex: 1; height: 6px; border-radius: 3px; background: #E1E0D7"><div style="width: 86%; height: 6px; border-radius: 3px; background: #3F6600"></div></div><span class="mono" style="font-size: 14px">−1.0 dBTP</span></div>
+            </div>
+          </section>
+        </sc-if>
+
+        <!-- SHOW DEFAULTS -->
+        <sc-if value="{{isShow}}" hint-placeholder-val="{{ false }}">
+          <h1 style="margin: 0; font-size: 28px; font-weight: 800">This show</h1>
+          <p style="margin: 0; font-size: 14px; color: #55574D">Saved inside Schoolfeest 2027.sg, so the show sounds the same on any laptop.</p>
+          <section style="background: #FFFFFF; border: 1px solid #D2D1C7; border-radius: 14px; padding: 20px 22px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+            <sc-for list="{{showFields}}" as="f" hint-placeholder-count="6">
+              <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #55574D">{{f.label}}<input value="{{f.value}}" style="height: 42px; border: 1px solid #D2D1C7; border-radius: 10px; padding: 0 12px; font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #17180F"><span style="font-size: 12px; color: #64665B">{{f.help}}</span></label>
+            </sc-for>
+          </section>
+        </sc-if>
+
+        <!-- RUN & BOOTH -->
+        <sc-if value="{{isRun}}" hint-placeholder-val="{{ false }}">
+          <h1 style="margin: 0; font-size: 28px; font-weight: 800">Run &amp; booth</h1>
+          <section style="background: #17180F; color: #F4F3EE; border-radius: 14px; padding: 22px; display: flex; align-items: center; gap: 18px">
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 6px">
+              <span style="font-size: 20px; font-weight: 800">Dumbo mode</span>
+              <span style="font-size: 14px; color: #C9CBBE">Huge GO, what's playing, what's next, STOP ALL. Every other key does nothing. Leave by holding the corner button for 3 s, or with a PIN.</span>
+            </div>
+            <button onClick="{{toggleDumbo}}" style="{{dumboStyle}}">{{dumboLabel}}</button>
+          </section>
+          <section style="background: #FFFFFF; border: 1px solid #D2D1C7; border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 12px">
+            <label style="display: flex; align-items: center; gap: 10px; font-size: 14px"><input type="checkbox" style="width: 18px; height: 18px">Ask for a PIN to leave Dumbo mode</label>
+            <label style="display: flex; align-items: center; gap: 10px; font-size: 14px"><input type="checkbox" checked style="width: 18px; height: 18px">Show a row of pads in Dumbo mode</label>
+            <label style="display: flex; align-items: center; gap: 10px; font-size: 14px"><input type="checkbox" checked style="width: 18px; height: 18px">Background music starts locked in Run</label>
+            <label style="display: flex; align-items: center; gap: 10px; font-size: 14px"><input type="checkbox" style="width: 18px; height: 18px">Red night mode</label>
+          </section>
+        </sc-if>
+
+        <!-- BACKGROUND -->
+        <sc-if value="{{isBg}}" hint-placeholder-val="{{ false }}">
+          <h1 style="margin: 0; font-size: 28px; font-weight: 800">Background music</h1>
+          <section style="background: #E3F6F8; border: 1px solid #9AD8E0; border-radius: 14px; padding: 20px 22px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; color: #08505A">
+            <sc-for list="{{bgFields}}" as="f" hint-placeholder-count="4">
+              <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px">{{f.label}}<input value="{{f.value}}" style="height: 42px; border: 1px solid #9AD8E0; border-radius: 10px; padding: 0 12px; font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #17180F; background: #FFFFFF"></label>
+            </sc-for>
+            <label style="display: flex; align-items: center; gap: 10px; font-size: 14px"><input type="checkbox" checked style="width: 18px; height: 18px">Duck automatically when a cue plays</label>
+          </section>
+        </sc-if>
+
+        <!-- IMPORT & TOOLS -->
+        <sc-if value="{{isImport}}" hint-placeholder-val="{{ false }}">
+          <h1 style="margin: 0; font-size: 28px; font-weight: 800">Import &amp; tools</h1>
+          <p style="margin: 0; font-size: 14px; color: #55574D">How imports behave. Adding files and YouTube links happens from the Add button in Build.</p>
+          <section style="background: #FFFFFF; border: 1px solid #D2D1C7; border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px">
+            <label style="display: flex; align-items: center; gap: 10px; font-size: 14px"><input type="checkbox" checked style="width: 18px; height: 18px">Copy imported files into the show's media folder</label>
+            <label style="display: flex; align-items: center; gap: 10px; font-size: 14px"><input type="checkbox" checked style="width: 18px; height: 18px">Measure loudness right after import</label>
+            <div style="display: flex; align-items: center; gap: 12px; font-size: 14px">YouTube downloads as
+              <span style="display: flex; gap: 6px">
+                <span style="padding: 8px 12px; border-radius: 8px; background: #17180F; color: #F4F3EE; font-weight: 700; font-size: 13px">Original (M4A)</span>
+                <span style="padding: 8px 12px; border-radius: 8px; background: #E1E0D7; font-weight: 700; font-size: 13px">MP3</span>
+                <span style="padding: 8px 12px; border-radius: 8px; background: #E1E0D7; font-weight: 700; font-size: 13px">WAV</span>
+              </span>
+            </div>
+          </section>
+          <section style="background: #FFFFFF; border: 1px solid #D2D1C7; border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 12px">
+            <div style="display: flex; align-items: center; gap: 12px"><span style="flex: 1; font-size: 15px; font-weight: 700">yt-dlp</span><span class="mono" style="font-size: 13px; color: #55574D">2026.10.09 · bundled</span><button style="height: 38px; padding: 0 14px; border: 1px solid #D2D1C7; border-radius: 10px; background: #FFFFFF; font-size: 13px; font-weight: 700">Update</button></div>
+            <div style="display: flex; align-items: center; gap: 12px"><span style="flex: 1; font-size: 15px; font-weight: 700">ffmpeg</span><span class="mono" style="font-size: 13px; color: #55574D">installed · converts MP3/WAV and Opus</span><button style="height: 38px; padding: 0 14px; border: 1px solid #D2D1C7; border-radius: 10px; background: #FFFFFF; font-size: 13px; font-weight: 700">Reinstall</button></div>
+          </section>
+        </sc-if>
+
+        <!-- GENERAL -->
+        <sc-if value="{{isGeneral}}" hint-placeholder-val="{{ false }}">
+          <h1 style="margin: 0; font-size: 28px; font-weight: 800">Language &amp; look</h1>
+          <section style="background: #FFFFFF; border: 1px solid #D2D1C7; border-radius: 14px; padding: 20px 22px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px">
+            <div style="display: flex; flex-direction: column; gap: 8px"><span style="font-size: 14px; font-weight: 700">Language</span><span style="display: flex; gap: 6px"><span style="padding: 8px 14px; border-radius: 8px; background: #17180F; color: #F4F3EE; font-weight: 700; font-size: 13px">English</span><span style="padding: 8px 14px; border-radius: 8px; background: #E1E0D7; font-weight: 700; font-size: 13px">Nederlands</span></span></div>
+            <div style="display: flex; flex-direction: column; gap: 8px"><span style="font-size: 14px; font-weight: 700">Theme</span><span style="display: flex; gap: 6px"><span style="padding: 8px 14px; border-radius: 8px; background: #17180F; color: #F4F3EE; font-weight: 700; font-size: 13px">Auto</span><span style="padding: 8px 14px; border-radius: 8px; background: #E1E0D7; font-weight: 700; font-size: 13px">OLED black</span><span style="padding: 8px 14px; border-radius: 8px; background: #E1E0D7; font-weight: 700; font-size: 13px">Light</span></span></div>
+            <div style="display: flex; flex-direction: column; gap: 8px"><span style="font-size: 14px; font-weight: 700">Show files as</span><span style="display: flex; gap: 6px"><span style="padding: 8px 14px; border-radius: 8px; background: #17180F; color: #F4F3EE; font-weight: 700; font-size: 13px">Name</span><span style="padding: 8px 14px; border-radius: 8px; background: #E1E0D7; font-weight: 700; font-size: 13px">Full path</span></span></div>
+            <div style="display: flex; flex-direction: column; gap: 8px"><span style="font-size: 14px; font-weight: 700">Interface size</span><div style="display: flex; align-items: center; gap: 12px"><div style="flex: 1; height: 6px; border-radius: 3px; background: #E1E0D7"><div style="width: 50%; height: 6px; border-radius: 3px; background: #3F6600"></div></div><span class="mono" style="font-size: 14px">100%</span></div></div>
+          </section>
+        </sc-if>
+
+        <!-- SHORTCUTS -->
+        <sc-if value="{{isKeys}}" hint-placeholder-val="{{ false }}">
+          <h1 style="margin: 0; font-size: 28px; font-weight: 800">Shortcuts</h1>
+          <section style="background: #FFFFFF; border: 1px solid #D2D1C7; border-radius: 14px; padding: 8px 22px">
+            <sc-for list="{{keys}}" as="k" hint-placeholder-count="8">
+              <div style="display: flex; align-items: center; gap: 12px; height: 48px; border-bottom: 1px solid #ECEBE4">
+                <span style="flex: 1; font-size: 14px">{{k.label}}</span>
+                <span class="mono" style="min-width: 90px; text-align: center; padding: 6px 10px; border: 1px solid #D2D1C7; border-radius: 8px; background: #F4F3EE; font-size: 13px; font-weight: 600">{{k.key}}</span>
+              </div>
+            </sc-for>
+          </section>
+        </sc-if>
+
+        <!-- ABOUT -->
+        <sc-if value="{{isAbout}}" hint-placeholder-val="{{ false }}">
+          <h1 style="margin: 0; font-size: 28px; font-weight: 800">About</h1>
+          <section style="background: #FFFFFF; border: 1px solid #D2D1C7; border-radius: 14px; padding: 22px; display: flex; flex-direction: column; gap: 10px; font-size: 14px">
+            <span class="cond" style="font-size: 30px; font-weight: 800; letter-spacing: .06em">STAGE<span style="color: #3F6600">GREMLIN</span></span>
+            <span class="mono">Version 0.1.0 · portable · data in D:\StageGremlin\data</span>
+            <span>Free software under AGPL-3.0 · github.com/RareGoudvis/StageGremlin</span>
+          </section>
+        </sc-if>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tab: 'audio', dumbo: false };
+  }
+  renderVals() {
+    const s = this.state;
+    const list = [
+      { head: 'THIS LAPTOP' },
+      { id: 'audio', label: 'Audio & output', hint: '● Qu-24' },
+      { id: 'run', label: 'Run & booth', hint: 'Dumbo mode' },
+      { id: 'general', label: 'Language & look', hint: '' },
+      { id: 'keys', label: 'Shortcuts', hint: '' },
+      { head: 'THIS SHOW' },
+      { id: 'show', label: 'Levels & fades', hint: '−14 LUFS' },
+      { id: 'bg', label: 'Background music', hint: '' },
+      { head: 'TOOLS' },
+      { id: 'import', label: 'Import & tools', hint: 'yt-dlp, ffmpeg' },
+      { id: 'about', label: 'About', hint: '' }
+    ];
+    const tabs = list.map((t) => t.head
+      ? { head: true, tab: false, label: t.head, hint: '', hintColor: '', style: '', pick: () => {} }
+      : {
+          head: false, tab: true, label: t.label, hint: t.hint,
+          hintColor: s.tab === t.id ? '#C9CBBE' : '#64665B',
+          pick: () => this.setState({ tab: t.id }),
+          style: 'display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 12px; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; ' +
+            (s.tab === t.id ? 'background: #17180F; color: #F4F3EE;' : 'background: transparent; color: #17180F;')
+        });
+    return {
+      tabs,
+      isAudio: s.tab === 'audio', isShow: s.tab === 'show', isRun: s.tab === 'run', isBg: s.tab === 'bg',
+      isImport: s.tab === 'import', isGeneral: s.tab === 'general', isKeys: s.tab === 'keys', isAbout: s.tab === 'about',
+      showFields: [
+        { label: 'Loudness target', value: '−14 LUFS', help: 'Every cue is levelled to this.' },
+        { label: 'Peak ceiling', value: '−1.0 dBTP', help: 'Levelling never pushes a peak above this.' },
+        { label: 'Stop all fade', value: '2.0 s', help: 'Esc fades everything over this time.' },
+        { label: 'Under level (U)', value: '−12 dB', help: 'How far U drops a song while someone talks.' },
+        { label: 'Under fade', value: '1.0 s', help: '' },
+        { label: 'Double-GO guard', value: '300 ms', help: 'A second Space within this time is ignored.' }
+      ],
+      bgFields: [
+        { label: 'Duck to', value: '−30 dB' }, { label: 'Duck time', value: '1.5 s' },
+        { label: 'Restore time', value: '3.0 s' }, { label: 'Wait before restoring', value: '2.0 s' }
+      ],
+      keys: [
+        { label: 'GO', key: 'Space' }, { label: 'Stop all', key: 'Esc' }, { label: 'Panic', key: 'Esc Esc' },
+        { label: 'Under / back up', key: 'U' }, { label: 'Release vamp', key: 'V' }, { label: 'Pause all', key: 'P' },
+        { label: 'Headphone preview', key: 'H' }, { label: 'Duck background', key: 'D' }
+      ],
+      toggleDumbo: () => this.setState({ dumbo: !s.dumbo }),
+      dumboLabel: s.dumbo ? 'ON' : 'OFF',
+      dumboStyle: 'width: 96px; height: 52px; border: none; border-radius: 999px; font-size: 16px; font-weight: 800; ' +
+        (s.dumbo ? 'background: #B8EA2A; color: #172000;' : 'background: #3A3C33; color: #F4F3EE;')
+    };
+  }
+}
+</script>
+</body>
+</html>

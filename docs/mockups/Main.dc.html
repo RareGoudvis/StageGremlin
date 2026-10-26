@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>StageGremlin — Build</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&amp;family=IBM+Plex+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#3F6600}a:hover{color:#2B4600}
+button{font-family:inherit;cursor:pointer}
+.mono{font-family:'IBM Plex Mono',monospace}
+.cond{font-stretch:75%}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; display: flex; flex-direction: column; background: #F4F3EE; color: #17180F; font-family: Archivo, system-ui, sans-serif; position: relative; overflow: hidden">
+
+  <!-- ===== Top bar ===== -->
+  <header style="height: 56px; flex: none; display: flex; align-items: center; gap: 16px; padding: 0 16px; border-bottom: 1px solid #D2D1C7; background: #F4F3EE">
+    <span class="cond" style="font-size: 22px; font-weight: 800; letter-spacing: .06em; white-space: nowrap">STAGE<span style="color: #3F6600">GREMLIN</span></span>
+    <button onClick="{{toggleFile}}" aria-label="Show menu: file actions" style="display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border: 1px solid #D2D1C7; border-radius: 8px; background: {{fileBtnBg}}; color: #17180F; font-size: 14px; font-weight: 600">
+      Schoolfeest 2027<span style="color: #64665B; font-weight: 400">· saved</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+    <nav aria-label="Mode" style="display: flex; gap: 4px; padding: 4px; border-radius: 10px; background: #E1E0D7">
+      <button style="height: 30px; padding: 0 14px; border: none; border-radius: 7px; background: #17180F; color: #F4F3EE; font-size: 13px; font-weight: 700; letter-spacing: .04em">BUILD</button>
+      <button style="height: 30px; padding: 0 14px; border: none; border-radius: 7px; background: transparent; color: #55574D; font-size: 13px; font-weight: 700; letter-spacing: .04em">PREFLIGHT</button>
+      <button style="height: 30px; padding: 0 14px; border: none; border-radius: 7px; background: transparent; color: #55574D; font-size: 13px; font-weight: 700; letter-spacing: .04em">RUN</button>
+    </nav>
+    <div style="flex: 1"></div>
+    <span class="mono" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border-radius: 8px; background: #ECEBE4; font-size: 12px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #3F8A00"></span>Qu-24 USB</span>
+    <span class="mono" style="font-size: 14px; font-weight: 600">19:42</span>
+    <div aria-label="Master meter" style="display: flex; flex-direction: column; gap: 4px; width: 110px">
+      <div style="height: 6px; border-radius: 3px; background: #E1E0D7"><div style="width: 58%; height: 6px; border-radius: 3px; background: #3F8A00"></div></div>
+      <div style="height: 6px; border-radius: 3px; background: #E1E0D7"><div style="width: 54%; height: 6px; border-radius: 3px; background: #3F8A00"></div></div>
+    </div>
+    <button aria-label="Background music" style="display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border: 1px solid #9AD8E0; border-radius: 8px; background: #E3F6F8; color: #08505A; font-size: 13px; font-weight: 600">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+      Background
+    </button>
+    <a href="Settings.dc.html" aria-label="Settings" style="width: 40px; height: 40px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 1px solid #D2D1C7; border-radius: 10px; background: #FFFFFF; color: #17180F">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>
+    </a>
+  </header>
+  <div style="height: 4px; flex: none; background: #E1E0D7"><div style="width: 22%; height: 4px; background: #3F6600"></div></div>
+
+  <!-- ===== Body ===== -->
+  <div style="flex: 1; min-height: 0; display: flex">
+
+    <!-- Left rail: what you are building -->
+    <nav aria-label="Build sections" style="width: 76px; flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 0; border-right: 1px solid #D2D1C7; background: #ECEBE4">
+      <sc-for list="{{rail}}" as="r" hint-placeholder-count="3">
+        <button onClick="{{r.pick}}" aria-label="{{r.label}}" style="{{r.style}}">
+          <sc-if value="{{r.isCues}}" hint-placeholder-val="{{ true }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg></sc-if>
+          <sc-if value="{{r.isPads}}" hint-placeholder-val="{{ false }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg></sc-if>
+          <sc-if value="{{r.isMedia}}" hint-placeholder-val="{{ false }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></sc-if>
+          <span style="font-size: 11px; font-weight: 700; letter-spacing: .04em">{{r.label}}</span>
+        </button>
+      </sc-for>
+    </nav>
+
+    <!-- Cue list -->
+    <main style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+      <!-- One quiet toolbar; swaps for a selection bar when several cues are selected -->
+      <sc-if value="{{noMulti}}" hint-placeholder-val="{{ true }}">
+        <div style="height: 64px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 20px; border-bottom: 1px solid #D2D1C7">
+          <button onClick="{{openAdd}}" style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border: none; border-radius: 10px; background: #B8EA2A; color: #172000; font-size: 14px; font-weight: 700">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+            Add
+          </button>
+          <label style="flex: 1; max-width: 420px; display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border: 1px solid #D2D1C7; border-radius: 10px; background: #FFFFFF; color: #64665B">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>
+            <input placeholder="Find a cue…   Ctrl+K" aria-label="Find a cue" style="flex: 1; border: none; outline: none; background: transparent; font: inherit; font-size: 14px; color: #17180F">
+          </label>
+          <div style="flex: 1"></div>
+          <button aria-label="Undo" style="width: 40px; height: 40px; border: 1px solid #D2D1C7; border-radius: 10px; background: #FFFFFF; color: #17180F; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 14L4 9l5-5"></path><path d="M4 9h10a6 6 0 0 1 0 12h-3"></path></svg></button>
+          <button aria-label="Redo" style="width: 40px; height: 40px; border: 1px solid #D2D1C7; border-radius: 10px; background: #FFFFFF; color: #17180F; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 14l5-5-5-5"></path><path d="M20 9H10a6 6 0 0 0 0 12h3"></path></svg></button>
+          <button onClick="{{toggleView}}" aria-label="List options" style="height: 40px; padding: 0 12px; border: 1px solid #D2D1C7; border-radius: 10px; background: {{viewBtnBg}}; color: #17180F; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px">View<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+        </div>
+      </sc-if>
+      <sc-if value="{{multi}}" hint-placeholder-val="{{ false }}">
+        <div style="height: 64px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 20px; border-bottom: 1px solid #17180F; background: #17180F; color: #F4F3EE">
+          <span style="font-size: 14px; font-weight: 700">{{selCount}} cues selected</span>
+          <span style="color: #A6A99C; font-size: 13px">· changes apply to all of them</span>
+          <div style="flex: 1"></div>
+          <button style="height: 36px; padding: 0 12px; border: 1px solid #3A3C33; border-radius: 8px; background: transparent; color: #F4F3EE; font-size: 13px; font-weight: 600">Colour</button>
+          <button style="height: 36px; padding: 0 12px; border: 1px solid #3A3C33; border-radius: 8px; background: transparent; color: #F4F3EE; font-size: 13px; font-weight: 600">Move to section</button>
+          <button style="height: 36px; padding: 0 12px; border: 1px solid #3A3C33; border-radius: 8px; background: transparent; color: #F4F3EE; font-size: 13px; font-weight: 600">Duplicate</button>
+          <button style="height: 36px; padding: 0 12px; border: 1px solid #7A2A22; border-radius: 8px; background: transparent; color: #FFB4AA; font-size: 13px; font-weight: 600">Delete</button>
+          <button onClick="{{clearSel}}" aria-label="Clear selection" style="width: 36px; height: 36px; border: none; border-radius: 8px; background: #2A2C24; color: #F4F3EE; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+        </div>
+      </sc-if>
+
+      <div style="flex: 1; min-height: 0; overflow: auto; padding: 8px 20px 24px">
+        <sc-for list="{{sections}}" as="s" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 18px 4px 8px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#55574D" stroke-width="2.4" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+            <span class="cond" style="font-size: 15px; font-weight: 800; letter-spacing: .1em">{{s.name}}</span>
+            <div style="flex: 1; height: 1px; background: #D2D1C7"></div>
+            <span class="mono" style="font-size: 12px; color: #64665B">{{s.meta}}</span>
+          </div>
+          <sc-for list="{{s.cues}}" as="c" hint-placeholder-count="3">
+            <button onClick="{{c.pick}}" style="{{c.rowStyle}}">
+              <span class="mono" style="width: 44px; font-size: 14px; font-weight: 600; text-align: left; color: #55574D">{{c.num}}</span>
+              <span style="width: 10px; height: 10px; border-radius: 50%; background: {{c.color}}; flex: none"></span>
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px">
+                <span style="font-size: 15px; font-weight: 600">{{c.name}}</span>
+                <span style="font-size: 12px; color: #64665B">{{c.note}}</span>
+              </span>
+              <sc-if value="{{c.hasBadge}}" hint-placeholder-val="{{ false }}"><span class="mono" style="{{c.badgeStyle}}">{{c.badge}}</span></sc-if>
+              <span class="mono" style="width: 56px; text-align: right; font-size: 14px; color: #17180F">{{c.len}}</span>
+            </button>
+          </sc-for>
+        </sc-for>
+        <p style="margin: 18px 4px 0; font-size: 12px; color: #64665B">Tip: right-click a cue or section for everything else — colour, follow, duck, replace, show in folder. Ctrl/Shift-click selects several.</p>
+      </div>
+    </main>
+
+    <!-- Inspector with tabs instead of one long scroll -->
+    <aside aria-label="Cue details" style="width: 380px; flex: none; display: flex; flex-direction: column; border-left: 1px solid #D2D1C7; background: #FFFFFF">
+      <div style="padding: 18px 20px 12px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; align-items: baseline; gap: 12px">
+          <span class="mono" style="font-size: 22px; font-weight: 600; color: #3F6600">3</span>
+          <span style="font-size: 20px; font-weight: 700">Dans 3A — Zomerhit</span>
+        </div>
+        <button style="height: 44px; border: none; border-radius: 10px; background: #17180F; color: #F4F3EE; font-size: 14px; font-weight: 700; letter-spacing: .04em">OPEN CUE EDITOR · Enter</button>
+      </div>
+      <div role="tablist" style="display: flex; gap: 2px; padding: 0 20px; border-bottom: 1px solid #D2D1C7">
+        <sc-for list="{{insTabs}}" as="t" hint-placeholder-count="4">
+          <button role="tab" onClick="{{t.pick}}" style="{{t.style}}">{{t.label}}</button>
+        </sc-for>
+      </div>
+      <div style="flex: 1; min-height: 0; overflow: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px">
+        <sc-if value="{{insBasics}}" hint-placeholder-val="{{ true }}">
+          <div style="border: 1px solid #D2D1C7; border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; background: #F4F3EE">
+            <span class="mono" style="font-size: 12px; color: #55574D">media/zomerhit.m4a</span>
+            <span class="mono" style="font-size: 12px; color: #55574D">−21.0 LUFS · peak −4.4 dBTP · 3:19</span>
+            <span style="align-self: flex-start; font-size: 11px; font-weight: 700; letter-spacing: .06em; padding: 3px 8px; border-radius: 6px; background: #FFEDC7; color: #5A3600">+3.4 dB · PEAK-LIMITED</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <span style="font-size: 12px; font-weight: 700; letter-spacing: .08em; color: #55574D">COLOUR</span>
+            <div style="display: flex; gap: 8px">
+              <span style="width: 28px; height: 28px; border-radius: 50%; background: #5B8DEF"></span>
+              <span style="width: 28px; height: 28px; border-radius: 50%; background: #B8EA2A; box-shadow: 0 0 0 3px #FFFFFF, 0 0 0 5px #17180F"></span>
+              <span style="width: 28px; height: 28px; border-radius: 50%; background: #F2A33A"></span>
+              <span style="width: 28px; height: 28px; border-radius: 50%; background: #EE6A5E"></span>
+              <span style="width: 28px; height: 28px; border-radius: 50%; background: #B48EEB"></span>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+            <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #55574D">Fade in<input value="0.0 s" style="height: 36px; border: 1px solid #D2D1C7; border-radius: 8px; padding: 0 10px; font: inherit; font-size: 14px; color: #17180F"></label>
+            <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #55574D">Fade out<input value="3.0 s" style="height: 36px; border: 1px solid #D2D1C7; border-radius: 8px; padding: 0 10px; font: inherit; font-size: 14px; color: #17180F"></label>
+            <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #55574D">Gain<input value="0.0 dB" style="height: 36px; border: 1px solid #D2D1C7; border-radius: 8px; padding: 0 10px; font: inherit; font-size: 14px; color: #17180F"></label>
+            <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #55574D">After this cue<input value="Wait for GO" style="height: 36px; border: 1px solid #D2D1C7; border-radius: 8px; padding: 0 10px; font: inherit; font-size: 14px; color: #17180F"></label>
+          </div>
+        </sc-if>
+        <sc-if value="{{insSound}}" hint-placeholder-val="{{ false }}">
+          <p style="margin: 0; font-size: 14px; color: #55574D">High-pass, EQ preset, compressor preset, pan and under level — the quick versions. The cue editor has the curves.</p>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px">
+            <span style="padding: 8px 12px; border-radius: 8px; background: #17180F; color: #F4F3EE; font-size: 13px; font-weight: 600">EQ: Clear up a rip</span>
+            <span style="padding: 8px 12px; border-radius: 8px; background: #E1E0D7; font-size: 13px; font-weight: 600">HP 80 Hz</span>
+            <span style="padding: 8px 12px; border-radius: 8px; background: #E1E0D7; font-size: 13px; font-weight: 600">Comp: Light</span>
+            <span style="padding: 8px 12px; border-radius: 8px; background: #E1E0D7; font-size: 13px; font-weight: 600">Under −12 dB</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{insTiming}}" hint-placeholder-val="{{ false }}">
+          <p style="margin: 0; font-size: 14px; color: #55574D">Pre-wait, play count, follow, Fade &amp; GO, attach to another cue, duck background.</p>
+        </sc-if>
+        <sc-if value="{{insNotes}}" hint-placeholder-val="{{ false }}">
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 700; letter-spacing: .08em; color: #3F6600">SOUND<textarea style="height: 64px; border: 1px solid #D2D1C7; border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 14px; font-weight: 400; letter-spacing: 0; color: #17180F">Intro loopt tot alle kinderen staan, dan Release.</textarea></label>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 700; letter-spacing: .08em; color: #6B3FA8">LIGHT (LX)<textarea style="height: 64px; border: 1px solid #D2D1C7; border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 14px; font-weight: 400; letter-spacing: 0; color: #17180F">Kleurenchase op het refrein.</textarea></label>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 700; letter-spacing: .08em; color: #1F5BB5">STAGE<textarea style="height: 64px; border: 1px solid #D2D1C7; border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 14px; font-weight: 400; letter-spacing: 0; color: #17180F">Klas 3A komt links op.</textarea></label>
+        </sc-if>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ===== File menu (click the show name) ===== -->
+  <sc-if value="{{fileOpen}}" hint-placeholder-val="{{ false }}">
+    <div role="menu" aria-label="File" style="position: absolute; left: 190px; top: 52px; width: 300px; padding: 6px; border: 1px solid #D2D1C7; border-radius: 12px; background: #FFFFFF; box-shadow: 0 12px 32px rgba(23,24,15,.18); display: flex; flex-direction: column">
+      <sc-for list="{{fileItems}}" as="f" hint-placeholder-count="6">
+        <sc-if value="{{f.sep}}" hint-placeholder-val="{{ false }}"><div style="height: 1px; margin: 6px 4px; background: #E1E0D7"></div></sc-if>
+        <sc-if value="{{f.item}}" hint-placeholder-val="{{ true }}">
+          <button role="menuitem" onClick="{{f.pick}}" style="display: flex; align-items: center; height: 38px; padding: 0 12px; border: none; border-radius: 8px; background: transparent; color: #17180F; font-size: 14px; text-align: left">
+            <span style="flex: 1">{{f.label}}</span><span class="mono" style="font-size: 12px; color: #64665B">{{f.key}}</span>
+          </button>
+        </sc-if>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <!-- ===== View menu ===== -->
+  <sc-if value="{{viewOpen}}" hint-placeholder-val="{{ false }}">
+    <div role="menu" aria-label="List options" style="position: absolute; left: 790px; top: 126px; width: 250px; padding: 6px; border: 1px solid #D2D1C7; border-radius: 12px; background: #FFFFFF; box-shadow: 0 12px 32px rgba(23,24,15,.18); display: flex; flex-direction: column">
+      <button role="menuitem" style="height: 38px; padding: 0 12px; border: none; border-radius: 8px; background: transparent; text-align: left; font-size: 14px; color: #17180F">Collapse all sections</button>
+      <button role="menuitem" style="height: 38px; padding: 0 12px; border: none; border-radius: 8px; background: transparent; text-align: left; font-size: 14px; color: #17180F">Show full file paths</button>
+      <button role="menuitem" style="height: 38px; padding: 0 12px; border: none; border-radius: 8px; background: transparent; text-align: left; font-size: 14px; color: #17180F">Renumber all cues…</button>
+      <div style="height: 1px; margin: 6px 4px; background: #E1E0D7"></div>
+      <button role="menuitem" style="height: 38px; padding: 0 12px; border: none; border-radius: 8px; background: transparent; text-align: left; font-size: 14px; color: #17180F">+ New section</button>
+    </div>
+  </sc-if>
+
+  <!-- ===== Add sheet: files, YouTube and pasted lists in ONE place ===== -->
+  <sc-if value="{{addOpen}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; background: rgba(23,24,15,.45); display: flex; align-items: center; justify-content: center">
+      <div role="dialog" aria-label="Add to the show" style="width: 720px; border-radius: 16px; background: #FFFFFF; box-shadow: 0 24px 64px rgba(0,0,0,.25); display: flex; flex-direction: column; overflow: hidden">
+        <div style="display: flex; align-items: center; padding: 18px 22px 12px">
+          <span style="flex: 1; font-size: 20px; font-weight: 800">Add to the show</span>
+          <button onClick="{{closeAdd}}" aria-label="Close" style="width: 36px; height: 36px; border: none; border-radius: 8px; background: #ECEBE4; color: #17180F; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+        </div>
+        <div role="tablist" style="display: flex; gap: 6px; padding: 0 22px 14px">
+          <sc-for list="{{addTabs}}" as="t" hint-placeholder-count="4">
+            <button role="tab" onClick="{{t.pick}}" style="{{t.style}}">{{t.label}}</button>
+          </sc-for>
+        </div>
+        <div style="padding: 0 22px 18px; min-height: 230px; display: flex; flex-direction: column; gap: 14px">
+          <sc-if value="{{addFiles}}" hint-placeholder-val="{{ true }}">
+            <div style="height: 180px; border: 2px dashed #C4C3B8; border-radius: 14px; background: #F4F3EE; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #55574D">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"></path><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"></path></svg>
+              <span style="font-size: 16px; font-weight: 600; color: #17180F">Drop audio files here</span>
+              <span style="font-size: 13px">MP3, M4A, WAV, FLAC, OGG · or <a href="#">choose files…</a></span>
+            </div>
+          </sc-if>
+          <sc-if value="{{addYt}}" hint-placeholder-val="{{ false }}">
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #55574D">YouTube links, a playlist link, or one "artist – title" per line
+              <textarea style="height: 150px; border: 1px solid #D2D1C7; border-radius: 10px; padding: 10px 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #17180F">https://www.youtube.com/playlist?list=…
+K3 – Heyah Mama
+Bart Peeters – Brussel</textarea>
+            </label>
+            <span style="font-size: 12px; color: #64665B">YouTube's terms don't allow downloading; that's your call. You'll see the matches before anything downloads.</span>
+          </sc-if>
+          <sc-if value="{{addSection}}" hint-placeholder-val="{{ false }}">
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #55574D">Section name<input value="Klas 4B" style="height: 44px; border: 1px solid #D2D1C7; border-radius: 10px; padding: 0 12px; font: inherit; font-size: 15px; color: #17180F"></label>
+          </sc-if>
+          <sc-if value="{{addPad}}" hint-placeholder-val="{{ false }}">
+            <p style="margin: 0; font-size: 14px; color: #55574D">Drop a short sound (applause, gong, ding) to make a soundboard pad. It gets the next free key, 1–9 then 0.</p>
+          </sc-if>
+          <div style="display: flex; align-items: center; gap: 10px; padding-top: 4px; border-top: 1px solid #E1E0D7">
+            <span style="font-size: 13px; color: #55574D">Add to</span>
+            <span style="height: 36px; padding: 0 12px; border: 1px solid #D2D1C7; border-radius: 8px; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600">After cue 3 · Klas 3A &amp; 3B<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></span>
+            <div style="flex: 1"></div>
+            <a href="Settings.dc.html" style="font-size: 13px">Import settings…</a>
+            <button onClick="{{closeAdd}}" style="height: 40px; padding: 0 18px; border: none; border-radius: 10px; background: #B8EA2A; color: #172000; font-size: 14px; font-weight: 700">{{addCta}}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { rail: 'cues', ins: 'basics', add: false, addTab: 'files', file: false, view: false, sel: ['3'] };
+  }
+  renderVals() {
+    const s = this.state;
+    const set = (patch) => this.setState(patch);
+    const railItems = [['cues', 'Cues'], ['pads', 'Pads'], ['media', 'Media']];
+    const rail = railItems.map(([id, label]) => ({
+      label, isCues: id === 'cues', isPads: id === 'pads', isMedia: id === 'media',
+      pick: () => set({ rail: id }),
+      style: 'width: 60px; height: 58px; border: none; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; ' +
+        (s.rail === id ? 'background: #17180F; color: #F4F3EE;' : 'background: transparent; color: #55574D;')
+    }));
+    const data = [
+      { name: 'OPENING', meta: '2 cues · 4:16', cues: [
+        ['1', 'Intro-montage', 'Na het belsignaal', '#5B8DEF', '3:19', '+4.6 dB', 'amb'],
+        ['2', 'Opkomst presentatoren', 'Onder de stem tot ze aan de micro staan', '#C4C3B8', '0:57', '', ''] ] },
+      { name: 'KLAS 3A & 3B', meta: '3 cues · 4:33', cues: [
+        ['3', 'Dans 3A — Zomerhit', 'Intro loopt tot alle kinderen staan', '#B8EA2A', '3:19', 'STANDBY', 'acc'],
+        ['4', 'Dans 3B — Medley', 'Luid refrein vanaf 2:10', '#B8EA2A', '0:39', '', ''],
+        ['5', 'Applaus-stinger', 'Volgt automatisch', '#F2A33A', '0:35', '', ''] ] },
+      { name: 'OPEN MIC', meta: '2 cues · 5:17', cues: [
+        ['6', 'Open mic — beat 1', 'Alleen als er een act klaarstaat', '#B48EEB', '3:49', 'LOOP', 'cy'],
+        ['7', 'Open mic — beat 2', 'Rustiger tempo', '#B48EEB', '1:28', '', ''] ] }
+    ];
+    const badgeStyles = {
+      amb: 'font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: #FFEDC7; color: #5A3600',
+      acc: 'font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: #E9F7C8; color: #2B4600',
+      cy: 'font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: #E3F6F8; color: #08505A'
+    };
+    const sections = data.map((sec) => ({
+      name: sec.name, meta: sec.meta,
+      cues: sec.cues.map(([num, name, note, color, len, badge, kind]) => {
+        const on = s.sel.includes(num);
+        return {
+          num, name, note, color, len, badge, hasBadge: !!badge, badgeStyle: badgeStyles[kind] || '',
+          pick: () => set({ sel: on ? s.sel.filter((x) => x !== num) : [...s.sel, num] }),
+          rowStyle: 'width: 100%; display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 8px 14px; margin: 2px 0; border-radius: 12px; text-align: left; font: inherit; color: #17180F; ' +
+            (on ? 'background: #E9F7C8; border: 1.5px solid #3F6600;' : 'background: #FFFFFF; border: 1.5px solid transparent;')
+        };
+      })
+    }));
+    const insTabs = [['basics', 'Basics'], ['sound', 'Sound'], ['timing', 'Timing'], ['notes', 'Notes']].map(([id, label]) => ({
+      label, pick: () => set({ ins: id }),
+      style: 'height: 42px; padding: 0 14px; border: none; background: transparent; font-size: 14px; font-weight: 700; ' +
+        (s.ins === id ? 'color: #17180F; box-shadow: inset 0 -3px 0 #3F6600;' : 'color: #64665B;')
+    }));
+    const addTabs = [['files', 'Audio files'], ['yt', 'YouTube & lists'], ['pad', 'Soundboard pad'], ['section', 'Section']].map(([id, label]) => ({
+      label, pick: () => set({ addTab: id }),
+      style: 'height: 36px; padding: 0 14px; border-radius: 999px; font-size: 13px; font-weight: 700; ' +
+        (s.addTab === id ? 'border: none; background: #17180F; color: #F4F3EE;' : 'border: 1px solid #D2D1C7; background: #FFFFFF; color: #17180F;')
+    }));
+    const close = () => set({ file: false });
+    const fileItems = [
+      ['New show', 'Ctrl+N'], ['Open…', 'Ctrl+O'], ['Open recent', '›'], null,
+      ['Save', 'Ctrl+S'], ['Save as…', 'Ctrl+Shift+S'], ['Export show as zip…', ''], null,
+      ['Print cue sheet…', 'Ctrl+P'], ['Settings…', 'Ctrl+,']
+    ].map((it) => it ? { item: true, sep: false, label: it[0], key: it[1], pick: close } : { item: false, sep: true, label: '', key: '', pick: close });
+    const multi = s.sel.length > 1;
+    return {
+      rail, sections, insTabs, addTabs, fileItems,
+      insBasics: s.ins === 'basics', insSound: s.ins === 'sound', insTiming: s.ins === 'timing', insNotes: s.ins === 'notes',
+      addOpen: s.add, addFiles: s.addTab === 'files', addYt: s.addTab === 'yt', addPad: s.addTab === 'pad', addSection: s.addTab === 'section',
+      addCta: { files: 'Add 0 files', yt: 'Look them up', pad: 'Add pad', section: 'Add section' }[s.addTab],
+      fileOpen: s.file, viewOpen: s.view,
+      fileBtnBg: s.file ? '#E1E0D7' : '#FFFFFF', viewBtnBg: s.view ? '#E1E0D7' : '#FFFFFF',
+      multi, noMulti: !multi, selCount: s.sel.length,
+      openAdd: () => set({ add: true, file: false, view: false }),
+      closeAdd: () => set({ add: false }),
+      toggleFile: () => set({ file: !s.file, view: false }),
+      toggleView: () => set({ view: !s.view, file: false }),
+      clearSel: () => set({ sel: [] }),
+      goSettings: () => set({ file: false })
+    };
+  }
+}
+</script>
+</body>
+</html>
