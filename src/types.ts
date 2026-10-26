@@ -100,7 +100,14 @@ export interface RunningInfo {
 export type PendingKind = "preWait" | "follow" | "attached";
 export interface PendingInfo { cueId: string; kind: PendingKind; inSecs: number }
 
-export interface MeterReading { peakL: number; peakR: number; grDb: number; overs: number }
+export interface MeterReading {
+  peakL: number;
+  peakR: number;
+  grDb: number;
+  overs: number;
+  /** Short-term loudness of the output (EBU R128, 3 s), LUFS; −70 = silence. Updates ~10×/s. */
+  lufsS: number;
+}
 
 export interface LogEntry { clock: number; wallMs: number; kind: string; cueId: string | null; text: string }
 
@@ -281,3 +288,11 @@ export interface YtProgress {
   error: string | null;
 }
 export type YtProgressStatus = YtProgress["status"];
+
+// ---- round 3 ----
+
+/** `media://changed` (debounced 500 ms). */
+export interface MediaChanged { path: string; kind: "modified" | "removed" | "created" }
+
+/** Per-machine UI settings (`settings_get` / `settings_set`); free-form, the core never reads it. */
+export type UiSettings = Record<string, unknown>;
