@@ -14,6 +14,7 @@ import { useUi } from "./uiStore";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { useSettings } from "./settingsStore";
 import { DumboView } from "./views/DumboView";
+import { useMedia } from "./lib/media";
 import { ContextMenuHost } from "./components/ContextMenu";
 import { BuildView } from "./views/BuildView";
 import { PreflightView } from "./views/PreflightView";
@@ -34,6 +35,16 @@ export default function App() {
   useEffect(() => {
     if (dumboOn && useDoc.getState().mode !== "run") useDoc.getState().setMode("run");
   }, [dumboOn]);
+  // Same rule as Run: Dumbo mode can't stay on while a cue file is missing (for example when
+  // it was left on and the show opens with a file gone). Preflight then lists what to fix.
+  const missingCount = useMedia((s) => Object.keys(s.missing).length);
+  useEffect(() => {
+    if (dumboOn && missingCount > 0) {
+      useSettings.getState().update({ dumbo: false });
+      useMedia.setState({ dumboBlocked: true });
+      useDoc.getState().setMode("preflight");
+    }
+  }, [dumboOn, missingCount]);
   const { allOk } = usePreflight();
   const dialog = useUi((s) => s.dialog);
   const booth = useUi((s) => s.booth);
