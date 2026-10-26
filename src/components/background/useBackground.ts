@@ -4,6 +4,7 @@
 // Outside the desktop app (npm run dev in a browser) a small simulator answers instead,
 // so the dock looks alive while designing.
 
+import { useSettings } from "../../settingsStore";
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -55,6 +56,12 @@ export const DEFAULT_CONFIG: BgConfig = {
   duckDb: -30, duckTime: 1.5, restoreTime: 3, restoreHold: 2, autoDuck: true,
   offsets: { spotify: 0, ytmusic: 0, beatport: -6, soundtrack: 0, soundcloud: 0, youtube: 0 },
 };
+
+/** The services this laptop offers (Settings › Background music); the rest are hidden everywhere. */
+export function useEnabledSources(): { id: BgSource; label: string }[] {
+  const ids = useSettings((s) => s.ui.bgServices);
+  return SOURCES.filter((s) => ids.includes(s.id));
+}
 
 // ---- commands (one function per Tauri command) ----
 

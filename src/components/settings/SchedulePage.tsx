@@ -5,7 +5,7 @@ import { useSettings, type AudacSetup, type ScheduleEntry } from "../../settings
 import { useT, type TKey } from "../../i18n";
 import { MIN_VOLUME, visible } from "../../lib/audac";
 import { nextStart } from "../../lib/audacSchedule";
-import { SOURCES } from "../background/useBackground";
+import { useEnabledSources } from "../background/useBackground";
 import { newId } from "../../types";
 import { Chips, Row } from "../controls";
 import { Card, PageTitle } from "./common";
@@ -66,6 +66,7 @@ export function SchedulePage() {
 
 function EntryCard({ e, setup, set, remove }: { e: ScheduleEntry; setup: AudacSetup; set: (p: Partial<ScheduleEntry>) => void; remove: () => void }) {
   const t = useT();
+  const sources = useEnabledSources();
   const next = nextStart(e, new Date());
   const badTimes = e.to <= e.from;
   const toggle = (list: number[], n: number) => (list.includes(n) ? list.filter((x) => x !== n) : [...list, n]);
@@ -107,7 +108,7 @@ function EntryCard({ e, setup, set, remove }: { e: ScheduleEntry; setup: AudacSe
       <Row label={t("sched.music")} hint={t("sched.musicHint")}>
         <select className="select" aria-label={t("sched.music")} value={e.music.source} onChange={(ev) => set({ music: { ...e.music, source: ev.target.value as ScheduleEntry["music"]["source"] } })} style={{ width: 170 }}>
           <option value="">{t("sched.noMusic")}</option>
-          {SOURCES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+          {sources.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
         </select>
         {e.music.source && (
           <input className="input mono" aria-label={t("sched.link")} placeholder={t("sched.link")} value={e.music.link}

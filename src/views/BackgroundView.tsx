@@ -10,7 +10,7 @@
 import { useEffect, useRef } from "react";
 import { useUi } from "../uiStore";
 import { useMenu } from "../components/ContextMenu";
-import { backgroundKey, bg, bgDo, SOURCES, useBackground, type BgSource } from "../components/background/useBackground";
+import { backgroundKey, bg, bgDo, SOURCES, useBackground, useEnabledSources, type BgSource } from "../components/background/useBackground";
 import { AudacPanel } from "../components/audac/AudacPanel";
 import { useAudacConfigured } from "../lib/audac";
 import { useSettings } from "../settingsStore";
@@ -129,6 +129,7 @@ function Playback() {
 function Player() {
   const t = useT();
   const st = useBackground();
+  const sources = useEnabledSources();
   const area = useRef<HTMLDivElement>(null);
   // Anything that draws over the middle area (dialogs, menus, the cue editor) makes the player step aside:
   // it is a real window and would otherwise cover them.
@@ -183,7 +184,7 @@ function Player() {
   return (
     <>
       <div role="tablist" aria-label={t("bgv.services")} style={{ display: "flex", gap: 4, padding: 6, borderBottom: "1px solid var(--line)", flexWrap: "wrap" }}>
-        {SOURCES.map((s) => {
+        {sources.map((s) => {
           const on = st?.source === s.id;
           const isOpen = !!st?.openSources?.includes(s.id);
           return (

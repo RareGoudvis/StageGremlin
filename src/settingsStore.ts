@@ -67,6 +67,8 @@ export interface UiSettings {
   recent: string[];
   /** The school's AUDAC MTX88 (Settings › AUDAC). Empty host = not set up. */
   audac: AudacSetup;
+  /** The background music services offered on this laptop (Settings › Background music). */
+  bgServices: BgSource[];
   /** The network player that feeds the AUDAC (Settings › Streambox). */
   streambox: StreamboxSetup;
   /** "salt:sha256" of the admin password (see lib/admin.ts). Empty = none set yet: admin settings stay locked. */
@@ -143,6 +145,7 @@ const AUDAC_DEFAULT: AudacSetup = {
 };
 
 const DEFAULTS: UiSettings = { lang: "en", keys: {}, bgLockDefault: false, zoom: 100, dumbo: false, dumboPads: false, dumboPin: "", ytFormat: "original", recent: [], audac: AUDAC_DEFAULT, adminHash: "",
+  bgServices: ["spotify", "ytmusic", "beatport", "soundtrack", "soundcloud", "youtube"],
   streambox: { model: "s2ultra", ip: "", name: "", kinds: [], audacInput: 0, via: "dlna", dlnaUrl: "", format: "wav" } };
 
 /** Put a show file at the top of the recent list (max 8, no doubles). */
