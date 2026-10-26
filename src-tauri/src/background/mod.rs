@@ -601,6 +601,33 @@ pub fn bg_hide(app: AppHandle, state: State<'_, BgHandle>) {
     state.set_visible(false);
 }
 
+/// Where the Background screen wants the player: physical pixels inside the main window's content.
+#[derive(Debug, Clone, Copy, Deserialize)]
+pub struct DockRect {
+    pub x: i32,
+    pub y: i32,
+    pub w: u32,
+    pub h: u32,
+}
+
+/// Background screen: put the player over its middle area (`rect`), or `null` to take it away
+/// (hidden, normal window again). Async: moving windows from a synchronous command can deadlock.
+#[tauri::command]
+pub async fn bg_dock(app: AppHandle, rect: Option<DockRect>) -> Result<(), String> {
+    let state = app.state::<BgHandle>();
+    match rect {
+        Some(r) => {
+            window::dock(&app, r.x, r.y, r.w, r.h)?;
+            state.set_visible(window::get(&app).is_some());
+        }
+        None => {
+            window::undock(&app);
+            state.set_visible(false);
+        }
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, Copy, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum BgCmd {

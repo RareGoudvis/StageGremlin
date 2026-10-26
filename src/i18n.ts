@@ -7,7 +7,7 @@ export type Lang = "en" | "nl";
 
 const en = {
   // top bar and modes
-  "mode.build": "BUILD", "mode.preflight": "PREFLIGHT", "mode.run": "RUN",
+  "mode.build": "BUILD", "mode.preflight": "PREFLIGHT", "mode.run": "RUN", "mode.background": "BACKGROUND",
   "top.time": "Time", "top.show": "Show", "top.notSaved": "not saved yet", "top.booth": "BOOTH", "top.settings": "Settings",
   "top.left": "left",
   "top.saved": "saved", "top.unsaved": "not saved", "top.fileMenu": "Show menu: file actions", "top.background": "Background", "bg.play": "Play the background music", "bg.pause": "Pause the background music", "out.choose": "Choose output…",
@@ -39,7 +39,7 @@ const en = {
   "insp.openEditor": "OPEN CUE EDITOR", "insp.preview": "Preview", "insp.stopPreview": "Stop preview",
   // Settings
   "set.title": "SETTINGS", "set.autosave": "Changes save by themselves · Esc closes",
-  "set.backBuild": "Back to Build", "set.backPreflight": "Back to Preflight", "set.backRun": "Back to the show",
+  "set.backBuild": "Back to Build", "set.backPreflight": "Back to Preflight", "set.backRun": "Back to the show", "set.backBackground": "Back to Background",
   "set.laptop": "THIS LAPTOP", "set.show": "THIS SHOW", "set.tools": "TOOLS",
   "set.audio": "Audio & output", "set.run": "Run & booth", "set.look": "Language & look", "set.shortcuts": "Shortcuts",
   "set.levels": "Levels & fades", "set.background": "Background music", "set.importTools": "Import & tools", "set.about": "About",
@@ -54,6 +54,13 @@ const en = {
   "audac.inRun": "In Run", "audac.inRunHint": "During a show you usually don't need the zones.",
   "audac.runShow": "Show the AUDAC tab", "audac.runLocked": "Show it, locked", "audac.runHide": "Hide it in Run",
   "audac.setupTitle": "Setup",
+  "bgv.playback": "Playback", "bgv.player": "Player", "bgv.output": "MAIN OUTPUT", "bgv.zones": "AUDAC ZONES",
+  "bgv.nowPlaying": "NOW PLAYING", "bgv.nothing": "Nothing playing", "bgv.prev": "Previous", "bgv.next": "Next",
+  "bgv.duck": "Duck", "bgv.restore": "Restore", "bgv.level": "Level", "bgv.upNext": "UP NEXT", "bgv.services": "Services",
+  "bgv.ownWindow": "Open in its own window", "bgv.pickService": "Pick a service above: its player opens here.",
+  "bgv.stepAside": "The player steps aside while this window is open.", "bgv.browser": "In the desktop app the player shows here.",
+  "bgv.noGo": "GO and cue keys are off on this screen. Switch to RUN for the show: the music keeps playing and Run's dock takes over.",
+  "bgv.noAudac": "No AUDAC set up on this laptop: this side shows the main output instead.",
   "audac.demo": "Demo", "audac.demoHint": "A pretend MTX inside StageGremlin: shows and tries the AUDAC controls without the box.",
   "audac.demoOn": "Demo MTX (no box needed)", "audac.demoOff": "Off: use the real MTX",
   "upd.available": "New version:", "upd.youHave": "You have", "upd.between": "Download it between shows.",
@@ -106,7 +113,7 @@ const en = {
 export type TKey = keyof typeof en;
 
 const nl: Partial<Record<TKey, string>> = {
-  "mode.build": "BOUWEN", "mode.preflight": "CHECK", "mode.run": "SHOW",
+  "mode.build": "BOUWEN", "mode.preflight": "CHECK", "mode.run": "SHOW", "mode.background": "ACHTERGROND",
   "top.time": "Uur", "top.show": "Show", "top.notSaved": "nog niet bewaard", "top.booth": "REGIE", "top.settings": "Instellingen",
   "top.left": "te gaan",
   "top.saved": "bewaard", "top.unsaved": "niet bewaard", "top.fileMenu": "Showmenu: bestandsacties", "top.background": "Achtergrond", "bg.play": "Achtergrondmuziek afspelen", "bg.pause": "Achtergrondmuziek pauzeren", "out.choose": "Uitgang kiezen…",
@@ -133,7 +140,7 @@ const nl: Partial<Record<TKey, string>> = {
   "insp.basics": "Basis", "insp.sound": "Geluid", "insp.timing": "Timing", "insp.notes": "Notities",
   "insp.openEditor": "CUE-EDITOR OPENEN", "insp.preview": "Beluisteren", "insp.stopPreview": "Stop beluisteren",
   "set.title": "INSTELLINGEN", "set.autosave": "Wijzigingen worden vanzelf bewaard · Esc sluit",
-  "set.backBuild": "Terug naar Bouwen", "set.backPreflight": "Terug naar Check", "set.backRun": "Terug naar de show",
+  "set.backBuild": "Terug naar Bouwen", "set.backPreflight": "Terug naar Check", "set.backRun": "Terug naar de show", "set.backBackground": "Terug naar Achtergrond",
   "set.laptop": "DEZE LAPTOP", "set.show": "DEZE SHOW", "set.tools": "HULPMIDDELEN",
   "set.audio": "Audio & uitgang", "set.run": "Show & regie", "set.look": "Taal & uiterlijk", "set.shortcuts": "Sneltoetsen",
   "set.levels": "Niveaus & fades", "set.background": "Achtergrondmuziek", "set.importTools": "Import & hulpmiddelen", "set.about": "Over",
@@ -147,6 +154,13 @@ const nl: Partial<Record<TKey, string>> = {
   "audac.inRun": "Tijdens de show", "audac.inRunHint": "Tijdens een show heb je de zones meestal niet nodig.",
   "audac.runShow": "AUDAC-tab tonen", "audac.runLocked": "Tonen, vergrendeld", "audac.runHide": "Verbergen tijdens de show",
   "audac.setupTitle": "Instellingen",
+  "bgv.playback": "Afspelen", "bgv.player": "Speler", "bgv.output": "HOOFDUITGANG", "bgv.zones": "AUDAC-ZONES",
+  "bgv.nowPlaying": "SPEELT NU", "bgv.nothing": "Er speelt niets", "bgv.prev": "Vorige", "bgv.next": "Volgende",
+  "bgv.duck": "Zachter", "bgv.restore": "Terug", "bgv.level": "Niveau", "bgv.upNext": "HIERNA", "bgv.services": "Diensten",
+  "bgv.ownWindow": "In een eigen venster openen", "bgv.pickService": "Kies hierboven een dienst: de speler opent hier.",
+  "bgv.stepAside": "De speler gaat even opzij zolang dit venster open is.", "bgv.browser": "In de desktop-app verschijnt de speler hier.",
+  "bgv.noGo": "GO en de cuetoetsen werken niet op dit scherm. Ga naar SHOW voor de show: de muziek speelt door en de dock van de show neemt over.",
+  "bgv.noAudac": "Geen AUDAC ingesteld op deze laptop: hier staat de hoofduitgang.",
   "audac.demo": "Demo", "audac.demoHint": "Een nep-MTX in StageGremlin: toont en test de AUDAC-bediening zonder de kast.",
   "audac.demoOn": "Demo-MTX (geen kast nodig)", "audac.demoOff": "Uit: de echte MTX gebruiken",
   "upd.available": "Nieuwe versie:", "upd.youHave": "Je hebt", "upd.between": "Download ze tussen twee shows.",

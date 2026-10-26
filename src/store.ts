@@ -7,7 +7,8 @@ import type { Cue, Loudness, Show } from "./types";
 import { allCues, fillNumbers, newShow, renumber } from "./types";
 import { rangeIds } from "./lib/showOps";
 
-export type Mode = "build" | "preflight" | "run";
+/** "background": the Background / AUDAC screen (no cues, no GO). Not a step of the show. */
+export type Mode = "build" | "preflight" | "run" | "background";
 export type ThemePref = "auto" | "oled" | "light";
 export type FileDisplay = "name" | "path";
 /** What the middle of Build shows: the cue list or the pads grid (the media sidebar sits beside both). */

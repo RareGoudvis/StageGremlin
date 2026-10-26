@@ -44,6 +44,7 @@ export function useAppShortcuts() {
       if (hit("modeBuild", () => requestModeByKey("build"))) return;
       if (hit("modePreflight", () => requestModeByKey("preflight"))) return;
       if (hit("modeRun", () => requestModeByKey("run"))) return;
+      if (hit("modeBackground", () => requestModeByKey("background"))) return;
 
       // Booth and printing work everywhere.
       if (hit("theme", cycleTheme)) return;

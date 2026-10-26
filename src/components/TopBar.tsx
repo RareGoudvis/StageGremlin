@@ -39,7 +39,7 @@ export function TopBar({ preflightOk }: { preflightOk: boolean }) {
       <MasterMeter />
       <MasterFader />
       {/* Run has its own background dock and the booth menu; Build and Preflight get the background pill. */}
-      {mode === "run" ? <BoothMenu /> : <BackgroundButton />}
+      {mode === "run" ? <BoothMenu /> : mode !== "background" && <BackgroundButton />}
       {mode !== "run" && audacOn && <AudacButton />}
       {/* Settings is reachable everywhere, Run included: if the output disappears mid-show you need it.
           Icon AND word, so nobody has to guess what the gear does. */}
@@ -50,7 +50,7 @@ export function TopBar({ preflightOk }: { preflightOk: boolean }) {
   );
 }
 
-function OutputChip() {
+export function OutputChip() {
   const output = useEngine((s) => s.output);
   const found = output?.outputFound ?? false;
   return (
@@ -86,7 +86,7 @@ function WallClock() {
  * The show's master fader (−60 … +10 dB, 0 = unity). Works in Run too: riding the overall
  * level is part of running the show. One drag = one undo step. Double-click resets to 0 dB.
  */
-function MasterFader() {
+export function MasterFader() {
   const db = useDoc((s) => s.show.settings.masterDb ?? 0);
   const set = (v: number) =>
     useDoc.getState().edit((s) => ({ ...s, settings: { ...s.settings, masterDb: v } }), { coalesce: "master-fader", allowInRun: true });

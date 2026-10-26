@@ -67,7 +67,7 @@ export function SettingsDialog() {
   return (
     <div role="dialog" aria-label={t("top.settings")} style={{ position: "absolute", inset: 0, zIndex: 66, background: "var(--bg)", display: "flex", flexDirection: "column" }}>
       <header style={{ height: 64, flex: "none", display: "flex", alignItems: "center", gap: 16, padding: "0 24px", borderBottom: "1px solid var(--line)" }}>
-        <button className="b btn" onClick={close} style={{ height: 40 }}>‹ {mode === "run" ? t("set.backRun") : mode === "preflight" ? t("set.backPreflight") : t("set.backBuild")}</button>
+        <button className="b btn" onClick={close} style={{ height: 40 }}>‹ {mode === "run" ? t("set.backRun") : mode === "preflight" ? t("set.backPreflight") : mode === "background" ? t("set.backBackground") : t("set.backBuild")}</button>
         <span className="cond" style={{ fontSize: 26, fontWeight: 800, letterSpacing: ".04em" }}>{t("set.title")}</span>
         <span style={{ flex: 1 }} />
         {mode === "run" ? (

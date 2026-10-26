@@ -20,6 +20,7 @@ import { useMedia } from "./lib/media";
 import { useT } from "./i18n";
 import { useAudacAutoConnect } from "./lib/audac";
 import { useAudacSchedule } from "./lib/audacSchedule";
+import { BackgroundView } from "./views/BackgroundView";
 import { ContextMenuHost } from "./components/ContextMenu";
 import { BuildView } from "./views/BuildView";
 import { PreflightView } from "./views/PreflightView";
@@ -89,6 +90,7 @@ export default function App() {
             {mode === "build" && <BuildView />}
             {mode === "preflight" && <PreflightView />}
             {mode === "run" && <RunView />}
+            {mode === "background" && <BackgroundView />}
           </main>
         </>
       )}

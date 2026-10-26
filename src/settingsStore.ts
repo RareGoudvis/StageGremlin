@@ -19,6 +19,7 @@ export const ACTIONS = {
   modeBuild: { label: "Go to Build", key: "Ctrl+1", where: "Everywhere" },
   modePreflight: { label: "Go to Preflight", key: "Ctrl+2", where: "Everywhere" },
   modeRun: { label: "Go to Run", key: "Ctrl+3", where: "Everywhere" },
+  modeBackground: { label: "Go to Background", key: "Ctrl+4", where: "Everywhere" },
   save: { label: "Save", key: "Ctrl+S", where: "Build" },
   saveAs: { label: "Save as", key: "Ctrl+Shift+S", where: "Build" },
   open: { label: "Open a show", key: "Ctrl+O", where: "Build" },

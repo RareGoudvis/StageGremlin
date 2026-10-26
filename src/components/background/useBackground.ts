@@ -69,6 +69,8 @@ export const bg = {
   getState: () => cmd<BgState>("bg_get_state"),
   getConfig: () => cmd<BgConfig>("bg_get_config"),
   playTrack: (index: number, title: string) => cmd<void>("bg_play_track", { index, title }),
+  /** Background screen: put the player over `rect` (physical px inside the main window), or null to take it away. */
+  dock: (rect: { x: number; y: number; w: number; h: number } | null) => cmd<void>("bg_dock", { rect }),
 };
 
 // ---- keyboard (Run) ----
@@ -176,6 +178,8 @@ function mockCmd(name: string, args?: Record<string, unknown>): unknown {
     case "bg_hide":
       s.visible = false;
       return;
+    case "bg_dock":
+      return; // a browser has no second window to place
     case "bg_command":
       switch (args?.cmd as BgCmd) {
         case "duck": s.ducked = true; break;

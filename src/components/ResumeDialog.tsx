@@ -28,7 +28,7 @@ export function useResumeCheck() {
   const path = useDoc((s) => s.path);
   const mode = useDoc((s) => s.mode);
   useEffect(() => {
-    call("app_session", { showPath: path, mode }).catch((e) => console.warn("[cueplay] app_session", e));
+    call("app_session", { showPath: path, mode: mode === "background" ? "build" : mode }).catch((e) => console.warn("[cueplay] app_session", e));
   }, [path, mode]);
 }
 
