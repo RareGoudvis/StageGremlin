@@ -581,9 +581,10 @@ impl<B: Backend> Engine<B> {
     }
 
     /// Calibration or line-check tone on the show output.
-    pub fn start_tone(&mut self, kind: ToneKind, target_lufs: f64) {
+    /// `hz`: the sine's frequency (ignored for pink noise).
+    pub fn start_tone(&mut self, kind: ToneKind, target_lufs: f64, hz: f32) {
         self.stop_tone();
-        let data = tone::make(kind, target_lufs);
+        let data = tone::make(kind, target_lufs, hz);
         match self.manager.play(data) {
             Ok(h) => {
                 self.tone = Some(h);

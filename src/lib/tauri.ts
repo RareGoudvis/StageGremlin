@@ -45,7 +45,8 @@ export interface Commands {
   // ---- round 2 (docs/ipc-wave2.md) ----
   engine_pad: { args: { padId: string }; ret: void };
   engine_go_from: { args: { cueId: string; at: number }; ret: void };
-  engine_tone: { args: { kind: ToneKind | null }; ret: void };
+  /** `hz`: the sine's frequency (20–20 000, default 1000); pink noise ignores it. */
+  engine_tone: { args: { kind: ToneKind | null; hz?: number }; ret: void };
   audio_set_preview_output: { args: { name: string | null }; ret: void };
   preview_play: { args: { cue: Cue; baseDir: string | null; at: number }; ret: void };
   preview_stop: { args: undefined; ret: void };

@@ -135,13 +135,13 @@ pub async fn engine_go_from(app: AppHandle, engine: State<'_, EngineHandle>, cue
 
 /// Preflight tone: "pink" (at the show's loudness target), "line" (1 kHz) or null = off.
 #[tauri::command]
-pub async fn engine_tone(app: AppHandle, engine: State<'_, EngineHandle>, kind: Option<ToneKind>) -> Result<(), String> {
+pub async fn engine_tone(app: AppHandle, engine: State<'_, EngineHandle>, kind: Option<ToneKind>, hz: Option<f32>) -> Result<(), String> {
     report(
         &app,
         engine.run(move |e| match kind {
             Some(kind) => {
                 let target = e.show().settings.target_lufs;
-                e.start_tone(kind, target);
+                e.start_tone(kind, target, hz.unwrap_or(1000.0));
             }
             None => e.stop_tone(),
         }),
