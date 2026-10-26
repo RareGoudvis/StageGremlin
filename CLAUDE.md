@@ -60,9 +60,12 @@ explorer /select, WebView2 data dir, yt-dlp/ffmpeg) compiles but is untested.
 - Shell: engine thread, output device by name + fallback, headphone preview engine, crash resume file, USB-dropout
   rescue, YouTube (yt-dlp/ffmpeg install, resolve, download, convert), media watcher, per-machine settings.
 - Background player: WebView2 window per source, Windows audio-session volume fades, auto-duck, track list, per-show config.
-- UI: Build (sections, media bin, inspector, bulk edit, cut/copy/paste, editable numbers), cue editor (waveform
-  handles, EQ/comp curves, preview), Pads, YouTube dialog, Preflight, Run (rail, now playing, up next, Make next,
-  swap, dock), booth modes, print, settings (NL/EN, rebindable shortcuts), resume dialog.
+- UI (v2 layout, docs/ui-v2.md): File menu on the show name (incl. Open recent), Build rail Cues · Pads · Media,
+  one toolbar (+ Add, search Ctrl+K, Undo/Redo, View menu), selection bar for 2+ cues, Add window (files / YouTube &
+  lists / pad / section), inspector tabs Basics · Sound · Timing · Notes, bulk edit, cut/copy/paste; cue editor
+  (waveform handles, EQ/comp curves, preview), Preflight, Run (rail, now playing, up next, Make next, swap, dock),
+  booth modes, print, full-page Settings grouped This laptop / This show / Tools (NL/EN, rebindable shortcuts),
+  resume dialog. v2 layout is untested in the real app.
 - Browser mode (no Tauri): real sound through Web Audio (`src/lib/webAudioEngine.ts`); YouTube/background simulated.
 
 Next: run docs/TESTING.md on Windows, fix what breaks; Run keys (Space/Esc/S/U/V) aren't rebindable yet

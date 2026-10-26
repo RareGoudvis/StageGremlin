@@ -1,4 +1,8 @@
-# UI v2 — decluttered Build + Settings (approved direction, not built yet)
+# UI v2 — decluttered Build + Settings (built on main, 26 Oct 2026; not yet tested in the app)
+
+Differences from the mockup, decided while building: Media is a full view (no drag from the bin to the list;
+drag files from Explorer onto the window, or use "Add to show"); the theme button left the top bar (Settings ›
+Language & look, Ctrl+T); the master fader stays in the top bar only.
 
 Clickable mockup: https://claude.ai/artifact/XcY6ae8GSgNG1yoA6H6tiv (the source of both screens is in
 `docs/mockups/` — open the `.dc.html` files in a text editor; they are plain HTML + a small JS class).
