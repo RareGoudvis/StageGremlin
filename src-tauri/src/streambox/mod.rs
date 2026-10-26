@@ -11,6 +11,9 @@
 
 mod cast;
 mod dlna;
+mod send;
+
+pub use send::Sending;
 
 use std::collections::BTreeMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
@@ -217,6 +220,28 @@ pub async fn streambox_transport(target: Target, action: String) -> Result<(), S
         _ => dlna::transport(dlna_url(&target)?, &action),
     })
     .await
+}
+
+/// Send StageGremlin's show output to the box (see send.rs). Returns the stream address it was given.
+#[tauri::command]
+pub async fn streambox_send_start(
+    target: Target,
+    sending: tauri::State<'_, Sending>,
+    engine: tauri::State<'_, crate::engine_thread::EngineHandle>,
+) -> Result<String, String> {
+    let device = engine.output_status().map(|o| o.output_name).unwrap_or_default();
+    // The work blocks (network, starting the recording) but is short; State can't move to another thread.
+    send::start(&sending, target, &device)
+}
+
+#[tauri::command]
+pub fn streambox_send_stop(sending: tauri::State<'_, Sending>) {
+    send::stop(&sending);
+}
+
+#[tauri::command]
+pub fn streambox_sending(sending: tauri::State<'_, Sending>) -> bool {
+    send::is_running(&sending)
 }
 
 /// A device description is a small XML file on the device itself (its own address).

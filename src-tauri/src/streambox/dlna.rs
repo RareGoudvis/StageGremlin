@@ -81,6 +81,24 @@ pub fn transport(desc_url: &str, action: &str) -> Result<(), String> {
     soap(&url, &ty, name, args).map(|_| ())
 }
 
+/// Give the box a stream address and start it.
+pub fn play_url(desc_url: &str, url: &str, mime: &str) -> Result<(), String> {
+    let (ty, ctl) = services(desc_url)?.transport.ok_or("This device can't be given something to play (no AVTransport).")?;
+    // A minimal description of the "track", escaped once more because it travels inside XML.
+    let didl = format!(
+        "<DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\">\
+         <item id=\"0\" parentID=\"-1\" restricted=\"1\"><dc:title>StageGremlin</dc:title><upnp:class>object.item.audioItem.musicTrack</upnp:class>\
+         <res protocolInfo=\"http-get:*:{mime}:*\">{url}</res></item></DIDL-Lite>"
+    );
+    let args = format!("<InstanceID>0</InstanceID><CurrentURI>{}</CurrentURI><CurrentURIMetaData>{}</CurrentURIMetaData>", escape(url), escape(&didl));
+    soap(&ctl, &ty, "SetAVTransportURI", &args)?;
+    soap(&ctl, &ty, "Play", "<InstanceID>0</InstanceID><Speed>1</Speed>").map(|_| ())
+}
+
+fn escape(s: &str) -> String {
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
+}
+
 fn soap(url: &str, service: &str, action: &str, args: &str) -> Result<String, String> {
     let body = format!(
         "<?xml version=\"1.0\" encoding=\"utf-8\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" \

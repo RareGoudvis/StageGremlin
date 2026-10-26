@@ -20,6 +20,25 @@ export function StreamboxPanel() {
     pending.current = window.setTimeout(() => void streambox.setVolume(v).catch(() => {}), 200);
   };
   const run = (p: Promise<unknown>) => p.then(refresh, () => refresh());
+  // Sending our show output to the box.
+  const [sending, setSending] = useState(false);
+  const [sendBusy, setSendBusy] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  useEffect(() => void streambox.sending().then(setSending, () => {}), []);
+  const toggleSend = async () => {
+    setSendBusy(true);
+    setSendError(null);
+    try {
+      if (sending) await streambox.sendStop();
+      else await streambox.sendStart();
+      setSending(!sending);
+    } catch (e) {
+      setSendError(String(e));
+    } finally {
+      setSendBusy(false);
+      refresh();
+    }
+  };
 
   if (!box.ip) return <span style={{ fontSize: 13, color: "var(--dim)" }}>{t("sbx.noneYet")}</span>;
   const vol = drag ?? status?.volume ?? 0;
@@ -51,6 +70,11 @@ export function StreamboxPanel() {
           {t("audac.mute")}
         </button>
       </div>
+      <button className="b btn" tabIndex={-1} disabled={sendBusy} onClick={() => void toggleSend()} title={t("sbx.sendHint")}
+        style={{ justifyContent: "center", fontWeight: 700, background: sending ? "var(--hl)" : "var(--gobg)", color: sending ? "var(--bg)" : "var(--ongo)" }}>
+        {sendBusy ? "…" : sending ? t("sbx.sendStop") : t("sbx.send")}
+      </button>
+      {sendError && <span style={{ fontSize: 12.5, color: "var(--redtx)" }}>{sendError}</span>}
       {status?.canTransport && (
         <div style={{ display: "flex", gap: 6 }}>
           <button className="b btn" tabIndex={-1} onClick={() => run(streambox.transport(status.playing ? "pause" : "play"))} style={{ flex: 1, justifyContent: "center" }}>

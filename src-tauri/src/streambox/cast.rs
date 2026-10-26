@@ -41,6 +41,60 @@ pub fn set_mute(ip: &str, mute: bool) -> Result<(), String> {
     ask(ip, json!({ "type": "SET_VOLUME", "volume": { "muted": mute } })).map(|_| ())
 }
 
+/// Google's built-in "Default Media Receiver" app plays any web address it is given.
+const MEDIA_APP: &str = "CC1AD845";
+const NS_MEDIA: &str = "urn:x-cast:com.google.cast.media";
+
+/// Start the media app on the box and let it play `url`. Returns the app's session (to stop it later).
+pub fn play_url(ip: &str, url: &str, mime: &str) -> Result<String, String> {
+    let ip_addr: IpAddr = ip.parse().map_err(|_| format!("Not an IP address: {ip}"))?;
+    let mut conn = connect(ip_addr)?;
+    send(&mut conn, "receiver-0", NS_CONNECTION, &json!({ "type": "CONNECT" }))?;
+    send(&mut conn, "receiver-0", NS_RECEIVER, &json!({ "type": "LAUNCH", "appId": MEDIA_APP, "requestId": 1 }))?;
+    // Wait until the app runs; its transportId is where media messages go.
+    let end = Instant::now() + Duration::from_secs(10);
+    let (transport, session) = loop {
+        if Instant::now() > end {
+            return Err("The streambox didn't start Google's media app.".into());
+        }
+        let (ns, payload) = receive(&mut conn)?;
+        if ns != NS_RECEIVER {
+            continue;
+        }
+        let v: Value = serde_json::from_str(&payload).map_err(|e| e.to_string())?;
+        let apps = v["status"]["applications"].as_array().cloned().unwrap_or_default();
+        if let Some(app) = apps.iter().find(|a| a["appId"] == MEDIA_APP) {
+            if let (Some(t), Some(s)) = (app["transportId"].as_str(), app["sessionId"].as_str()) {
+                break (t.to_string(), s.to_string());
+            }
+        }
+    };
+    send(&mut conn, &transport, NS_CONNECTION, &json!({ "type": "CONNECT" }))?;
+    send(&mut conn, &transport, NS_MEDIA, &json!({
+        "type": "LOAD", "requestId": 2, "autoplay": true,
+        "media": { "contentId": url, "contentType": mime, "streamType": "LIVE",
+                   "metadata": { "metadataType": 0, "title": "StageGremlin" } }
+    }))?;
+    // Give the box a moment to take it before we hang up (the app keeps playing without us).
+    let wait = Instant::now() + Duration::from_secs(3);
+    while Instant::now() < wait {
+        if let Ok((ns, payload)) = receive(&mut conn) {
+            if ns == NS_MEDIA && (payload.contains("MEDIA_STATUS") || payload.contains("LOAD_FAILED")) {
+                if payload.contains("LOAD_FAILED") {
+                    return Err("The streambox couldn't play our stream (Google Cast LOAD_FAILED).".into());
+                }
+                break;
+            }
+        }
+    }
+    Ok(session)
+}
+
+/// Stop the media app we started.
+pub fn stop_app(ip: &str, session: &str) -> Result<(), String> {
+    ask(ip, json!({ "type": "STOP", "sessionId": session })).map(|_| ())
+}
+
 fn read_status(v: &Value) -> BoxStatus {
     let st = &v["status"];
     let app = st["applications"].get(0);
@@ -59,16 +113,16 @@ fn read_status(v: &Value) -> BoxStatus {
 fn ask(ip: &str, mut request: Value) -> Result<Value, String> {
     let ip: IpAddr = ip.parse().map_err(|_| format!("Not an IP address: {ip}"))?;
     let mut conn = connect(ip)?;
-    send(&mut conn, NS_CONNECTION, &json!({ "type": "CONNECT" }))?;
+    send(&mut conn, "receiver-0", NS_CONNECTION, &json!({ "type": "CONNECT" }))?;
     request["requestId"] = json!(1);
-    send(&mut conn, NS_RECEIVER, &request)?;
+    send(&mut conn, "receiver-0", NS_RECEIVER, &request)?;
     let end = Instant::now() + TIMEOUT;
     while Instant::now() < end {
         let (ns, payload) = receive(&mut conn)?;
         if ns == NS_RECEIVER {
             let v: Value = serde_json::from_str(&payload).map_err(|e| e.to_string())?;
             if v["type"] == "RECEIVER_STATUS" {
-                let _ = send(&mut conn, NS_CONNECTION, &json!({ "type": "CLOSE" }));
+                let _ = send(&mut conn, "receiver-0", NS_CONNECTION, &json!({ "type": "CLOSE" }));
                 return Ok(v);
             }
         }
@@ -94,8 +148,8 @@ fn connect(ip: IpAddr) -> Result<Tls, String> {
     Ok(StreamOwned::new(tls, sock))
 }
 
-fn send(conn: &mut Tls, namespace: &str, payload: &Value) -> Result<(), String> {
-    let msg = encode("sender-0", "receiver-0", namespace, &payload.to_string());
+fn send(conn: &mut Tls, dest: &str, namespace: &str, payload: &Value) -> Result<(), String> {
+    let msg = encode("sender-0", dest, namespace, &payload.to_string());
     conn.write_all(&(msg.len() as u32).to_be_bytes()).map_err(|e| e.to_string())?;
     conn.write_all(&msg).map_err(|e| e.to_string())?;
     conn.flush().map_err(|e| e.to_string())
