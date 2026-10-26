@@ -31,8 +31,10 @@ export function BackgroundView() {
     <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "300px minmax(0, 1fr) 380px", gap: 12, padding: "12px 14px" }}>
       <section aria-label={t("bgv.playback")} className="scroll" style={{ ...panel, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
         <Playback />
+        <span style={{ marginTop: "auto", paddingTop: 10, borderTop: "1px solid var(--line)", fontSize: 12, color: "var(--mute)", lineHeight: 1.45 }}>{t("bgv.noGo")}</span>
       </section>
-      <section aria-label={t("bgv.player")} style={{ ...panel, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* Square bottom corners: the player window laid over this panel is square, and fills it to the bottom. */}
+      <section aria-label={t("bgv.player")} style={{ ...panel, borderRadius: "14px 14px 0 0", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <Player />
       </section>
       <section aria-label={audacOn ? "AUDAC" : t("bgv.output")} className="scroll" style={{ ...panel, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -200,7 +202,6 @@ function Player() {
       <div ref={area} style={{ flex: 1, minHeight: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--p2)", color: "var(--dim)", fontSize: 14, padding: 20, textAlign: "center" }}>
         {!st?.open ? t("bgv.pickService") : covered ? t("bgv.stepAside") : !isTauri ? t("bgv.browser") : ""}
       </div>
-      <div style={{ padding: "8px 14px", borderTop: "1px solid var(--line)", fontSize: 12.5, color: "var(--dim)" }}>{t("bgv.noGo")}</div>
     </>
   );
 }
