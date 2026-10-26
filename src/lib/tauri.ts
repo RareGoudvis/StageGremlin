@@ -28,7 +28,7 @@ export interface Commands {
   engine_release_vamp: { args: { cueId: string | null }; ret: void };
   engine_set_playhead: { args: { cueId: string | null }; ret: void };
   show_open: { args: { path: string }; ret: Show };
-  show_save: { args: { path: string; show: Show }; ret: Show };
+  show_save: { args: { path: string; show: Show; fromDir: string | null }; ret: Show };
   analyze_file: { args: { baseDir: string | null; file: string }; ret: Analysis };
   app_info: { args: undefined; ret: { version: string; portable: boolean; dataDir: string; build?: string | null } };
   /** Asks GitHub for the newest release (src-tauri/src/updates.rs). */

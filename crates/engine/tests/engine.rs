@@ -41,8 +41,7 @@ fn run(e: &mut Engine<MockBackend>, secs: f64) {
 }
 
 fn show_with(dir: &Path, cues: Vec<Cue>) -> (Show, PathBuf) {
-    let mut s = Show::default();
-    s.sections = vec![Section { cues, ..Section::new("Act 1") }];
+    let mut s = Show { sections: vec![Section { cues, ..Section::new("Act 1") }], ..Default::default() };
     s.settings.double_go_ms = 0;
     s.renumber();
     (s, dir.to_path_buf())
@@ -174,6 +173,7 @@ fn missing_file_is_skipped_and_logged() {
     let mut e = engine();
     e.set_show(s, Some(base));
     e.go();
+    run(&mut e, 0.1); // the file is opened on the loader thread; the skip lands a tick later
     let st = e.state();
     assert!(st.running.is_empty());
     assert!(st.new_log.iter().any(|l| l.kind == "skip"));
@@ -209,13 +209,13 @@ fn save_copies_media_and_reopens() {
     let a = cue(src.path(), "song", 0.2);
     let (mut s, _) = show_with(src.path(), vec![a]);
     let path = dst.path().join("Schoolfeest.sg");
-    show::save(&path, &mut s).unwrap();
+    show::save(&path, &mut s, None).unwrap();
     assert_eq!(s.sections[0].cues[0].file, "media/song.wav");
     assert!(dst.path().join("media/song.wav").exists());
     let back = show::load(&path).unwrap();
     assert_eq!(back, s);
     // Saving again keeps one copy and makes a backup.
-    show::save(&path, &mut s).unwrap();
+    show::save(&path, &mut s, None).unwrap();
     assert_eq!(std::fs::read_dir(dst.path().join("media")).unwrap().count(), 1);
     assert_eq!(std::fs::read_dir(dst.path().join("backups")).unwrap().count(), 1);
 }
@@ -330,4 +330,141 @@ fn pause_all_holds_cues_and_timers() {
     assert!(!e.toggle_pause_all());
     run(&mut e, 1.0);
     assert!(e.state().running.iter().any(|r| r.cue_id == b.id), "pre-wait finished after resume");
+}
+
+// ---- Regression: Save As to another folder (review #1) and content-based dedupe (#2) ----
+
+fn write_bytes(path: &Path, bytes: &[u8]) {
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(path, bytes).unwrap();
+}
+
+#[test]
+fn save_as_to_another_folder_copies_media_and_works_without_the_original() {
+    let src = tempfile::tempdir().unwrap();
+    let a = cue(src.path(), "song", 0.2);
+    let (mut s, _) = show_with(src.path(), vec![a]);
+    let first = src.path().join("show").join("Schoolfeest.sg");
+    std::fs::create_dir_all(first.parent().unwrap()).unwrap();
+    show::save(&first, &mut s, None).unwrap();
+    assert_eq!(s.sections[0].cues[0].file, "media/song.wav");
+
+    // Save as into a different folder: relative paths must be read from the OLD folder.
+    let other = tempfile::tempdir().unwrap();
+    let second = other.path().join("Kopie.sg");
+    show::save(&second, &mut s, first.parent()).unwrap();
+    assert_eq!(s.sections[0].cues[0].file, "media/song.wav");
+    let copied = other.path().join("media/song.wav");
+    assert!(copied.exists(), "media copied into the new folder");
+
+    // The new folder works on its own.
+    drop(src);
+    let back = show::load(&second).unwrap();
+    let resolved = back.resolve(Some(other.path()), &back.sections[0].cues[0].file);
+    assert!(resolved.exists());
+}
+
+#[test]
+fn different_recordings_with_the_same_name_and_size_are_not_merged() {
+    let src = tempfile::tempdir().unwrap();
+    let dst = tempfile::tempdir().unwrap();
+    // Already in the destination's media folder: same name, same size, different content.
+    write_bytes(&dst.path().join("media/take.wav"), &[1u8; 64]);
+    write_bytes(&src.path().join("take.wav"), &[2u8; 64]);
+    let mut c = Cue::from_file(&src.path().join("take.wav"));
+    c.name = "Take".into();
+    let (mut s, _) = show_with(src.path(), vec![c]);
+    show::save(&dst.path().join("Show.sg"), &mut s, None).unwrap();
+    let f = &s.sections[0].cues[0].file;
+    assert_ne!(f, "media/take.wav", "must not reuse a different recording");
+    assert_eq!(std::fs::read(dst.path().join(f)).unwrap(), vec![2u8; 64]);
+}
+
+#[test]
+fn identical_files_are_reused_not_duplicated() {
+    let src = tempfile::tempdir().unwrap();
+    let dst = tempfile::tempdir().unwrap();
+    write_bytes(&dst.path().join("media/take.wav"), &[7u8; 64]);
+    write_bytes(&src.path().join("take.wav"), &[7u8; 64]);
+    let (mut s, _) = show_with(src.path(), vec![Cue::from_file(&src.path().join("take.wav"))]);
+    show::save(&dst.path().join("Show.sg"), &mut s, None).unwrap();
+    assert_eq!(s.sections[0].cues[0].file, "media/take.wav");
+    assert_eq!(std::fs::read_dir(dst.path().join("media")).unwrap().count(), 1);
+}
+
+// ---- Regression: no file I/O on the engine thread (review #3) ----
+
+#[test]
+fn go_never_opens_files_on_the_engine_thread() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = cue(dir.path(), "a", 2.0);
+    let (s, base) = show_with(dir.path(), vec![a.clone()]);
+    let mut e = engine();
+    e.set_show(s, Some(base));
+    // No tick yet, so nothing was pre-opened: GO must hand the file to the loader and
+    // return at once instead of opening it here.
+    let t = std::time::Instant::now();
+    e.go();
+    assert!(t.elapsed() < std::time::Duration::from_millis(5), "GO returned without touching the disk");
+    assert!(e.is_loading());
+    assert!(e.state().running.is_empty());
+    run(&mut e, 0.2);
+    assert!(!e.is_loading());
+    assert_eq!(e.state().running.len(), 1, "started as soon as the loader had the file");
+}
+
+#[test]
+fn upcoming_cues_are_preopened_so_go_starts_in_the_same_tick() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = cue(dir.path(), "a", 2.0);
+    let (s, base) = show_with(dir.path(), vec![a]);
+    let mut e = engine();
+    e.set_show(s, Some(base));
+    run(&mut e, 0.2); // ticks let the loader pre-open the standing-by cue
+    e.go();
+    assert!(!e.is_loading());
+    assert_eq!(e.state().running.len(), 1);
+}
+
+#[test]
+fn stop_all_cancels_sounds_still_waiting_for_their_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = cue(dir.path(), "a", 2.0);
+    let (s, base) = show_with(dir.path(), vec![a]);
+    let mut e = engine();
+    e.set_show(s, Some(base));
+    e.go(); // not pre-opened: waits for the loader
+    e.panic();
+    run(&mut e, 0.3);
+    assert!(e.state().running.is_empty(), "nothing starts after Panic");
+}
+
+// ---- Regression: rehearsal start keeps attached cues and follow triggers (review #6) ----
+
+#[test]
+fn rehearsal_start_schedules_attached_cues_and_follows_from_the_start_point() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut a = cue(dir.path(), "a", 8.0);
+    a.follow = Follow::AfterStart { delay: 4.0 };
+    let mut early = cue(dir.path(), "early", 3.0);
+    early.attach = Some(Attach { to: a.id.clone(), at: 1.0 }); // already passed when starting at 2.0
+    let mut late = cue(dir.path(), "late", 3.0);
+    late.attach = Some(Attach { to: a.id.clone(), at: 3.0 }); // due 1.0 s after a start at 2.0
+    let b = cue(dir.path(), "b", 3.0);
+    let (s, base) = show_with(dir.path(), vec![a.clone(), early.clone(), late.clone(), b.clone()]);
+    let mut e = engine();
+    e.set_show(s, Some(base));
+    run(&mut e, 0.2);
+    e.go_from(&a.id, 2.0);
+    run(&mut e, 0.6);
+    let st = e.state();
+    assert!(st.running.iter().any(|r| r.cue_id == a.id));
+    assert!(!st.running.iter().any(|r| r.cue_id == late.id), "not yet: due 1.0 s after the start");
+    run(&mut e, 0.7);
+    let st = e.state();
+    assert!(st.running.iter().any(|r| r.cue_id == late.id), "attached cue fired relative to the start point");
+    assert!(!st.running.iter().any(|r| r.cue_id == early.id), "attached cue before the start point is skipped");
+    assert!(!st.running.iter().any(|r| r.cue_id == b.id), "follow not yet: 4 s after cue start = 2 s after a start at 2.0");
+    run(&mut e, 1.0);
+    assert!(e.state().running.iter().any(|r| r.cue_id == b.id), "follow trigger fired, shortened by the start offset");
 }

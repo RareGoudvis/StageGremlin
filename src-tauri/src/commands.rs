@@ -174,6 +174,26 @@ pub fn audio_output_status(engine: State<'_, EngineHandle>) -> Option<OutputStat
     engine.output_status()
 }
 
+/// Payload of `audio_default_output`.
+#[derive(Serialize)]
+pub struct DefaultOutput {
+    pub name: Option<String>,
+}
+
+/// The Windows default output's name, spelled exactly as in `audio_list_outputs`
+/// (same source), so the UI can compare names, e.g. "the background player and the
+/// show both go to the Qu-24".
+#[tauri::command]
+pub async fn audio_default_output() -> Result<DefaultOutput, String> {
+    blocking(|| Ok(DefaultOutput { name: devices::list_outputs().into_iter().find(|d| d.is_default).map(|d| d.name) })).await
+}
+
+/// Opens Windows' Settings › Sound (to change the default output). Elsewhere: nothing.
+#[tauri::command]
+pub fn open_sound_settings() -> Result<(), String> {
+    files::open_sound_settings()
+}
+
 /// Picks the headphone-preview output by (part of) its name; null = Windows default.
 #[tauri::command]
 pub async fn audio_set_preview_output(
@@ -278,10 +298,12 @@ pub async fn show_open(path: String) -> Result<Show, String> {
 /// Saves the show; media outside the show folder is copied into `media/` and the
 /// paths are rewritten. The UI must adopt the returned show.
 #[tauri::command]
-pub async fn show_save(path: String, show: Show) -> Result<Show, String> {
+/// `from_dir`: the folder the show currently lives in (null for a never-saved show). "Save as"
+/// into another folder reads the relative media paths from there and copies the files along.
+pub async fn show_save(path: String, show: Show, from_dir: Option<String>) -> Result<Show, String> {
     blocking(move || {
         let mut show = show;
-        show::save(Path::new(&path), &mut show).map_err(|e| e.to_string())?;
+        show::save(Path::new(&path), &mut show, from_dir.as_deref().map(Path::new)).map_err(|e| e.to_string())?;
         Ok(show)
     })
     .await
