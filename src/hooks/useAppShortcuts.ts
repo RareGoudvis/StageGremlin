@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { useDoc } from "../store";
 import { useUi } from "../uiStore";
 import { requestModeByKey } from "../lib/modeSwitch";
-import { fileNew, fileOpen, fileSave, fileSaveAs, importDialog } from "../lib/fileActions";
+import { fileNew, fileOpen, fileSave, fileSaveAs } from "../lib/fileActions";
 import { isAction, useSettings, type Action } from "../settingsStore";
 
 /**
@@ -54,8 +54,8 @@ export function useAppShortcuts() {
       // Everything below edits or replaces the show: not in Run.
       if (mode === "run") return;
       if (hit("settings", () => ui.openDialog({ kind: "settings" }))) return;
-      if (mode === "build" && hit("youtube", () => ui.openDialog({ kind: "youtube" }))) return;
-      if (mode === "build" && hit("importAudio", importDialog)) return;
+      if (mode === "build" && hit("youtube", () => ui.openDialog({ kind: "add", tab: "yt" }))) return;
+      if (mode === "build" && hit("importAudio", () => ui.openDialog({ kind: "add", tab: "files" }))) return;
       if (hit("saveAs", fileSaveAs)) return;
       if (hit("save", fileSave)) return;
       if (hit("open", fileOpen)) return;

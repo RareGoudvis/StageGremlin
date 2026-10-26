@@ -34,7 +34,9 @@ export function SettingsDialog() {
   const close = useUi((s) => s.closeDialog);
   const t = useT();
   const lang = useSettings((s) => s.ui.lang);
-  const [tab, setTabState] = useState<Tab>(lastTab);
+  // Opened with a page in mind (Add window › Import settings…), else the page used last.
+  const asked = useUi((s) => (s.dialog?.kind === "settings" ? s.dialog.tab : undefined));
+  const [tab, setTabState] = useState<Tab>(TABS.some((x) => x.id === asked) ? (asked as Tab) : lastTab);
   const setTab = (x: Tab) => { lastTab = x; setTabState(x); };
 
   useEffect(() => {

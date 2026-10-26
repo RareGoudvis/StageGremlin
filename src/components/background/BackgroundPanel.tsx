@@ -3,6 +3,7 @@
 // Settings are stored in the show (show.background, see showSync.ts); the per-machine
 // <dataDir>/background.json is what a show without its own settings starts from.
 
+import { useT } from "../../i18n";
 import { useEffect, useState } from "react";
 import { bg, bgDo, DEFAULT_CONFIG, SOURCES, useBackground, type BgConfig, type BgSource } from "./useBackground";
 import { readShowBackground, saveBackgroundToShow } from "./showSync";
@@ -10,6 +11,7 @@ import { useDoc } from "../../store";
 
 /** The toolbar button; renders the panel when open. */
 export function BackgroundButton() {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const st = useBackground();
   return (
@@ -21,7 +23,7 @@ export function BackgroundButton() {
         style={{ background: "var(--cybg)", color: "var(--cy)", border: "1px solid var(--cyline)", fontWeight: 700 }}
       >
         <span style={{ width: 8, height: 8, borderRadius: 4, background: st?.playing ? "var(--cy)" : "var(--mute)" }} />
-        Background
+        {t("top.background")}
       </button>
       {open && <BackgroundPanel onClose={() => setOpen(false)} />}
     </>

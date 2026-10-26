@@ -14,11 +14,15 @@ export interface ConfirmRequest {
 
 /** Big dialogs; only one at a time. */
 export type Dialog =
-  | { kind: "youtube" }
+  /** The Add window: one place for audio files, YouTube & lists, pads and sections. */
+  | { kind: "add"; tab?: AddTab }
   | { kind: "print" }
   | { kind: "swap"; cueId: string }
   | { kind: "resume" }
-  | { kind: "settings" };
+  /** `tab`: open Settings on that page (e.g. "tools" from the Add window's "Import settings…"). */
+  | { kind: "settings"; tab?: string };
+
+export type AddTab = "files" | "yt" | "pad" | "section";
 
 /** Booth settings for a dark hall: dimmer, red night mode, Big mode. Remembered per machine. */
 export interface Booth { dim: number; red: boolean; big: boolean }
@@ -30,6 +34,9 @@ interface UiStore {
   editorCueId: string | null;
   dialog: Dialog | null;
   booth: Booth;
+  /** Build's search field: filters the cue list while not empty. */
+  find: string;
+  setFind: (find: string) => void;
   showToast: (text: string) => void;
   ask: (req: Omit<ConfirmRequest, "resolve">) => Promise<boolean>;
   answer: (ok: boolean) => void;
@@ -58,6 +65,8 @@ export const useUi = create<UiStore>((set, get) => ({
   editorCueId: null,
   dialog: null,
   booth: loadBooth(),
+  find: "",
+  setFind: (find) => set({ find }),
   showToast: (text) => {
     const id = Date.now();
     set({ toast: { text, id } });

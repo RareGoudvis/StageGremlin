@@ -6,7 +6,7 @@ import { TopBar, OutputBanner } from "./components/TopBar";
 import { ShowProgress } from "./components/ShowProgress";
 import { ConfirmDialog, Toast } from "./components/Overlays";
 import { CueEditor } from "./components/editor/CueEditor";
-import { YoutubeDialog } from "./components/youtube/YoutubeDialog";
+import { AddDialog, dropOnAddDialog } from "./components/build/AddDialog";
 import { SwapDialog } from "./components/run/SwapDialog";
 import { ResumeDialog, useResumeCheck } from "./components/ResumeDialog";
 import { PrintDialog, PrintSheet } from "./components/PrintSheet";
@@ -15,13 +15,14 @@ import { SettingsDialog } from "./components/SettingsDialog";
 import { useSettings } from "./settingsStore";
 import { DumboView } from "./views/DumboView";
 import { useMedia } from "./lib/media";
+import { useT } from "./i18n";
 import { ContextMenuHost } from "./components/ContextMenu";
 import { BuildView } from "./views/BuildView";
 import { PreflightView } from "./views/PreflightView";
 import { RunView } from "./views/RunView";
 import { useAppShortcuts } from "./hooks/useAppShortcuts";
 import { usePreflight } from "./lib/preflight";
-import { autoSave, importFiles } from "./lib/fileActions";
+import { autoSave, importFiles, importPadFiles } from "./lib/fileActions";
 import { basename, onFileDrop, setWindowTitle } from "./lib/tauri";
 
 const AUTOSAVE_MS = 30_000;
@@ -57,6 +58,8 @@ export default function App() {
   useWindowTitle();
   useAutosave();
   const dropping = useFileDrop();
+  const buildTab = useDoc((s) => s.buildTab);
+  const t = useT();
 
   return (
     <>
@@ -83,11 +86,11 @@ export default function App() {
       )}
       {dropping && (
         <div style={{ position: "absolute", inset: 8, border: "3px dashed var(--acc)", borderRadius: 16, background: "var(--scrim)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-          <span className="cond" style={{ fontSize: 32, fontWeight: 800, color: "#fff" }}>Drop audio files to add cues</span>
+          <span className="cond" style={{ fontSize: 32, fontWeight: 800, color: "#fff" }}>{t(buildTab === "pads" ? "drop.pads" : "drop.cues")}</span>
         </div>
       )}
       <CueEditor />
-      {dialog?.kind === "youtube" && <YoutubeDialog />}
+      {dialog?.kind === "add" && <AddDialog tab={dialog.tab} />}
       {dialog?.kind === "swap" && <SwapDialog cueId={dialog.cueId} />}
       {dialog?.kind === "resume" && <ResumeDialog />}
       {dialog?.kind === "print" && <PrintDialog />}
@@ -121,7 +124,7 @@ function useAutosave() {
   }, []);
 }
 
-/** Audio files dragged from Explorer onto the window (Build only). */
+/** Audio files dragged from Explorer onto the window (Build only): cues, pads, or into the Add window. */
 function useFileDrop(): boolean {
   const [over, setOver] = useState(false);
   useEffect(() => {
@@ -130,7 +133,12 @@ function useFileDrop(): boolean {
     void onFileDrop({
       over: (on) => setOver(on && useDoc.getState().mode === "build"),
       drop: (paths) => {
-        if (useDoc.getState().mode === "build") importFiles(paths);
+        const d = useDoc.getState();
+        if (d.mode !== "build") return;
+        // The Add window takes the files when open; otherwise the Pads view makes pads, the rest cues.
+        if (dropOnAddDialog(paths)) return;
+        if (d.buildTab === "pads") importPadFiles(paths);
+        else importFiles(paths);
       },
     }).then((u) => (alive ? (unlisten = u) : u()));
     return () => {
