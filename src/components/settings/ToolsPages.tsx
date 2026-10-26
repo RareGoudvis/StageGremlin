@@ -67,12 +67,10 @@ export function AboutPage() {
   }, []);
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-        <img src={logo} alt="StageGremlin logo" width={112} height={112} style={{ borderRadius: 22 }} />
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span className="cond" style={{ fontSize: 40, fontWeight: 800 }}>STAGE<span style={{ color: "var(--acc)" }}>GREMLIN</span></span>
-          <span style={{ fontSize: 15, color: "var(--dim)" }}>A cue player for school shows. Build → Preflight → Run.</span>
-        </div>
+      {/* The logo already carries the name, so no separate title. */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-start" }}>
+        <img src={logo} alt="StageGremlin" width={360} style={{ height: "auto", borderRadius: 16 }} />
+        <span style={{ fontSize: 15, color: "var(--dim)" }}>A cue player for school shows. Build → Preflight → Run.</span>
       </div>
       <Card>
         <Row label="Version"><span className="mono">{info?.version ?? "…"} · {buildLabel(info?.build ?? null)}</span></Row>
