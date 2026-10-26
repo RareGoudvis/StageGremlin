@@ -133,6 +133,8 @@ pub struct LogEntry {
 #[serde(rename_all = "camelCase")]
 pub struct EngineState {
     pub clock: f64,
+    pub paused: bool,
+    pub master_db: f64,
     pub playhead: Option<String>,
     pub running: Vec<RunningInfo>,
     pub pending: Vec<PendingInfo>,
@@ -168,6 +170,8 @@ pub struct Engine<B: Backend> {
     /// Files already opened and probed for the next cues, so GO doesn't wait on the disk.
     prepared: HashMap<PathBuf, StreamingSoundData<FromFileError>>,
     failed_prepare: Vec<PathBuf>,
+    paused: bool,
+    master_db: f64,
 }
 
 impl<B: Backend> Engine<B> {
@@ -192,6 +196,8 @@ impl<B: Backend> Engine<B> {
             tone: None,
             prepared: HashMap::new(),
             failed_prepare: vec![],
+            paused: false,
+            master_db: 0.0,
         })
     }
 
@@ -211,6 +217,9 @@ impl<B: Backend> Engine<B> {
     pub fn set_show(&mut self, show: Show, base_dir: Option<PathBuf>) {
         // The limiter picks up the (possibly changed) ceiling on its next audio block.
         self.meter.set_ceiling_db(show.settings.limiter_ceiling_db as f32);
+        if (show.settings.master_db - self.master_db).abs() > 1e-6 {
+            self.set_master_db(show.settings.master_db);
+        }
         self.show = show;
         self.base_dir = base_dir;
         self.failed_prepare.clear();
@@ -236,6 +245,10 @@ impl<B: Backend> Engine<B> {
             }
         }
         let Some(id) = self.playhead.clone() else { return GoResult::EndOfShow };
+        if self.paused {
+            // GO while paused resumes everything first, so nothing stays stuck.
+            self.toggle_pause_all();
+        }
         self.last_go = Some(self.clock);
         self.go_cue(&id, "go");
         GoResult::Fired
@@ -381,6 +394,12 @@ impl<B: Backend> Engine<B> {
     /// Advances timers and housekeeping. `dt` is seconds since the last tick.
     pub fn tick(&mut self, dt: f64) {
         self.clock += dt;
+        if self.paused {
+            // Hold every timer: shift them forward by the time spent paused.
+            for p in &mut self.pending {
+                p.at += dt;
+            }
+        }
 
         // Due timers, earliest first.
         self.pending.sort_by(|a, b| a.at.total_cmp(&b.at));
@@ -509,6 +528,7 @@ impl<B: Backend> Engine<B> {
     }
 
     fn stop_everything(&mut self, fade: f64, curve: Curve) {
+        self.paused = false;
         for r in &mut self.running {
             r.sound.stop(tween(fade, curve));
             r.stopping = true;
@@ -616,6 +636,29 @@ impl<B: Backend> Engine<B> {
         self.push_log(kind, None, text);
     }
 
+    /// Pause all (P): every running cue and pad holds its place; pre-wait and follow
+    /// timers hold too. Press again to resume. Panic and Stop all still work while paused.
+    pub fn toggle_pause_all(&mut self) -> bool {
+        self.paused = !self.paused;
+        let fade = tween(0.3, Curve::SCurve);
+        for r in self.running.iter_mut().filter(|r| !r.stopping) {
+            if self.paused {
+                r.sound.pause(fade);
+            } else {
+                r.sound.resume(fade);
+            }
+        }
+        self.push_log(if self.paused { "pause" } else { "resume" }, None, if self.paused { "Pause all".into() } else { "Resume all".into() });
+        self.paused
+    }
+
+    /// Master fader, in dB (0 = unity). Sits before the limiter.
+    pub fn set_master_db(&mut self, db: f64) {
+        self.master_db = db.clamp(-60.0, 10.0);
+        let v = if self.master_db <= -59.9 { Decibels::SILENCE } else { Decibels(self.master_db as f32) };
+        self.manager.main_track().set_volume(v, tween(0.05, Curve::Linear));
+    }
+
     pub fn is_playing(&self) -> bool {
         !self.running.is_empty() || !self.pending.is_empty()
     }
@@ -625,6 +668,8 @@ impl<B: Backend> Engine<B> {
         self.unsent_log = 0;
         EngineState {
             clock: self.clock,
+            paused: self.paused,
+            master_db: self.master_db,
             playhead: self.playhead.clone(),
             running: self
                 .running

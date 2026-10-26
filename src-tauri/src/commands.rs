@@ -98,6 +98,22 @@ pub async fn engine_release_vamp(app: AppHandle, engine: State<'_, EngineHandle>
     report(&app, engine.run(move |e| e.release_vamp(cue_id.as_deref())))
 }
 
+/// P: pause everything that plays (and its timers), or resume it.
+#[tauri::command]
+pub async fn engine_pause_all(app: AppHandle, engine: State<'_, EngineHandle>) -> Result<bool, String> {
+    let r = engine.run(move |e| e.toggle_pause_all());
+    if let Err(err) = &r {
+        let _ = app.emit("engine://error", err.clone());
+    }
+    r
+}
+
+/// Master fader in dB (0 = unity, -60 = off). Applied before the limiter.
+#[tauri::command]
+pub async fn engine_set_master(app: AppHandle, engine: State<'_, EngineHandle>, db: f64) -> Result<(), String> {
+    report(&app, engine.run(move |e| e.set_master_db(db)))
+}
+
 #[tauri::command]
 pub async fn engine_set_playhead(app: AppHandle, engine: State<'_, EngineHandle>, cue_id: Option<String>) -> Result<(), String> {
     report(&app, engine.run(move |e| e.set_playhead(cue_id)))

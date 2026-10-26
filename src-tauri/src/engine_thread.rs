@@ -427,6 +427,8 @@ impl Worker {
             }
             // No device: send an empty state so meters fall back and timers clear.
             None => EngineState {
+                paused: false,
+                master_db: 0.0,
                 clock: self.idle_clock,
                 playhead: self.show.first_in_queue().map(|c| c.id.clone()),
                 running: vec![],

@@ -80,6 +80,8 @@ pub fn run() {
             commands::engine_stop_cue,
             commands::engine_toggle_under,
             commands::engine_release_vamp,
+            commands::engine_pause_all,
+            commands::engine_set_master,
             commands::engine_set_playhead,
             commands::audio_list_outputs,
             commands::audio_set_output,
