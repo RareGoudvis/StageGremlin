@@ -3,7 +3,9 @@
 //! The chain, in plain words:
 //!   device enumerator → every active playback device → its session manager →
 //!   list of sessions → for each: which process owns it? → if it is one of our
-//!   WebView2 helpers, keep its volume control.
+//!   WebView2 helpers, keep its volume control, together with its ENGINE: the helper's ancestor that
+//!   is a direct child of our app (each WebView2 engine's browser process is). Each player service
+//!   can run in its own engine (window.rs), so the caller can give each engine its own volume.
 //!
 //! Every call into Windows here can fail (device unplugged, session gone). We never panic:
 //! a failed session is skipped and found again on the next refresh.
@@ -25,8 +27,8 @@ use windows::Win32::System::Threading::GetCurrentProcessId;
 pub struct Sessions {
     com_ok: bool,
     enumerator: Option<IMMDeviceEnumerator>,
-    /// Volume controls of the sessions we found on the last refresh.
-    volumes: Vec<ISimpleAudioVolume>,
+    /// Volume controls of the sessions we found on the last refresh, with their engine's process id.
+    volumes: Vec<(u32, ISimpleAudioVolume)>,
     own_pid: u32,
 }
 
@@ -43,22 +45,23 @@ impl Sessions {
         Self { com_ok, enumerator, volumes: Vec::new(), own_pid: unsafe { GetCurrentProcessId() } }
     }
 
-    pub fn refresh(&mut self, gain: f32) -> usize {
+    /// `gain_of(engine pid)` = the volume for that engine's sessions.
+    pub fn refresh(&mut self, gain_of: &dyn Fn(u32) -> f32) -> usize {
         self.volumes = self.find().unwrap_or_default();
-        self.set(gain);
+        self.set(gain_of);
         self.volumes.len()
     }
 
-    pub fn set(&mut self, gain: f32) {
-        let gain = gain.clamp(0.0, 1.0);
-        for v in &self.volumes {
+    pub fn set(&mut self, gain_of: &dyn Fn(u32) -> f32) {
+        for (engine, v) in &self.volumes {
+            let gain = gain_of(*engine).clamp(0.0, 1.0);
             // The second argument is an "event context" GUID used to tell our own changes apart
             // in change notifications; we don't listen to those, so null is fine.
             let _ = unsafe { v.SetMasterVolume(gain, std::ptr::null()) };
         }
     }
 
-    fn find(&self) -> windows::core::Result<Vec<ISimpleAudioVolume>> {
+    fn find(&self) -> windows::core::Result<Vec<(u32, ISimpleAudioVolume)>> {
         let Some(enumerator) = &self.enumerator else { return Ok(Vec::new()) };
         let parents = process_parents();
         let mut found = Vec::new();
@@ -80,11 +83,9 @@ impl Sessions {
                 if pid == 0 || pid == self.own_pid {
                     continue;
                 }
-                if !is_descendant(pid, self.own_pid, &parents) {
-                    continue;
-                }
+                let Some(engine) = engine_of(pid, self.own_pid, &parents) else { continue };
                 if let Ok(volume) = control.cast::<ISimpleAudioVolume>() {
-                    found.push(volume);
+                    found.push((engine, volume));
                 }
             }
         }
@@ -120,16 +121,17 @@ fn process_parents() -> HashMap<u32, u32> {
     map
 }
 
-/// True when `pid` was started (directly or through helpers) by `ancestor`.
-/// Walks up the parent chain; the step limit guards against loops from reused process ids.
-fn is_descendant(pid: u32, ancestor: u32, parents: &HashMap<u32, u32>) -> bool {
+/// When `pid` was started (directly or through helpers) by `ancestor`: the process in that chain
+/// that is `ancestor`'s direct child (for a WebView2 helper: its engine's browser process).
+/// None when `pid` isn't ours. The step limit guards against loops from reused process ids.
+fn engine_of(pid: u32, ancestor: u32, parents: &HashMap<u32, u32>) -> Option<u32> {
     let mut current = pid;
     for _ in 0..32 {
         match parents.get(&current) {
-            Some(&parent) if parent == ancestor => return true,
+            Some(&parent) if parent == ancestor => return Some(current),
             Some(&parent) if parent != 0 && parent != current => current = parent,
-            _ => return false,
+            _ => return None,
         }
     }
-    false
+    None
 }

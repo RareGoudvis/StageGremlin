@@ -17,15 +17,3 @@ pub fn portable_data_dir() -> Option<PathBuf> {
         None
     }
 }
-
-/// Points WebView2 (the browser engine that draws the UI on Windows) at our data
-/// folder. It reads this environment variable when the window is created, so this
-/// must run before the Tauri builder starts.
-#[cfg(windows)]
-pub fn use_for_webview(data_dir: &std::path::Path) {
-    std::env::set_var("WEBVIEW2_USER_DATA_FOLDER", data_dir.join("webview"));
-}
-
-/// Other platforms have no WebView2; nothing to do.
-#[cfg(not(windows))]
-pub fn use_for_webview(_data_dir: &std::path::Path) {}

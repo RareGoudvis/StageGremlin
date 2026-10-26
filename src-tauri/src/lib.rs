@@ -49,7 +49,6 @@ pub fn run() {
     let portable_dir = portable::portable_data_dir();
     if let Some(dir) = &portable_dir {
         let _ = std::fs::create_dir_all(dir);
-        portable::use_for_webview(dir);
     }
 
     tauri::Builder::default()
@@ -62,6 +61,20 @@ pub fn run() {
                 None => app.path().app_data_dir()?,
             };
             let _ = std::fs::create_dir_all(&data_dir);
+
+            // The main window is made here (tauri.conf.json has "create": false) so it can get its
+            // browser data folder directly: portable keeps it next to the .exe. (An environment
+            // variable would force EVERY window into that folder, and the background players need
+            // folders of their own: see background/window.rs.)
+            let main_webview_dir = portable_dir.as_ref().map(|d| d.join("webview"));
+            let main_config = app.config().app.windows.first().cloned().ok_or("no window in tauri.conf.json")?;
+            let mut main = tauri::WebviewWindowBuilder::from_config(app.handle(), &main_config)?;
+            if let Some(dir) = &main_webview_dir {
+                main = main.data_directory(dir.clone());
+            }
+            main.build()?;
+            app.manage(background::WebviewDirs { main: main_webview_dir, players: data_dir.join("players") });
+
             app.manage(AppInfo {
                 version: app.package_info().version.to_string(),
                 portable: portable_dir.is_some(),
@@ -133,6 +146,10 @@ pub fn run() {
             background::bg_play_track,
             background::bg_dock,
             background::bg_close,
+            background::bg_set_deck,
+            background::bg_crossfade,
+            background::bg_set_fader,
+            background::bg_set_low_spec,
             audac::audac_connect,
             audac::audac_disconnect,
             audac::audac_get_state,

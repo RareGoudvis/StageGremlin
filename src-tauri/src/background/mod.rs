@@ -20,10 +20,11 @@
 //!   `.plugin(background::plugin())`, `app.manage(background::start(app.handle().clone(), data_dir))`
 //!   in setup, and the `bg_*` commands in `generate_handler!`.
 
+mod mixer;
 mod session_volume;
 mod window;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
@@ -38,7 +39,7 @@ use session_volume::SessionVolume;
 // Types (mirror docs/ipc-wave2.md; the UI copy is src/components/background/useBackground.ts)
 // ---------------------------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum BgSource {
     Spotify,
@@ -48,6 +49,13 @@ pub enum BgSource {
     Soundcloud,
     /// Plain YouTube (videos); YouTube Music is `Ytmusic`.
     Youtube,
+}
+
+/// Browser data folders: the main window's (portable: next to the .exe; None = the default), and the
+/// root for the players' own engines (`<dataDir>/players/<account>`). Managed state, set in lib.rs.
+pub struct WebviewDirs {
+    pub main: Option<PathBuf>,
+    pub players: PathBuf,
 }
 
 /// Every source, in the order the UI shows them.
@@ -130,6 +138,29 @@ pub struct BgState {
     /// Sources with a window open (filled in by the volume thread, which can see the windows).
     #[serde(default)]
     pub open_sources: Vec<BgSource>,
+    /// Every service that reported, with its own state and fader (for the decks and the tabs).
+    pub players: Vec<PlayerState>,
+    /// What is on deck A and deck B, and which one is on air (0 = A, 1 = B).
+    pub decks: [Option<BgSource>; 2],
+    pub on_air: usize,
+    /// Low spec mode: all services in one engine (no separate faders, swaps pause/start instead).
+    pub low_spec: bool,
+}
+
+/// One service's player, as the decks and tabs show it.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerState {
+    pub source: BgSource,
+    pub playing: bool,
+    pub title: Option<String>,
+    pub artist: Option<String>,
+    pub position: Option<f64>,
+    pub duration: Option<f64>,
+    /// Its own fader (dB, 0 = full).
+    pub level_db: f32,
+    /// Faded out (crossfaded away or paused with a fade).
+    pub held: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -161,11 +192,13 @@ struct Saved {
     source: Option<BgSource>,
     level_db: f32,
     config: BgConfig,
+    /// One shared browser engine for all services (see window.rs).
+    low_spec: bool,
 }
 
 impl Default for Saved {
     fn default() -> Self {
-        Self { source: None, level_db: 0.0, config: BgConfig::default() }
+        Self { source: None, level_db: 0.0, config: BgConfig::default(), low_spec: false }
     }
 }
 
@@ -236,6 +269,12 @@ struct Inner {
     next_fade: f32,
     /// JavaScript the volume thread should run in the page, after the volume step.
     evals: Vec<String>,
+    /// The same, for one particular service's page (decks).
+    evals_on: Vec<(BgSource, String)>,
+    /// The faders, decks and crossfade (mixer.rs).
+    mixer: mixer::Mixer,
+    /// Each service's latest report (`page` is the active one's).
+    pages: HashMap<BgSource, PageReport>,
 
     session_found: bool,
     error: Option<String>,
@@ -268,6 +307,24 @@ impl Inner {
             error: self.error.clone(),
             tracks: self.page.tracks.clone(),
             open_sources: Vec::new(),
+            players: ALL_SOURCES
+                .iter()
+                .filter_map(|src| {
+                    self.pages.get(src).map(|p| PlayerState {
+                        source: *src,
+                        playing: p.playing,
+                        title: p.title.clone(),
+                        artist: p.artist.clone(),
+                        position: p.position,
+                        duration: p.duration,
+                        level_db: self.mixer.level(*src),
+                        held: self.mixer.is_held(*src),
+                    })
+                })
+                .collect(),
+            decks: self.mixer.decks,
+            on_air: self.mixer.on_air,
+            low_spec: window::low_spec(),
         }
     }
 
@@ -309,7 +366,7 @@ impl Inner {
 
     fn save(&self) {
         let Some(path) = &self.data_file else { return };
-        let saved = Saved { source: self.source, level_db: self.level_db, config: self.config.clone() };
+        let saved = Saved { source: self.source, level_db: self.level_db, config: self.config.clone(), low_spec: window::low_spec() };
         if let Ok(text) = serde_json::to_string_pretty(&saved) {
             let _ = std::fs::write(path, text);
         }
@@ -343,10 +400,13 @@ impl BgHandle {
         self.lock().visible = visible;
     }
 
-    fn store_report(&self, report: PageReport) {
+    fn store_report(&self, source: BgSource, report: PageReport) {
         let mut s = self.lock();
-        s.page = report;
-        s.page_at = Some(Instant::now());
+        if window::active() == Some(source) {
+            s.page = report.clone();
+            s.page_at = Some(Instant::now());
+        }
+        s.pages.insert(source, report);
     }
 }
 
@@ -381,6 +441,7 @@ pub fn start(app: AppHandle, data_dir: PathBuf) -> BgHandle {
         .and_then(|t| serde_json::from_str(&t).ok())
         .unwrap_or_default();
 
+    window::set_low_spec(saved.low_spec);
     let shared = Arc::new(Mutex::new(Inner {
         data_file: Some(data_file),
         source: saved.source,
@@ -401,6 +462,9 @@ pub fn start(app: AppHandle, data_dir: PathBuf) -> BgHandle {
         jump_to_silence: false,
         next_fade: 0.0,
         evals: Vec::new(),
+        evals_on: Vec::new(),
+        mixer: mixer::Mixer::default(),
+        pages: HashMap::new(),
         session_found: false,
         error: None,
     }));
@@ -437,7 +501,8 @@ fn volume_thread(app: AppHandle, shared: Arc<Mutex<Inner>>) {
     let mut current_db = SILENCE_DB;
     let mut first = true;
     let mut ramp: Option<Ramp> = None;
-    let mut applied_gain = -1.0f32;
+    // What we last gave Windows: the overall gain and each engine's fader gain.
+    let mut applied: (f32, Vec<(u32, f32)>) = (-1.0, Vec::new());
     let mut last_refresh: Option<Instant> = None;
     let mut last_emit: Option<Instant> = None;
     let mut seen_main = false;
@@ -451,7 +516,7 @@ fn volume_thread(app: AppHandle, shared: Arc<Mutex<Inner>>) {
         let main_exists = app.get_webview_window("main").is_some();
         seen_main |= main_exists;
         if seen_main && !main_exists {
-            sessions.set(1.0);
+            sessions.set(&|_| 1.0);
             for win in window::all(&app) {
                 let _ = win.destroy();
             }
@@ -459,7 +524,9 @@ fn volume_thread(app: AppHandle, shared: Arc<Mutex<Inner>>) {
         }
 
         let evals;
+        let evals_on;
         let open;
+        let engines: Vec<(u32, f32)>;
         {
             let mut s = shared.lock().unwrap_or_else(|p| p.into_inner());
             open = s.open;
@@ -506,26 +573,52 @@ fn volume_thread(app: AppHandle, shared: Arc<Mutex<Inner>>) {
                 }
                 _ => {}
             }
+            // The mixer: faders and crossfades; pages whose fade-out just ended get paused.
+            for src in s.mixer.tick(now) {
+                s.evals_on.push((src, JS_PAUSE.into()));
+            }
             evals = std::mem::take(&mut s.evals);
+            evals_on = std::mem::take(&mut s.evals_on);
+            // Each engine's fader gain (services sharing an engine: the loudest of them). In low
+            // spec mode there is one engine for all, so faders can't apply: full for everything.
+            let mut per: Vec<(u32, f32)> = Vec::new();
+            for src in ALL_SOURCES {
+                let Some(pid) = window::engine_pid(src) else { continue };
+                let g = if window::low_spec() { 1.0 } else { s.mixer.gain(src) };
+                match per.iter_mut().find(|(p, _)| *p == pid) {
+                    Some(e) => e.1 = e.1.max(g),
+                    None => per.push((pid, g)),
+                }
+            }
+            engines = per;
         }
 
         // Volume first, then page commands: a "play" then starts from silence, not full level.
+        // Every engine gets the overall gain times its own fader; an engine we don't know (the main
+        // window's) just the overall gain.
         let gain = db_to_gain(current_db);
+        let gain_of = |engine: u32| gain * engines.iter().find(|(p, _)| *p == engine).map(|e| e.1).unwrap_or(1.0);
+        let changed = (gain - applied.0).abs() > 0.0001
+            || engines.len() != applied.1.len()
+            || engines.iter().zip(&applied.1).any(|(a, b)| a.0 != b.0 || (a.1 - b.1).abs() > 0.0001);
         let refresh_due = last_refresh.is_none_or(|t| now.duration_since(t) >= SESSION_REFRESH);
         if open && refresh_due {
             last_refresh = Some(now);
-            let found = sessions.refresh(gain);
-            applied_gain = gain;
+            let found = sessions.refresh(&gain_of);
+            applied = (gain, engines.clone());
             if let Ok(mut s) = shared.lock() {
                 s.session_found = found > 0;
             }
-        } else if (gain - applied_gain).abs() > 0.0001 {
-            sessions.set(gain);
-            applied_gain = gain;
+        } else if changed {
+            sessions.set(&gain_of);
+            applied = (gain, engines.clone());
         }
 
         for js in evals {
             window::eval(&app, &js);
+        }
+        for (src, js) in evals_on {
+            window::eval_on(&app, src, &js);
         }
 
         if last_emit.is_none_or(|t| now.duration_since(t) >= EMIT_EVERY) {
@@ -546,12 +639,10 @@ fn volume_thread(app: AppHandle, shared: Arc<Mutex<Inner>>) {
 #[tauri::command]
 fn report<R: Runtime>(webview: tauri::Webview<R>, report: PageReport) {
     // Only player windows may report (the capability already limits it; this is a second lock
-    // on the door), and only the active one: "now playing" follows the source being controlled.
-    if !window::is_active_label(webview.label()) {
-        return;
-    }
+    // on the door). Every one reports for itself: the decks and tabs show each service's state.
+    let Some(source) = window::source_of_label(webview.label()) else { return };
     if let Some(handle) = webview.app_handle().try_state::<BgHandle>() {
-        handle.store_report(report);
+        handle.store_report(source, report);
     }
 }
 
@@ -618,10 +709,54 @@ pub async fn bg_close(app: AppHandle, source: BgSource) -> Result<(), String> {
     window::close(&app, source);
     let state = app.state::<BgHandle>();
     let mut s = state.lock();
+    s.mixer.forget(source);
+    s.pages.remove(&source);
     s.source = window::active();
     s.open = window::get(&app).is_some();
     s.page = PageReport::default();
     s.page_at = None;
+    Ok(())
+}
+
+/// Put a service on deck A (0) or B (1), or empty it (null).
+#[tauri::command]
+pub fn bg_set_deck(state: State<'_, BgHandle>, deck: usize, source: Option<BgSource>) -> Result<(), String> {
+    let mut s = state.lock();
+    let d = s.mixer.decks.get_mut(deck).ok_or("There are two decks: 0 and 1.")?;
+    *d = source;
+    Ok(())
+}
+
+/// The on-air deck fades out (and pauses), the other fades in and starts. `secs` 0 = a cut.
+/// Low spec mode can't fade one service against another: it pauses one and starts the other.
+#[tauri::command]
+pub fn bg_crossfade(state: State<'_, BgHandle>, secs: f32) -> Result<(), String> {
+    let mut s = state.lock();
+    let secs = if window::low_spec() { 0.0 } else { secs.clamp(0.0, 30.0) };
+    let (_, inn) = s.mixer.crossfade(secs, Instant::now()).ok_or("Put a service on both decks first.")?;
+    s.evals_on.push((inn, JS_PLAY.into()));
+    Ok(())
+}
+
+/// One service's own fader (dB, 0 = full, −60 = off).
+#[tauri::command]
+pub fn bg_set_fader(state: State<'_, BgHandle>, source: BgSource, db: f32) {
+    state.lock().mixer.set_level(source, db, Instant::now());
+}
+
+/// Low spec mode on/off. The players change engine, so they close (and reopen when picked again).
+#[tauri::command]
+pub async fn bg_set_low_spec(app: AppHandle, on: bool) -> Result<(), String> {
+    for win in window::all(&app) {
+        let _ = win.destroy();
+    }
+    window::set_low_spec(on);
+    let state = app.state::<BgHandle>();
+    let mut s = state.lock();
+    s.open = false;
+    s.mixer = mixer::Mixer::default();
+    s.pages.clear();
+    s.save();
     Ok(())
 }
 
@@ -670,7 +805,29 @@ pub enum BgCmd {
 }
 
 #[tauri::command]
-pub fn bg_command(app: AppHandle, state: State<'_, BgHandle>, cmd: BgCmd, instant: bool) -> Result<(), String> {
+pub fn bg_command(app: AppHandle, state: State<'_, BgHandle>, cmd: BgCmd, instant: bool, source: Option<BgSource>) -> Result<(), String> {
+    // A deck (one particular service): play / pause with its own fader; next / previous on its page.
+    if let Some(src) = source.filter(|src| Some(*src) != window::active() || window::low_spec()) {
+        if app.get_webview_window(&window::label(src)).is_none() {
+            return Err("That service isn't open.".into());
+        }
+        let mut s = state.lock();
+        let now = Instant::now();
+        let (fade_out, fade_in) = (s.config.duck_time, s.config.restore_time);
+        match cmd {
+            BgCmd::Play => {
+                s.mixer.fade_in(src, if instant { 0.0 } else { fade_in }, now);
+                s.evals_on.push((src, JS_PLAY.into()));
+            }
+            BgCmd::Pause => s.mixer.fade_out_then_pause(src, if instant || window::low_spec() { 0.0 } else { fade_out }, now),
+            BgCmd::Next => s.evals_on.push((src, JS_NEXT.into())),
+            BgCmd::Prev => s.evals_on.push((src, JS_PREV.into())),
+            BgCmd::Duck | BgCmd::Restore => {} // duck is for all background music, below
+        }
+        if !matches!(cmd, BgCmd::Duck | BgCmd::Restore) {
+            return Ok(());
+        }
+    }
     let needs_page = matches!(cmd, BgCmd::Play | BgCmd::Pause | BgCmd::Next | BgCmd::Prev);
     if needs_page && window::get(&app).is_none() {
         return Err("The background player is not open. Pick a source first.".into());
@@ -787,6 +944,9 @@ mod tests {
             jump_to_silence: false,
             next_fade: 0.0,
             evals: Vec::new(),
+            evals_on: Vec::new(),
+            mixer: mixer::Mixer::default(),
+            pages: HashMap::new(),
             session_found: false,
             error: None,
         }
