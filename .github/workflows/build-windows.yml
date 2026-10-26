@@ -57,6 +57,7 @@ jobs:
           Get-ChildItem tools/bin
 
       - name: Build app (UI + Rust + installer)
+        # tauri.release.conf.json adds tools/bin (yt-dlp, ffmpeg, ffprobe) as installer resources.
         run: npm run tauri build -- --config src-tauri/tauri.release.conf.json
 
       - name: Make portable zip
