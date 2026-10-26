@@ -132,6 +132,7 @@ pub fn run() {
             background::bg_get_config,
             background::bg_play_track,
             background::bg_dock,
+            background::bg_close,
             audac::audac_connect,
             audac::audac_disconnect,
             audac::audac_get_state,

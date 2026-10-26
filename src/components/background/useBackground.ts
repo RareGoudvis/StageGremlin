@@ -36,6 +36,8 @@ export interface BgState {
   error: string | null;
   /** Rows the page shows (playlist / queue), best effort. null = not available for this source. */
   tracks: BgTrack[] | null;
+  /** Services with a player window open (each keeps playing on its own). */
+  openSources?: BgSource[];
 }
 
 export interface BgTrack { title: string; artist: string | null }
@@ -71,6 +73,8 @@ export const bg = {
   getState: () => cmd<BgState>("bg_get_state"),
   getConfig: () => cmd<BgConfig>("bg_get_config"),
   playTrack: (index: number, title: string) => cmd<void>("bg_play_track", { index, title }),
+  /** Close one service's window (its music stops). */
+  close: (source: BgSource) => cmd<void>("bg_close", { source }),
   /** Background screen: put the player over `rect` (physical px inside the main window), or null to take it away. */
   dock: (rect: { x: number; y: number; w: number; h: number } | null) => cmd<void>("bg_dock", { rect }),
 };
@@ -180,6 +184,7 @@ function mockCmd(name: string, args?: Record<string, unknown>): unknown {
     case "bg_hide":
       s.visible = false;
       return;
+    case "bg_close":
     case "bg_dock":
       return; // a browser has no second window to place
     case "bg_command":

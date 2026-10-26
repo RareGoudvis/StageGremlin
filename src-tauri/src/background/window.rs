@@ -1,5 +1,8 @@
-//! The background player window: a second Tauri window (label `background`) that shows the
-//! web player of the chosen source.
+//! The background player windows: one Tauri window per source (label `background-<source>`, e.g.
+//! `background-spotify`), so several services can stay open: Spotify keeps playing while you look for
+//! a playlist on SoundCloud. One of them is ACTIVE: the one the controls, "now playing" and the
+//! Background screen's middle area follow (`get`). Switching sources only switches which is active.
+//! All of them share one Windows audio session, so duck and level apply to all of them together.
 //!
 //! - It uses the same WebView2 profile as the app, so sign-ins are kept between sessions
 //!   (in portable mode that profile lives in `<exe folder>/data/webview`).
@@ -7,11 +10,56 @@
 //!   main window closes.
 //! - `inject.js` is loaded into every page it shows (remote control + now playing).
 
+use std::sync::Mutex;
+
 use tauri::{AppHandle, Manager, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 
 use super::BgSource;
 
-pub const LABEL: &str = "background";
+/// Every player window's label starts with this (capabilities/background.json matches `background-*`).
+pub const LABEL_PREFIX: &str = "background-";
+
+/// The source whose window the controls follow.
+static ACTIVE: Mutex<Option<BgSource>> = Mutex::new(None);
+
+pub fn label(source: BgSource) -> String {
+    // The serde name ("spotify", "ytmusic", …) is also what the UI uses.
+    let name = serde_json::to_value(source).ok().and_then(|v| v.as_str().map(String::from)).unwrap_or_default();
+    format!("{LABEL_PREFIX}{name}")
+}
+
+pub fn active() -> Option<BgSource> {
+    *ACTIVE.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+fn set_active(source: Option<BgSource>) {
+    *ACTIVE.lock().unwrap_or_else(|e| e.into_inner()) = source;
+}
+
+/// Is this the active window? (Only it reports "now playing".)
+pub fn is_active_label(label: &str) -> bool {
+    active().is_some_and(|s| self::label(s) == label)
+}
+
+/// Every open player window.
+pub fn all(app: &AppHandle) -> Vec<WebviewWindow> {
+    app.webview_windows().into_iter().filter(|(l, _)| l.starts_with(LABEL_PREFIX)).map(|(_, w)| w).collect()
+}
+
+/// The sources that have a window open (for the tabs' dots).
+pub fn open_sources(app: &AppHandle) -> Vec<BgSource> {
+    super::ALL_SOURCES.iter().copied().filter(|s| app.get_webview_window(&label(*s)).is_some()).collect()
+}
+
+/// Close one source's window (its music stops). Another open one becomes active.
+pub fn close(app: &AppHandle, source: BgSource) {
+    if let Some(win) = app.get_webview_window(&label(source)) {
+        let _ = win.destroy();
+    }
+    if active() == Some(source) {
+        set_active(super::ALL_SOURCES.iter().copied().find(|s| *s != source && app.get_webview_window(&label(*s)).is_some()));
+    }
+}
 
 /// Browser identity the window reports to websites. `None` = WebView2's own (the same as
 /// Microsoft Edge, which all four sources support). If Spotify ever answers "browser not
@@ -51,21 +99,24 @@ pub fn link_allowed(source: BgSource, link: &Url) -> bool {
     link.scheme() == "https" && (start.as_ref().and_then(|u| u.host_str()) == Some(host) || also)
 }
 
+/// The ACTIVE source's window.
 pub fn get(app: &AppHandle) -> Option<WebviewWindow> {
-    app.get_webview_window(LABEL)
+    active().and_then(|s| app.get_webview_window(&label(s)))
 }
 
-/// Creates the window if needed, or loads `source` in the existing one when `navigate` is true.
-/// `show` brings it to the front (Build); otherwise it stays (or is created) hidden (Run).
-/// `link`: a page on that service to open instead of its start page (checked by `link_allowed`).
-pub fn open(app: &AppHandle, source: BgSource, navigate: bool, show: bool, link: Option<Url>) -> Result<(), String> {
+/// Makes `source` active, creating its window if needed. An existing window keeps its page (and its
+/// music); only a `link` loads something else in it. `show` brings it to the front (Build);
+/// otherwise it stays (or is created) hidden (Run).
+pub fn open(app: &AppHandle, source: BgSource, show: bool, link: Option<Url>) -> Result<(), String> {
+    set_active(Some(source));
+    let link_given = link.is_some();
     let url = match link {
         Some(l) => l,
         None => Url::parse(source_url(source)).map_err(|e| e.to_string())?,
     };
 
-    if let Some(win) = get(app) {
-        if navigate {
+    if let Some(win) = app.get_webview_window(&label(source)) {
+        if link_given {
             win.navigate(url).map_err(|e| e.to_string())?;
         }
         if show {
@@ -76,7 +127,7 @@ pub fn open(app: &AppHandle, source: BgSource, navigate: bool, show: bool, link:
         return Ok(());
     }
 
-    let mut builder = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::External(url))
+    let mut builder = WebviewWindowBuilder::new(app, label(source), WebviewUrl::External(url))
         .title("StageGremlin · Background music")
         .inner_size(1100.0, 760.0)
         .min_inner_size(600.0, 400.0)
@@ -120,6 +171,12 @@ pub fn open(app: &AppHandle, source: BgSource, navigate: bool, show: bool, link:
 /// `x`, `y` are physical pixels from the main window's top-left content corner; `w`, `h` the size.
 pub fn dock(app: &AppHandle, x: i32, y: i32, w: u32, h: u32) -> Result<(), String> {
     let (Some(win), Some(main)) = (get(app), app.get_webview_window("main")) else { return Ok(()) };
+    // Only the active one sits in the area; the others go out of sight (and keep playing).
+    for other in all(app) {
+        if other.label() != win.label() {
+            undock_one(&other);
+        }
+    }
     let origin = main.inner_position().map_err(|e| e.to_string())?;
     let _ = win.set_decorations(false);
     // Without a title bar Windows still draws a shadow and keeps an invisible resize border around
@@ -137,25 +194,30 @@ pub fn dock(app: &AppHandle, x: i32, y: i32, w: u32, h: u32) -> Result<(), Strin
 /// Back to a normal window (frame, taskbar, size), hidden: leaving the Background screen,
 /// or while a dialog or menu needs that space.
 pub fn undock(app: &AppHandle) {
-    if let Some(win) = get(app) {
-        let _ = win.hide();
-        let _ = win.set_decorations(true);
-        let _ = win.set_shadow(true);
-        let _ = win.set_resizable(true);
-        let _ = win.set_skip_taskbar(false);
-        let _ = win.set_min_size(Some(tauri::LogicalSize::new(600.0, 400.0)));
-        let _ = win.set_size(tauri::LogicalSize::new(1100.0, 760.0));
-        let _ = win.center();
+    for win in all(app) {
+        undock_one(&win);
     }
 }
 
+fn undock_one(win: &WebviewWindow) {
+    let _ = win.hide();
+    let _ = win.set_decorations(true);
+    let _ = win.set_shadow(true);
+    let _ = win.set_resizable(true);
+    let _ = win.set_skip_taskbar(false);
+    let _ = win.set_min_size(Some(tauri::LogicalSize::new(600.0, 400.0)));
+    let _ = win.set_size(tauri::LogicalSize::new(1100.0, 760.0));
+    let _ = win.center();
+}
+
+/// Out of sight (Run): all player windows. They keep playing.
 pub fn hide(app: &AppHandle) {
-    if let Some(win) = get(app) {
+    for win in all(app) {
         let _ = win.hide();
     }
 }
 
-/// Runs a line of JavaScript in the player page (play, pause, next, previous).
+/// Runs a line of JavaScript in the ACTIVE player page (play, pause, next, previous).
 pub fn eval(app: &AppHandle, js: &str) -> bool {
     match get(app) {
         Some(win) => win.eval(js).is_ok(),

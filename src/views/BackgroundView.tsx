@@ -173,7 +173,8 @@ function Player() {
       window.removeEventListener("resize", place);
       unlistenMove?.();
     };
-  }, [show]);
+    // Re-place when another service becomes active: its own window takes the area.
+  }, [show, st?.source]);
 
   // Leaving this screen: the player becomes a normal, hidden window again (Run's dock takes over).
   useEffect(() => () => bgDo(bg.dock(null)), []);
@@ -184,11 +185,20 @@ function Player() {
       <div role="tablist" aria-label={t("bgv.services")} style={{ display: "flex", gap: 4, padding: 6, borderBottom: "1px solid var(--line)", flexWrap: "wrap" }}>
         {SOURCES.map((s) => {
           const on = st?.source === s.id;
+          const isOpen = !!st?.openSources?.includes(s.id);
           return (
-            <button key={s.id} role="tab" aria-selected={on} className="b" onClick={() => pick(s.id)}
-              style={{ height: 34, padding: "0 12px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: on ? "var(--hl)" : "transparent", color: on ? "var(--bg)" : "var(--text)" }}>
-              {s.label}
-            </button>
+            <span key={s.id} style={{ display: "flex", alignItems: "center", borderRadius: 8, background: on ? "var(--hl)" : "transparent" }}>
+              <button role="tab" aria-selected={on} className="b" onClick={() => pick(s.id)}
+                style={{ height: 34, padding: "0 10px 0 12px", borderRadius: 8, fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, background: "transparent", color: on ? "var(--bg)" : "var(--text)" }}>
+                {/* Dot: this service's window is open (and may be playing). */}
+                {isOpen && <span style={{ width: 7, height: 7, borderRadius: 4, background: on ? "var(--bg)" : "var(--acc)" }} />}
+                {s.label}
+              </button>
+              {isOpen && (
+                <button className="b" aria-label={`${t("bgv.closeService")} ${s.label}`} title={`${t("bgv.closeService")} ${s.label}`} onClick={() => bgDo(bg.close(s.id))}
+                  style={{ height: 34, width: 26, padding: 0, borderRadius: 8, background: "transparent", color: on ? "var(--bg)" : "var(--mute)", fontSize: 14 }}>×</button>
+              )}
+            </span>
           );
         })}
         <span style={{ flex: 1 }} />

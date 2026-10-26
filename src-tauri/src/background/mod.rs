@@ -50,6 +50,10 @@ pub enum BgSource {
     Youtube,
 }
 
+/// Every source, in the order the UI shows them.
+pub const ALL_SOURCES: [BgSource; 6] =
+    [BgSource::Spotify, BgSource::Ytmusic, BgSource::Beatport, BgSource::Soundtrack, BgSource::Soundcloud, BgSource::Youtube];
+
 /// Level offset per source in dB, applied through the Windows mixer. Beatport plays loud club
 /// masters that are not normalised, so it starts 6 dB lower.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -123,6 +127,9 @@ pub struct BgState {
     pub error: Option<String>,
     /// Rows the page shows (playlist / queue), best effort. null = not available for this source.
     pub tracks: Option<Vec<BgTrack>>,
+    /// Sources with a window open (filled in by the volume thread, which can see the windows).
+    #[serde(default)]
+    pub open_sources: Vec<BgSource>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -260,6 +267,7 @@ impl Inner {
             session_found: self.session_found,
             error: self.error.clone(),
             tracks: self.page.tracks.clone(),
+            open_sources: Vec::new(),
         }
     }
 
@@ -444,7 +452,7 @@ fn volume_thread(app: AppHandle, shared: Arc<Mutex<Inner>>) {
         seen_main |= main_exists;
         if seen_main && !main_exists {
             sessions.set(1.0);
-            if let Some(win) = window::get(&app) {
+            for win in window::all(&app) {
                 let _ = win.destroy();
             }
             return;
@@ -523,7 +531,8 @@ fn volume_thread(app: AppHandle, shared: Arc<Mutex<Inner>>) {
         if last_emit.is_none_or(|t| now.duration_since(t) >= EMIT_EVERY) {
             last_emit = Some(now);
             let state = shared.lock().map(|s| s.snapshot());
-            if let Ok(state) = state {
+            if let Ok(mut state) = state {
+                state.open_sources = window::open_sources(&app);
                 let _ = app.emit("bg://state", state);
             }
         }
@@ -536,9 +545,9 @@ fn volume_thread(app: AppHandle, shared: Arc<Mutex<Inner>>) {
 
 #[tauri::command]
 fn report<R: Runtime>(webview: tauri::Webview<R>, report: PageReport) {
-    // Only the background window may report (the capability already limits it; this is a
-    // second lock on the door).
-    if webview.label() != window::LABEL {
+    // Only player windows may report (the capability already limits it; this is a second lock
+    // on the door), and only the active one: "now playing" follows the source being controlled.
+    if !window::is_active_label(webview.label()) {
         return;
     }
     if let Some(handle) = webview.app_handle().try_state::<BgHandle>() {
@@ -580,7 +589,8 @@ pub async fn bg_open(app: AppHandle, source: BgSource, show: bool, link: Option<
         // A link always loads, even when this source is already open.
         (s.source != Some(source) || !existed || link.is_some(), existed)
     };
-    let result = window::open(&app, source, navigate && existed, show, link);
+    let _ = existed;
+    let result = window::open(&app, source, show, link);
     let mut s = handle.lock();
     match &result {
         Ok(()) => {
@@ -600,6 +610,19 @@ pub async fn bg_open(app: AppHandle, source: BgSource, show: bool, link: Option<
         Err(e) => s.error = Some(format!("Could not open the background player: {e}")),
     }
     result
+}
+
+/// Close one source's window (its music stops); another open one becomes the active one.
+#[tauri::command]
+pub async fn bg_close(app: AppHandle, source: BgSource) -> Result<(), String> {
+    window::close(&app, source);
+    let state = app.state::<BgHandle>();
+    let mut s = state.lock();
+    s.source = window::active();
+    s.open = window::get(&app).is_some();
+    s.page = PageReport::default();
+    s.page_at = None;
+    Ok(())
 }
 
 #[tauri::command]
@@ -726,8 +749,10 @@ pub fn bg_set_config(state: State<'_, BgHandle>, config: BgConfig) {
 }
 
 #[tauri::command]
-pub fn bg_get_state(state: State<'_, BgHandle>) -> BgState {
-    state.lock().snapshot()
+pub fn bg_get_state(app: AppHandle, state: State<'_, BgHandle>) -> BgState {
+    let mut s = state.lock().snapshot();
+    s.open_sources = window::open_sources(&app);
+    s
 }
 
 /// Separate from `BgState` (which the contract fixes): the saved settings, so the Build panel
