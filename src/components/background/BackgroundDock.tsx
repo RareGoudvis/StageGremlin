@@ -4,7 +4,7 @@
 // Hold Alt while clicking Duck / Restore / Play / Pause to do it instantly (no fade).
 
 import { useEffect, useRef, useState } from "react";
-import { bg, bgDo, SOURCES, useBackground, type BgCmd, type BgSource } from "./useBackground";
+import { bg, bgDo, useBackground, useEnabledSources, type BgCmd, type BgSource } from "./useBackground";
 import "./showSync"; // keeps the core's settings in step with show.background
 
 const HOLD_MS = 1000;
@@ -13,6 +13,7 @@ const RELOCK_MS = 30_000;
 
 export function BackgroundDock() {
   const st = useBackground();
+  const sources = useEnabledSources();
   const [locked, setLocked] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const lastTouch = useRef(Date.now());
@@ -50,7 +51,7 @@ export function BackgroundDock() {
           style={{ height: 28, fontSize: 12.5, flex: 1, minWidth: 0 }}
         >
           <option value="" disabled>Pick a source…</option>
-          {SOURCES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+          {sources.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
         </select>
         <LockButton locked={locked} onUnlock={() => { touch(); setLocked(false); }} onLock={() => setLocked(true)} />
       </div>

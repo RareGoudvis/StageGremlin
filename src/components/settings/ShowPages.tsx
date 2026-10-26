@@ -3,6 +3,8 @@
 import { useT } from "../../i18n";
 import { NumField, Row } from "../controls";
 import { BackgroundSettings } from "../background/BackgroundPanel";
+import { SOURCES, type BgSource } from "../background/useBackground";
+import { useSettings } from "../../settingsStore";
 import { Card, PageTitle, useShowSetting } from "./common";
 
 export function LevelsPage() {
@@ -36,9 +38,26 @@ export function LevelsPage() {
 
 export function BackgroundPage() {
   const t = useT();
+  const enabled = useSettings((s) => s.ui.bgServices);
+  const update = useSettings((s) => s.update);
+  const toggle = (id: BgSource) => {
+    const next = enabled.includes(id) ? enabled.filter((x) => x !== id) : [...enabled, id];
+    if (next.length) update({ bgServices: next }); // at least one stays
+  };
   return (
     <>
       <PageTitle note={t("set.storedShow")}>{t("set.background")}</PageTitle>
+      {/* Stored on this laptop (not in the show): which services show up anywhere in the app. */}
+      <Card title={t("bgs.services")} note={t("bgs.servicesNote")}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+          {SOURCES.map((s) => (
+            <label key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
+              <input type="checkbox" checked={enabled.includes(s.id)} onChange={() => toggle(s.id)} style={{ width: 18, height: 18 }} />
+              {s.label}
+            </label>
+          ))}
+        </div>
+      </Card>
       <BackgroundSettings />
     </>
   );

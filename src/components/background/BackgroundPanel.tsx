@@ -5,7 +5,7 @@
 
 import { useT } from "../../i18n";
 import { useEffect, useState } from "react";
-import { bg, bgDo, DEFAULT_CONFIG, SOURCES, useBackground, type BgConfig, type BgSource } from "./useBackground";
+import { bg, bgDo, DEFAULT_CONFIG, useBackground, useEnabledSources, type BgConfig, type BgSource } from "./useBackground";
 import { readShowBackground, saveBackgroundToShow } from "./showSync";
 import { useDoc } from "../../store";
 
@@ -74,6 +74,7 @@ export function BackgroundPanel({ onClose }: { onClose: () => void }) {
 /** The settings themselves, without the dialog around them (also shown in Settings › Background). */
 export function BackgroundSettings() {
   const st = useBackground();
+  const sources = useEnabledSources();
   const [config, setConfig] = useState<BgConfig | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -99,7 +100,7 @@ export function BackgroundSettings() {
         <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <span className="k">Source · opens the player window to sign in and pick a playlist</span>
           <div className="chips">
-            {SOURCES.map((s) => (
+            {sources.map((s) => (
               <button key={s.id} className="b chip" aria-pressed={st?.source === s.id} onClick={() => openSource(s.id)}>
                 {s.label}
               </button>
@@ -138,7 +139,7 @@ export function BackgroundSettings() {
             </label>
 
             <span className="k">Level offset per source</span>
-            {SOURCES.map((s) => (
+            {sources.map((s) => (
               <Num key={s.id} label={s.label} unit="dB" value={config.offsets[s.id]} min={-24} max={0} step={0.5}
                 onChange={(v) => save({ ...config, offsets: { ...config.offsets, [s.id]: v } })} />
             ))}
