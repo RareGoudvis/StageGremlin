@@ -9,6 +9,7 @@ import type { Cue } from "../types";
 import { passLen } from "../types";
 import { fmtTime } from "../lib/format";
 import { cueRunLen } from "../lib/showMath";
+import logoPrint from "../assets/logo-print.png";
 
 let paper: "A4" | "A3" = "A4";
 
@@ -63,9 +64,13 @@ export function PrintSheet() {
 
   return (
     <div className="print-sheet">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", borderBottom: "2px solid #000", paddingBottom: 4 }}>
-        <h1 style={{ margin: 0, fontSize: "18pt" }}>{show.name}</h1>
-        <span style={{ fontSize: "9pt" }}>Cue sheet · {queue.length} cues · {fmtTime(clock)} · printed {new Date().toLocaleDateString("nl-BE")}</span>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "6mm", borderBottom: "2px solid #000", paddingBottom: 4 }}>
+        {/* The light word mark (made for paper). */}
+        <img src={logoPrint} alt="StageGremlin" style={{ height: "11mm", width: "auto" }} />
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
+          <h1 style={{ margin: 0, fontSize: "18pt" }}>{show.name}</h1>
+          <span style={{ fontSize: "9pt" }}>Cue sheet · {queue.length} cues · {fmtTime(clock)} · printed {new Date().toLocaleDateString("nl-BE")}</span>
+        </div>
       </div>
       {show.sections.map((sec) => (
         <section key={sec.id} style={{ breakInside: "avoid-page" }}>
