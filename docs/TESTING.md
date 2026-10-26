@@ -148,6 +148,14 @@ Use Build mode unless the step says Run.
    **Good:** the music keeps playing.
 8. **Exit the app** while the music is ducked.
    **Good:** the player closes, and the next time the player's volume in the Windows Volume Mixer is back to normal (not stuck low).
+9. **The app's own sound is never ducked**: in the Volume Mixer, only an `msedgewebview2` entry moves on Duck — the RG CuePlay entry stays put.
+10. **Track list**: open a Spotify playlist / a YouTube Music queue.
+    **Good:** the tracks appear in the dock, and tapping one plays it.
+11. **Keys in Run** (also while the dock is locked): D duck · R restore · Shift+D play/pause · Shift+→ next · hold Alt for no fade.
+12. **Per show**: change the duck level in one show, save, open another show, come back.
+    **Good:** each show keeps its own setting.
+13. **Paused in the background for 5+ minutes**, then press play.
+    **Good:** the controls still respond (Windows slows down hidden pages; tell me if it gets stuck).
 
 ---
 

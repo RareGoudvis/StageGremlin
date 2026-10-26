@@ -16,6 +16,7 @@ export async function go() {
   }
 }
 
+export const pauseAll = () => void call("engine_pause_all").catch((e) => toast(`Pause failed: ${e}`));
 export const stopAll = () => void call("engine_stop_all");
 export const panic = () => void call("engine_panic");
 export const stopCue = (cueId: string) => void call("engine_stop_cue", { cueId });

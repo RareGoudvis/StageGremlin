@@ -17,7 +17,8 @@ import { findCue } from "../lib/showOps";
 import { previewStop, previewToggle, usePreview } from "../lib/preview";
 import { fmtTime } from "../lib/format";
 import { mainRunning } from "../lib/showMath";
-import { firePadByKey, go, panic, releaseVamp, stopAll, stopCue, toggleUnder } from "../lib/runActions";
+import { firePadByKey, go, panic, pauseAll, releaseVamp, stopAll, stopCue, toggleUnder } from "../lib/runActions";
+import { isAction } from "../settingsStore";
 import { SectionRail } from "../components/run/SectionRail";
 import { NowPlaying } from "../components/run/NowPlaying";
 import { UpNext, upNextCues } from "../components/run/UpNext";
@@ -109,6 +110,12 @@ export function RunView() {
         return;
       }
       const k = e.key.toLowerCase();
+      // P: pause / resume everything (rebindable in Settings).
+      if (isAction(e, "pauseAll")) {
+        e.preventDefault();
+        pauseAll();
+        return;
+      }
       if (k === "h") {
         e.preventDefault();
         const c = findCue(useDoc.getState().show, selectedId ?? playhead);
