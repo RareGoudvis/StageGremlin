@@ -35,6 +35,9 @@ Audio file filter: mp3, wav, flac, m4a, aac, ogg, opus. Show filter: cueplay.
 | Event | Payload | Rate |
 | --- | --- | --- |
 | `engine://state` | `EngineState` | ~30 Hz, always (also when idle, so meters fall back) |
+
+`EngineState.meter` = `{ peakL, peakR, grDb, overs, lufsS }`: `lufsS` is the short-term loudness (EBU R128, 3 s window) of
+the output after the limiter, in LUFS, updated ~10×/s; −70 means silence.
 | `engine://output` | `OutputStatus` = `{ outputName: string, outputFound: boolean, preferred: string \| null }` | on start and whenever the output changes. `outputFound: false` = preferred device missing, playing on the Windows default; the core looks again every 2 s while nothing plays and switches over by itself |
 | `engine://error` | `string` | when the audio device fails or a command errors |
 
@@ -102,3 +105,17 @@ M4A stream, and for `media_convert`.
 `destDir`: the show's `media/` folder when the show is saved, else `<dataDir>/downloads`.
 
 Note: the engine (symphonia) does not decode Opus/WebM. When the user adds such a file, call `media_convert` first.
+
+## Files, watching and UI settings
+
+| Command | Args | Returns | Notes |
+| --- | --- | --- | --- |
+| `show_export_zip` | `{ showPath: string, dest: string }` | `void` | zips the .cueplay and its `media/` folder (not `backups/`) into `dest`. Media is stored uncompressed (already compressed audio), so it's quick |
+| `media_watch` | `{ dir: string \| null }` | `void` | `dir` = the show folder (same as `baseDir`); watches `<dir>/media` recursively (created if missing). null = stop. Replaces any earlier watch |
+| `file_exists` | `{ paths: string[] }` | `boolean[]` | same order as `paths`; true only for existing files |
+| `show_in_folder` | `{ path: string }` | `void` | Explorer opens with the file selected (macOS: Finder; Linux: the folder) |
+| `settings_get` | – | `object` | the UI's own per-machine settings (`ui` in `<dataDir>/settings.json`); `{}` the first time |
+| `settings_set` | `{ patch: object }` | `object` | shallow merge: each top-level key replaces the stored one, `null` removes it. Returns the merged object |
+
+Event `media://changed` → `{ path: string, kind: "modified" | "removed" | "created" }`, sent once per file after it has been
+quiet for 500 ms. The core also drops that file from the `analyze_file` cache, so the next `analyze_file` really re-analyses it.
