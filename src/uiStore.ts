@@ -17,7 +17,8 @@ export type Dialog =
   | { kind: "youtube" }
   | { kind: "print" }
   | { kind: "swap"; cueId: string }
-  | { kind: "resume" };
+  | { kind: "resume" }
+  | { kind: "settings" };
 
 /** Booth settings for a dark hall: dimmer, red night mode, Big mode. Remembered per machine. */
 export interface Booth { dim: number; red: boolean; big: boolean }

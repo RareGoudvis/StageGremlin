@@ -3,6 +3,7 @@
 
 import { useRef, useState } from "react";
 import { useDoc, type Mode } from "../store";
+import { useT, type TKey } from "../i18n";
 import { forceMode, HOLD_TO_LEAVE_MS, requestModeByClick } from "../lib/modeSwitch";
 
 const MODES: { mode: Mode; n: string; label: string }[] = [
@@ -13,6 +14,7 @@ const MODES: { mode: Mode; n: string; label: string }[] = [
 
 export function ModeSwitch({ preflightOk }: { preflightOk: boolean }) {
   const mode = useDoc((s) => s.mode);
+  const t = useT();
   const [holding, setHolding] = useState<Mode | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -56,7 +58,7 @@ export function ModeSwitch({ preflightOk }: { preflightOk: boolean }) {
               <span aria-hidden="true" style={{ position: "absolute", left: 0, top: 0, bottom: 0, background: "var(--p3)", animation: `holdfill ${HOLD_TO_LEAVE_MS}ms linear forwards` }} />
             )}
             <span className="mono" style={{ fontSize: 11, opacity: 0.7, position: "relative" }}>{m.n}</span>
-            <span style={{ position: "relative" }}>{m.label}</span>
+            <span style={{ position: "relative" }}>{t(`mode.${m.mode}` as TKey)}</span>
             {m.mode === "preflight" && (
               <span style={{ position: "relative", width: 7, height: 7, borderRadius: 4, background: preflightOk ? "var(--acc)" : "var(--amb)" }} />
             )}

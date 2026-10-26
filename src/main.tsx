@@ -10,8 +10,10 @@ import "./styles.css";
 
 import App from "./App";
 import { startEngineSync } from "./lib/engineSync";
+import { useSettings } from "./settingsStore";
 
 startEngineSync();
+void useSettings.getState().load();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
