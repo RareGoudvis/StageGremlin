@@ -1,0 +1,40 @@
+[package]
+name = "rg-cueplay"
+version = "0.1.0"
+description = "RG CuePlay: a QLab-style audio cue player for school shows"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+
+[lib]
+# The `_lib` suffix avoids a name clash with the binary on Windows (cargo issue #8519).
+name = "rg_cueplay_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7", features = [] }
+
+[dependencies]
+cueplay-engine = { path = "../crates/engine", features = ["device"] }
+tauri = { version = "2.12", features = [] }
+tauri-plugin-dialog = "2.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Downloads yt-dlp and ffmpeg (Settings › Install / Update).
+ureq = "3"
+# Unpacks ffmpeg.exe / ffprobe.exe from the ffmpeg release zip.
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[target.'cfg(windows)'.dependencies]
+# Only for SetThreadExecutionState (keep the laptop awake during a show).
+windows-sys = { version = "0.59", features = ["Win32_System_Power"] }
+# Background player: find the web player's audio session and set its volume (Core Audio).
+# Same version Tauri's WebView2 bindings already use, so nothing extra is compiled.
+windows = { version = "0.62", features = [
+  "Win32_Foundation",
+  "Win32_Media_Audio",
+  "Win32_System_Com",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_System_Variant",
+  "Win32_System_Threading",
+  "Win32_System_Diagnostics_ToolHelp",
+] }
