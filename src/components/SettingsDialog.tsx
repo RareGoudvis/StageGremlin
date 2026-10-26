@@ -14,16 +14,18 @@ import { AboutPage, ToolsPage } from "./settings/ToolsPages";
 import { AudioPage, LookPage, RunBoothPage, ShortcutsPage } from "./settings/LaptopPages";
 import { BackgroundPage, LevelsPage } from "./settings/ShowPages";
 import { AudacPage } from "./settings/AudacPage";
+import { SchedulePage } from "./settings/SchedulePage";
 import { useAudac } from "../lib/audac";
 import { lockAdmin } from "../lib/admin";
 
-type Page = "audio" | "run" | "audac" | "look" | "shortcuts" | "levels" | "background" | "tools" | "about";
+type Page = "audio" | "run" | "audac" | "schedule" | "look" | "shortcuts" | "levels" | "background" | "tools" | "about";
 
 const NAV: ({ head: TKey } | { id: Page; label: TKey })[] = [
   { head: "set.laptop" },
   { id: "audio", label: "set.audio" },
   { id: "run", label: "set.run" },
   { id: "audac", label: "set.audac" },
+  { id: "schedule", label: "set.schedule" },
   { id: "look", label: "set.look" },
   { id: "shortcuts", label: "set.shortcuts" },
   { head: "set.show" },
@@ -35,7 +37,7 @@ const NAV: ({ head: TKey } | { id: Page; label: TKey })[] = [
 ];
 
 const PAGES: Record<Page, () => ReactNode> = {
-  audio: AudioPage, run: RunBoothPage, audac: AudacPage, look: LookPage, shortcuts: ShortcutsPage,
+  audio: AudioPage, run: RunBoothPage, audac: AudacPage, schedule: SchedulePage, look: LookPage, shortcuts: ShortcutsPage,
   levels: LevelsPage, background: BackgroundPage, tools: ToolsPage, about: AboutPage,
 };
 
@@ -115,7 +117,9 @@ function useNavHints(): Partial<Record<Page, string>> {
   const lufs = useDoc((s) => s.show.settings.targetLufs);
   const dumbo = useSettings((s) => s.ui.dumbo);
   const mtx = useAudac();
+  const timesOn = useSettings((s) => s.ui.audac.schedule.filter((e) => e.on).length);
   return {
+    schedule: timesOn ? `${timesOn} on` : undefined,
     audac: mtx?.status === "connected" ? `● ${mtx.host}` : mtx?.status === "retrying" ? "○ …" : undefined,
     audio: output ? `${output.outputFound ? "●" : "○"} ${output.outputName}` : undefined,
     run: dumbo ? t("set.dumboOn") : "Dumbo mode",

@@ -79,6 +79,29 @@ export interface AudacSetup {
   inRun: "show" | "locked" | "hide";
   zones: { name: string; show: boolean }[];
   inputs: { name: string; show: boolean }[];
+  /** Times when StageGremlin sets zones (and starts background music) by itself, e.g. lunch. */
+  schedule: ScheduleEntry[];
+  /** Don't start scheduled times while a show is running (Run). */
+  schedulePauseInRun: boolean;
+  /** When a scheduled time ends: let the MTX go (Touch 2 can connect) or keep holding it. */
+  scheduleAfter: "release" | "keep";
+}
+
+export interface ScheduleEntry {
+  id: string;
+  name: string;
+  on: boolean;
+  /** 0 = Sunday … 6 = Saturday (like JavaScript's getDay). */
+  days: number[];
+  /** "HH:MM", 24-hour, local time. `to` is later than `from` on the same day. */
+  from: string;
+  to: string;
+  /** Zones (1–8) switched to `input` (1–8) at `volume` dB below max, unmuted; muted again at the end. */
+  zones: number[];
+  input: number;
+  volume: number;
+  /** Optional: background music to start ("" = none) and a playlist link on that service. */
+  music: { source: "" | "spotify" | "ytmusic" | "beatport" | "soundtrack"; link: string };
 }
 
 // Names from AUDAC's MTX input list; each school renames them (aux, streambox, mic…) and hides the unused.
@@ -89,6 +112,9 @@ const AUDAC_DEFAULT: AudacSetup = {
   inRun: "show",
   zones: Array.from({ length: 8 }, (_, i) => ({ name: `Zone ${i + 1}`, show: true })),
   inputs: ["Mic 1", "Mic 2", "Line 3", "Line 4", "Line 5", "Line 6", "WLI/MWX65", "WMI"].map((name) => ({ name, show: true })),
+  schedule: [],
+  schedulePauseInRun: true,
+  scheduleAfter: "release",
 };
 
 const DEFAULTS: UiSettings = { lang: "en", keys: {}, bgLockDefault: false, zoom: 100, dumbo: false, dumboPads: false, dumboPin: "", ytFormat: "original", recent: [], audac: AUDAC_DEFAULT, adminHash: "" };
