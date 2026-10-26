@@ -1,53 +1,58 @@
-// Build → "Background" button and its panel: pick a source, open the full player window to sign in
+// Top-bar background pill, and the background settings panel: pick a source, open the full player window to sign in
 // and choose a playlist, and set the duck level, fade times, source offsets and auto-duck.
 // Settings are stored in the show (show.background, see showSync.ts); the per-machine
 // <dataDir>/background.json is what a show without its own settings starts from.
 
 import { useT } from "../../i18n";
 import { useEffect, useState } from "react";
-import { bg, bgDo, DEFAULT_CONFIG, useBackground, useEnabledSources, type BgConfig, type BgSource } from "./useBackground";
+import { requestModeByClick } from "../../lib/modeSwitch";
+import { bg, bgDo, DEFAULT_CONFIG, SOURCES, useBackground, useEnabledSources, type BgConfig, type BgSource } from "./useBackground";
 import { readShowBackground, saveBackgroundToShow } from "./showSync";
 import { useDoc } from "../../store";
 
-/** The toolbar button; renders the panel when open. */
+/** The top-bar pill in Build / Preflight: what the background music is doing, with play/pause.
+ *  Only there once a player is open: otherwise the "4 Background" tab already says it all.
+ *  Clicking it goes to the Background screen (its settings live in Settings › Background music). */
 export function BackgroundButton() {
   const t = useT();
-  const [open, setOpen] = useState(false);
   const st = useBackground();
-  // Once a player is open, the button shows what plays and gets a play/pause button next to it:
-  // quick control while you're still adjusting things in Build.
-  const nowPlaying = st?.open && st.title ? `${st.title}${st.artist ? ` · ${st.artist}` : ""}` : null;
+  if (!st?.open) return null;
+  // The on-air deck when decks are in use, else the active player (as before the decks).
+  const onAirSrc = st.decks?.[st.onAir ?? 0] ?? st.source;
+  const p = st.players?.find((x) => x.source === onAirSrc);
+  const title = p?.title ?? st.title;
+  const artist = p?.artist ?? st.artist;
+  const playing = p ? p.playing : st.playing;
+  const label = title ? `${title}${artist ? ` · ${artist}` : ""}` : SOURCES.find((s) => s.id === onAirSrc)?.label ?? t("top.background");
+  const cmd = () => bgDo(p ? bg.command(playing ? "pause" : "play", false, p.source) : bg.command(playing ? "pause" : "play"));
   return (
     <span style={{ display: "flex", alignItems: "center", gap: 2 }}>
       <button
         className="b btn"
-        onClick={() => setOpen(true)}
-        title={nowPlaying ?? "Background music player"}
-        style={{ background: "var(--cybg)", color: "var(--cy)", border: "1px solid var(--cyline)", fontWeight: 700, maxWidth: 260, borderRadius: st?.open ? "8px 0 0 8px" : undefined }}
+        onClick={() => requestModeByClick("background")}
+        title={`${label} · ${t("mode.background")}`}
+        style={{ background: "var(--cybg)", color: "var(--cy)", border: "1px solid var(--cyline)", fontWeight: 700, maxWidth: 260, borderRadius: "8px 0 0 8px" }}
       >
-        <span style={{ width: 8, height: 8, borderRadius: 4, flex: "none", background: st?.playing ? "var(--cy)" : "var(--mute)" }} />
+        <span style={{ width: 8, height: 8, borderRadius: 4, flex: "none", background: playing ? "var(--cy)" : "var(--mute)" }} />
         {/* The note stays when the title folds away (narrow window); the title is in the tooltip. */}
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true" style={{ flex: "none" }}>
           <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
         </svg>
-        <span className="clamp1 tb-bg-label">{nowPlaying ?? t("top.background")}</span>
+        <span className="clamp1 tb-bg-label">{label}</span>
       </button>
-      {st?.open && (
-        <button
-          className="b btn btn-icon"
-          onClick={() => bgDo(bg.command(st.playing ? "pause" : "play"))}
-          aria-label={st.playing ? t("bg.pause") : t("bg.play")}
-          title={st.playing ? t("bg.pause") : t("bg.play")}
-          style={{ width: 36, background: "var(--cybg)", color: "var(--cy)", border: "1px solid var(--cyline)", borderRadius: "0 8px 8px 0" }}
-        >
-          {st.playing ? (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z" /></svg>
-          ) : (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z" /></svg>
-          )}
-        </button>
-      )}
-      {open && <BackgroundPanel onClose={() => setOpen(false)} />}
+      <button
+        className="b btn btn-icon"
+        onClick={cmd}
+        aria-label={playing ? t("bg.pause") : t("bg.play")}
+        title={playing ? t("bg.pause") : t("bg.play")}
+        style={{ width: 36, background: "var(--cybg)", color: "var(--cy)", border: "1px solid var(--cyline)", borderRadius: "0 8px 8px 0" }}
+      >
+        {playing ? (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z" /></svg>
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z" /></svg>
+        )}
+      </button>
     </span>
   );
 }
