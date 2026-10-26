@@ -111,12 +111,11 @@ export function StreamboxPage() {
             <Chips<StreamboxSetup["via"]> label={t("sbx.via")} value={box.via} onChange={(via) => save({ via })}
               options={[{ value: "dlna", label: "DLNA" }, { value: "cast", label: "Google Cast" }]} />
           </Row>
-          {box.via === "dlna" && (
-            <Row label={t("sbx.format")} hint={t("sbx.formatHint")}>
-              <Chips<StreamboxSetup["format"]> label={t("sbx.format")} value={box.format} onChange={(format) => save({ format })}
-                options={[{ value: "wav", label: "WAV" }, { value: "l16", label: "L16 (PCM)" }]} />
-            </Row>
-          )}
+          <Row label={t("sbx.format")} hint={t("sbx.formatHint")}>
+            <Chips<StreamboxSetup["format"]> label={t("sbx.format")} value={box.format === "l16" && box.via === "cast" ? "wav" : box.format} onChange={(format) => save({ format })}
+              options={[{ value: "wav", label: "WAV" }, { value: "mp3", label: "MP3" },
+                ...(box.via === "dlna" ? [{ value: "l16" as const, label: "L16 (PCM)" }] : [])]} />
+          </Row>
           <StreamboxPanel />
         </Card>
       )}

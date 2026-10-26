@@ -170,7 +170,7 @@ Nothing installs by itself.
 | `streambox_set_mute` | `{ target, mute }` | `void` | |
 | `streambox_transport` | `{ target, action: "play" \| "pause" \| "stop" }` | `void` | DLNA only (Cast can't pause another sender's cast) |
 
-| `streambox_send_start` | `{ target }` | `string` (stream URL) | records the show output (Windows loopback, by the engine's output name) and serves it as an endless 16-bit WAV on a random port; tells the box to play it (DLNA SetAVTransportURI + Play, or Cast: Default Media Receiver LOAD) |
+| `streambox_send_start` | `{ target }` | `string` (stream URL) | records the show output (Windows loopback, by the engine's output name) and serves it on a random port as WAV, L16 (DLNA) or MP3 (`format`: "wav" | "l16" | "mp3"; MP3 via the bundled ffmpeg, 192 kbit/s); tells the box to play it (DLNA SetAVTransportURI + Play, or Cast: Default Media Receiver LOAD) |
 | `streambox_send_stop` | – | `void` | ends server + recording, tells the box to stop |
 | `streambox_sending` | – | `boolean` | |
 
