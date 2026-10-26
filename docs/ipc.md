@@ -121,3 +121,26 @@ Note: the engine (symphonia) does not decode Opus/WebM. When the user adds such 
 
 Event `media://changed` → `{ path: string, kind: "modified" | "removed" | "created" }`, sent once per file after it has been
 quiet for 500 ms. The core also drops that file from the `analyze_file` cache, so the next `analyze_file` really re-analyses it.
+
+## AUDAC (MTX48/MTX88 zone remote)
+
+A remote for the school's AUDAC matrix over the network (TCP port 5001, AUDAC's MTX command set; see
+`src-tauri/src/audac/protocol.rs`). Not linked to cues. The MTX allows **one** connection: the core holds it while
+connected (so Touch 2 on a phone can't change zones meanwhile) and keeps retrying every 3 s until `audac_disconnect`.
+Zones and inputs count from 1. Setup (IP, names, which zones/inputs to show) is UI-only, in `settings.ui.audac`.
+
+| Command | Args | Returns | Notes |
+| --- | --- | --- | --- |
+| `audac_connect` | `{ host: string, port?: number }` | `void` | port defaults to 5001. Connects and holds the link; retries every 3 s |
+| `audac_disconnect` | – | `void` | lets go of the MTX |
+| `audac_get_state` | – | `AudacState` | |
+| `audac_set_volume` | `{ zone: number, db: number }` | `void` | `db` = dB below max (0 loudest … 70 quietest). Slider-friendly: only the newest value per zone is sent |
+| `audac_step_volume` | `{ zone: number, up: boolean }` | `void` | ±3 dB (the MTX's own step) |
+| `audac_set_input` | `{ zone: number, input: number }` | `void` | input 1–8 (MTX input list), 0 = none |
+| `audac_set_mute` | `{ zone: number, mute: boolean }` | `void` | |
+
+`AudacState = { status: "off" | "connecting" | "connected" | "retrying", host: string, port: number, message: string | null,
+known: boolean, zones: { volume: number, input: number, mute: boolean }[] }` (8 zones; `known` = the MTX has reported
+them once). Event `audac://state` carries the same object on every change.
+
+Try it without the box: `python scripts/fake-mtx.py`, then connect to `127.0.0.1`.

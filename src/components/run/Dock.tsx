@@ -1,18 +1,22 @@
-// The dock under GO: Pads / Background / Log.
+// The dock under GO: Pads / Background / AUDAC (when an MTX is set up) / Log.
 
 import { useEffect, useRef, useState } from "react";
 import { useEngine } from "../../engineStore";
 import type { LogEntry } from "../../types";
 import { PadsDock } from "./PadsDock";
 import { BackgroundDock } from "../background/BackgroundDock";
+import { AudacPanel } from "../audac/AudacPanel";
+import { useAudacConfigured } from "../../lib/audac";
 
-type Tab = "pads" | "bg" | "log";
+type Tab = "pads" | "bg" | "audac" | "log";
 
 export function Dock() {
   const [tab, setTab] = useState<Tab>("pads");
+  const audacOn = useAudacConfigured();
   const tabs: { id: Tab; label: string }[] = [
     { id: "pads", label: "PADS" },
     { id: "bg", label: "BACKGROUND" },
+    ...(audacOn ? [{ id: "audac" as const, label: "AUDAC" }] : []),
     { id: "log", label: "LOG" },
   ];
   return (
@@ -37,6 +41,7 @@ export function Dock() {
       </div>
       {tab === "pads" && <PadsDock />}
       {tab === "bg" && <BackgroundDock />}
+      {tab === "audac" && <div style={{ flex: 1, minHeight: 0, padding: 8, display: "flex", flexDirection: "column" }}><AudacPanel /></div>}
       {tab === "log" && <Log />}
     </section>
   );

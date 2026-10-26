@@ -16,6 +16,7 @@ import { useSettings } from "./settingsStore";
 import { DumboView } from "./views/DumboView";
 import { useMedia } from "./lib/media";
 import { useT } from "./i18n";
+import { useAudacAutoConnect } from "./lib/audac";
 import { ContextMenuHost } from "./components/ContextMenu";
 import { BuildView } from "./views/BuildView";
 import { PreflightView } from "./views/PreflightView";
@@ -57,6 +58,7 @@ export default function App() {
   useResumeCheck();
   useWindowTitle();
   useAutosave();
+  useAudacAutoConnect();
   const dropping = useFileDrop();
   const buildTab = useDoc((s) => s.buildTab);
   const t = useT();
