@@ -5,7 +5,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useDoc } from "../../store";
 import type { Cue, Follow, Pad } from "../../types";
-import { goQueue, trimmedLen } from "../../types";
+import { allCues, goQueue, trimmedLen } from "../../types";
 import { findCue, PAD_KEYS, PAD_MODES, removeCues, removePad, updateAnyCue, updatePad } from "../../lib/showOps";
 import { ensureWaveform } from "../../lib/fileActions";
 import { fmtDb, fmtSecs, fmtTime } from "../../lib/format";
@@ -155,6 +155,7 @@ function CueInspector({ cue, pad }: { cue: Cue; pad?: Pad }) {
   const previewing = usePreview((s) => s.state?.playing && s.cueId === cue.id);
   // Cues this one may hang on: GO cues other than itself (selectors must not build new arrays, so compute here).
   const parents = goQueue(show).filter((c) => c.id !== cue.id);
+  const dupNumber = allCues(show).some((c) => c.id !== cue.id && c.number === cue.number);
   const hasChildren = show.sections.some((sec) => sec.cues.some((c) => c.attach?.to === cue.id));
   const waveform = useWaveform(cue.file);
 
@@ -177,8 +178,11 @@ function CueInspector({ cue, pad }: { cue: Cue; pad?: Pad }) {
             {PAD_KEYS.map((k) => <option key={k} value={k}>{k}</option>)}
           </select>
         ) : (
-          <span className="mono" title="Numbers update automatically" style={{ fontSize: 22, fontWeight: 600, color: "var(--acc)", minWidth: 36 }}>{cue.number}</span>
+          <input className="input mono" aria-label="Cue number" title="Your own number (decimals like 2.5 are fine). Renumber all in the toolbar resets them."
+            value={cue.number} onChange={(e) => set({ number: e.target.value.trim() || cue.number }, "number")}
+            style={{ width: 64, height: 38, fontSize: 18, fontWeight: 600, color: "var(--acc)", textAlign: "center" }} />
         )}
+        {!pad && dupNumber && <span className="tag tag-amb" title="Another cue has the same number">SAME NUMBER</span>}
         <input className="input" aria-label="Name" value={cue.name} onChange={(e) => set({ name: e.target.value }, "name")} style={{ flex: 1, fontSize: 17, fontWeight: 700, height: 38 }} />
       </div>
       {pad && (
