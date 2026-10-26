@@ -1,144 +1,42 @@
-// Build: edit the show. Toolbar on top, cue list (or pads grid) on the left, inspector on the right.
+// Build: edit the show. Left rail (Cues · Pads · Media), one toolbar (or the selection bar),
+// the list in the middle and the inspector on the right. See docs/ui-v2.md.
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { MediaBin } from "../components/build/MediaBin";
 import { copyCues, cutCues, duplicateCues, pasteCues } from "../lib/clipboard";
 import { isAction } from "../settingsStore";
-import { renumber } from "../types";
-import { ask } from "../uiStore";
 import { useT } from "../i18n";
 import { useDoc } from "../store";
 import { useUi } from "../uiStore";
 import { allCues } from "../types";
-import { addSection, locate, moveBy } from "../lib/showOps";
-import { exportZip, fileNew, fileOpen, fileSave, fileSaveAs, importDialog } from "../lib/fileActions";
+import { moveBy } from "../lib/showOps";
 import { findAnyCue } from "../lib/showOps";
 import { previewToggle } from "../lib/preview";
 import { PadGrid } from "../components/build/PadGrid";
-import { isTauri } from "../lib/tauri";
-import { loadDemoShow } from "../lib/demo";
 import { CueList } from "../components/build/CueList";
 import { Inspector, deleteCues } from "../components/build/Inspector";
-import { BackgroundButton } from "../components/background/BackgroundPanel";
-
-/** Remember per machine whether the media bin is open (a convenience; fine if storage is blocked). */
-function loadBinOpen(): boolean {
-  try {
-    return localStorage.getItem("cueplay.bin") !== "closed";
-  } catch {
-    return true;
-  }
-}
+import { BuildRail } from "../components/build/BuildRail";
+import { BuildToolbar } from "../components/build/BuildToolbar";
+import { SelectionBar } from "../components/build/SelectionBar";
 
 export function BuildView() {
   useBuildKeys();
+  const t = useT();
   const tab = useDoc((s) => s.buildTab);
-  const [binOpen, setBinOpenState] = useState(loadBinOpen);
-  const setBinOpen = (open: boolean) => {
-    setBinOpenState(open);
-    try {
-      localStorage.setItem("cueplay.bin", open ? "open" : "closed");
-    } catch {
-      // not remembered
-    }
-  };
+  const multi = useDoc((s) => s.selection.length > 1);
   return (
-    <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: `${binOpen && tab === "cues" ? "250px " : ""}minmax(0, 1fr) 420px` }}>
-      {binOpen && tab === "cues" && <MediaBin onClose={() => setBinOpen(false)} />}
-      <section aria-label="Show" style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
-        <Toolbar binOpen={binOpen} openBin={() => setBinOpen(true)} />
-        {tab === "cues" ? <CueList /> : <PadGrid />}
+    <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+      <BuildRail />
+      <section aria-label="Show" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", minHeight: 0 }}>
+        {multi && tab === "cues" ? <SelectionBar /> : <BuildToolbar />}
+        {tab === "cues" ? <CueList /> : tab === "pads" ? <PadGrid /> : <MediaBin />}
+        {tab === "cues" && (
+          <p style={{ margin: 0, padding: "8px 20px", fontSize: 12, color: "var(--mute)", borderTop: "1px solid var(--line)" }}>{t("build.tip")}</p>
+        )}
       </section>
       <Inspector />
     </div>
   );
-}
-
-function Toolbar({ binOpen, openBin }: { binOpen: boolean; openBin: () => void }) {
-  const t = useT();
-  const name = useDoc((s) => s.show.name);
-  const canUndo = useDoc((s) => s.past.length > 0);
-  const canRedo = useDoc((s) => s.future.length > 0);
-  const selCount = useDoc((s) => s.selection.length);
-  const fileDisplay = useDoc((s) => s.fileDisplay);
-  const anyOpen = useDoc((s) => s.show.sections.some((sec) => !s.collapsed[sec.id]));
-  const tab = useDoc((s) => s.buildTab);
-  const padCount = useDoc((s) => s.show.pads.length);
-  const { edit, undo, redo, setAllCollapsed, toggleFileDisplay, setBuildTab } = useDoc.getState();
-
-  const addSectionHere = () => {
-    const s = useDoc.getState();
-    const at = s.primary ? locate(s.show, s.primary)?.section.id : null;
-    edit((show) => addSection(show, "New section", at));
-  };
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-        <input
-          className="input cond"
-          aria-label="Show name"
-          value={name}
-          onChange={(e) => edit((s) => ({ ...s, name: e.target.value }), { coalesce: "show-name" })}
-          style={{ fontSize: 18, fontWeight: 800, letterSpacing: ".02em", height: 36, width: 260, background: "transparent", borderColor: "transparent" }}
-        />
-        <span style={{ flex: 1 }} />
-        <BackgroundButton />
-        <button className="b btn" onClick={() => void fileNew()} title="Ctrl+N">{t("build.new")}</button>
-        <button className="b btn" onClick={() => void fileOpen()} title="Ctrl+O">{t("build.open")}</button>
-        <button className="b btn" onClick={() => void fileSaveAs()} title="Ctrl+Shift+S">{t("build.saveAs")}</button>
-        <button className="b btn" onClick={() => void exportZip()} title="The show and its media in one zip">{t("build.exportZip")}</button>
-        <button className="b btn btn-go" onClick={() => void fileSave()} title="Ctrl+S">{t("build.save")}</button>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-        <div role="tablist" aria-label="Build panel" style={{ display: "flex", gap: 2, background: "var(--p2)", borderRadius: 9, padding: 3 }}>
-          {(["cues", "pads"] as const).map((t) => (
-            <button key={t} role="tab" aria-selected={tab === t} className="b cond" onClick={() => setBuildTab(t)}
-              style={{ height: 28, padding: "0 12px", borderRadius: 7, fontSize: 13, fontWeight: 800, letterSpacing: ".06em", background: tab === t ? "var(--hl)" : "transparent", color: tab === t ? "var(--bg)" : "var(--dim)" }}>
-              {t === "cues" ? "CUES" : `PADS · ${padCount}`}
-            </button>
-          ))}
-        </div>
-        {tab === "cues" && (
-          <>
-            <button className="b btn btn-go" onClick={() => void importDialog()} title="Ctrl+I · or drop files on the window">{t("build.import")}</button>
-            <button className="b btn" onClick={() => useUi.getState().openDialog({ kind: "youtube" })} title="Ctrl+Shift+Y">+ YouTube</button>
-            <button className="b btn" onClick={addSectionHere}>{t("build.section")}</button>
-            <button className="b btn" onClick={() => setAllCollapsed(anyOpen)}>{anyOpen ? t("build.collapseAll") : t("build.expandAll")}</button>
-          </>
-        )}
-        {/* Background button: the background-player agent hooks its BackgroundButton in here. */}
-        <span style={{ width: 1, height: 22, background: "var(--line)", margin: "0 4px" }} />
-        <button className="b btn" disabled={!canUndo} onClick={undo} title="Ctrl+Z">{t("build.undo")}</button>
-        <button className="b btn" disabled={!canRedo} onClick={redo} title="Ctrl+Y">{t("build.redo")}</button>
-        {tab === "cues" && (
-          <>
-            <button className="b btn" disabled={!selCount} onClick={duplicateCues} title="Ctrl+D">Duplicate</button>
-            <button className="b btn" onClick={() => void renumberAll()} title="Number every cue 1, 2, 3… again (attached cues 1.1, 1.2…)">Renumber all</button>
-          </>
-        )}
-        {tab === "cues" && (
-          <button className="b btn" disabled={!selCount} onClick={() => void deleteCues(useDoc.getState().selection)} title="Delete">
-            Delete{selCount > 1 ? ` (${selCount})` : ""}
-          </button>
-        )}
-        <span style={{ flex: 1 }} />
-        {!binOpen && tab === "cues" && <button className="b btn" onClick={openBin} title="Show the media bin">{t("build.bin")} ▶</button>}
-        <button className="b btn" onClick={() => useUi.getState().openDialog({ kind: "print" })} title="Ctrl+P">{t("build.print")}</button>
-        <button className="b chip" aria-pressed={fileDisplay === "path"} onClick={toggleFileDisplay} title="Show full file paths in the list">{t("build.fullPaths")}</button>
-        {!isTauri && (
-          <button className="b btn" onClick={loadDemoShow} title="Browser preview only" style={{ background: "var(--cybg)", color: "var(--cytx)", border: "1px solid var(--cyline)" }}>
-            Load demo show
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-async function renumberAll() {
-  const ok = await ask({ title: "Renumber all cues?", body: "Every cue gets a new number in show order (1, 2, 3…; attached cues 1.1, 1.2…). Your own numbers like 2.5 are replaced. Undo brings them back.", confirmLabel: "Renumber all" });
-  if (ok) useDoc.getState().edit(renumber);
 }
 
 /**
@@ -165,7 +63,20 @@ function useBuildKeys() {
         ui.openEditor(current.id);
         return;
       }
-      if (s.buildTab === "pads") return;
+      if (s.buildTab !== "cues") return;
+
+      // Ctrl+K: jump to the search field.
+      if (isAction(e, "find")) {
+        e.preventDefault();
+        document.getElementById("cue-find")?.focus();
+        return;
+      }
+      // Esc clears a multi-selection (the ✕ on the selection bar).
+      if (e.key === "Escape" && s.selection.length > 1) {
+        e.preventDefault();
+        s.setSelection(s.primary ? [s.primary] : []);
+        return;
+      }
 
       if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
         e.preventDefault();

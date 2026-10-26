@@ -40,6 +40,17 @@ export function openMenu(e: MouseEvent | globalThis.MouseEvent, items: MenuItem[
   useMenu.getState().open(e.clientX, e.clientY, items.filter((i, k, all) => !(i === "sep" && (k === 0 || all[k - 1] === "sep"))));
 }
 
+/**
+ * Open a menu under a button (the File and View menus). The button must carry `data-menu`, so
+ * clicking it again does not count as "clicking away" and the second click simply closes the menu.
+ */
+export function toggleMenuBelow(el: HTMLElement, items: MenuItem[]) {
+  const r = el.getBoundingClientRect();
+  const m = useMenu.getState();
+  if (m.menu && m.menu.x === r.left && m.menu.y === r.bottom + 4) return m.close();
+  m.open(r.left, r.bottom + 4, items);
+}
+
 export function ContextMenuHost() {
   const menu = useMenu((s) => s.menu);
   const close = useMenu((s) => s.close);

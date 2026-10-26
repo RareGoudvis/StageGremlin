@@ -10,6 +10,8 @@ import { rangeIds } from "./lib/showOps";
 export type Mode = "build" | "preflight" | "run";
 export type ThemePref = "auto" | "oled" | "light";
 export type FileDisplay = "name" | "path";
+/** What Build's left rail shows: the cue list, the pads grid or the media bin. */
+export type BuildTab = "cues" | "pads" | "media";
 
 /** Per-cue analysis progress. Not part of the document (not saved, not undoable). */
 export type AnalysisStatus =
@@ -49,8 +51,7 @@ interface DocState {
   analysis: Record<string, AnalysisStatus>;
   /** Preflight's manual tick boxes; reset when a show is opened. */
   manualChecks: Record<string, boolean>;
-  /** Build's left panel: the cue list or the pads grid. */
-  buildTab: "cues" | "pads";
+  buildTab: BuildTab;
   /** The pad the inspector shows when buildTab is "pads". */
   selectedPad: string | null;
 
@@ -72,7 +73,7 @@ interface DocState {
   setCollapsed: (sectionId: string, collapsed: boolean) => void;
   setAllCollapsed: (collapsed: boolean) => void;
   setManualCheck: (key: string, on: boolean) => void;
-  setBuildTab: (t: "cues" | "pads") => void;
+  setBuildTab: (t: BuildTab) => void;
   selectPad: (padId: string | null) => void;
 }
 

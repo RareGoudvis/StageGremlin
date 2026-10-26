@@ -1,56 +1,45 @@
-// The bar at the top of every screen: name, file, mode switch, output, clock, meter, theme.
+// The bar at the top of every screen: logo, show name (= File menu), mode switch, output, clock, meter,
+// background player and settings (Build/Preflight) or the booth menu (Run).
 
 import { useEffect, useState } from "react";
-import { useDoc, useDirty } from "../store";
+import { useDoc } from "../store";
 import { useEngine } from "../engineStore";
 import { useUi } from "../uiStore";
 import { useSettings } from "../settingsStore";
 import { enableDumbo } from "../lib/media";
-import { basename } from "../lib/tauri";
 import { ModeSwitch } from "./ModeSwitch";
 import { MasterMeter } from "./MasterMeter";
-import { Auto, Gear, Moon, Sun } from "./Icons";
+import { Gear } from "./Icons";
+import { FileMenuButton } from "./FileMenu";
+import { BackgroundButton } from "./background/BackgroundPanel";
 import { useT } from "../i18n";
 
 export function TopBar({ preflightOk }: { preflightOk: boolean }) {
-  const path = useDoc((s) => s.path);
-  const showName = useDoc((s) => s.show.name);
-  const fileDisplay = useDoc((s) => s.fileDisplay);
-  const toggleFileDisplay = useDoc((s) => s.toggleFileDisplay);
-  const dirty = useDirty();
   const mode = useDoc((s) => s.mode);
   const t = useT();
 
-  const fileText = path ? (fileDisplay === "path" ? path : basename(path)) : `${showName} (${t("top.notSaved")})`;
-
   return (
     <header style={{ height: 56, flex: "none", display: "flex", alignItems: "center", gap: 14, padding: "0 16px", borderBottom: "1px solid var(--line)", background: "var(--bg)", position: "relative", zIndex: 30 }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10, minWidth: 0 }}>
-        <span className="cond" style={{ fontSize: 22, fontWeight: 800, letterSpacing: ".06em", whiteSpace: "nowrap" }}>
-          STAGE<span style={{ color: "var(--acc)" }}>GREMLIN</span>
-        </span>
-        <button
-          className="b mono clamp1"
-          onClick={toggleFileDisplay}
-          title={path ? "Click to switch between file name and full path" : "Not saved yet"}
-          style={{ background: "transparent", fontSize: 12, color: "var(--dim)", maxWidth: 320, padding: 0 }}
-        >
-          {fileText}
-          {dirty && <span style={{ color: "var(--amb)" }}> •</span>}
-        </button>
-      </div>
+      <span className="cond" style={{ fontSize: 22, fontWeight: 800, letterSpacing: ".06em", whiteSpace: "nowrap" }}>
+        STAGE<span style={{ color: "var(--acc)" }}>GREMLIN</span>
+      </span>
+      <FileMenuButton />
       <ModeSwitch preflightOk={preflightOk} />
       <div style={{ flex: 1 }} />
       <OutputChip />
       <WallClock />
       <MasterMeter />
       <MasterFader />
-      <BoothMenu />
-      <ThemeButton />
-      {mode !== "run" && (
-        <button className="b btn btn-icon" onClick={() => useUi.getState().openDialog({ kind: "settings" })} aria-label={t("top.settings")} title={t("top.settings")} style={{ width: 36, height: 36, background: "var(--p2)" }}>
-          <Gear />
-        </button>
+      {/* Run has its own background dock and booth settings; Build and Preflight get the pill and the gear. */}
+      {mode === "run" ? (
+        <BoothMenu />
+      ) : (
+        <>
+          <BackgroundButton />
+          <button className="b btn btn-icon" onClick={() => useUi.getState().openDialog({ kind: "settings" })} aria-label={t("top.settings")} title={t("top.settings")} style={{ width: 36, height: 36, background: "var(--p2)" }}>
+            <Gear />
+          </button>
+        </>
       )}
     </header>
   );
@@ -143,18 +132,6 @@ function BoothMenu() {
         </div>
       )}
     </div>
-  );
-}
-
-/** One icon-only button that cycles Auto → OLED → Light. */
-function ThemeButton() {
-  const pref = useDoc((s) => s.themePref);
-  const cycle = useDoc((s) => s.cycleTheme);
-  const label = pref === "auto" ? "Theme: automatic (light in Build, black in Run)" : pref === "oled" ? "Theme: OLED black" : "Theme: light";
-  return (
-    <button className="b btn btn-icon" onClick={cycle} aria-label={label} title={label} style={{ width: 36, height: 36, background: "var(--p2)" }}>
-      {pref === "auto" ? <Auto /> : pref === "oled" ? <Moon /> : <Sun />}
-    </button>
   );
 }
 

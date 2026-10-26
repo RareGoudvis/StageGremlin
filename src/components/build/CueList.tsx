@@ -9,13 +9,15 @@ import { useDoc } from "../../store";
 import { useEngine } from "../../engineStore";
 import type { Section } from "../../types";
 import { allCues } from "../../types";
-import { addSection, moveCues, renameSection } from "../../lib/showOps";
+import { moveCues, renameSection } from "../../lib/showOps";
 import { call } from "../../lib/tauri";
 import { fmtTime } from "../../lib/format";
 import { cueRunLen } from "../../lib/showMath";
 import { useUi } from "../../uiStore";
 import { openMenu } from "../ContextMenu";
-import { deleteSectionAsk, listMenu, sectionMenu } from "../../lib/menus";
+import { listMenu, sectionMenu } from "../../lib/menus";
+import { useT } from "../../i18n";
+import { cueMatches } from "./BuildToolbar";
 import { Chevron } from "../Icons";
 import { CueRow } from "./CueRow";
 
@@ -28,6 +30,8 @@ export function CueList() {
   const show = useDoc((s) => s.show);
   const selection = useDoc((s) => s.selection);
   const collapsed = useDoc((s) => s.collapsed);
+  const find = useUi((s) => s.find).trim();
+  const t = useT();
   const playhead = useEngine((s) => s.state?.playhead ?? null);
   // A joined string keeps this selector stable between 30 Hz updates.
   const runningIds = useEngine((s) => s.state?.running.map((r) => r.cueId).join(",") ?? "");
@@ -126,11 +130,14 @@ export function CueList() {
       onContextMenu={(e) => openMenu(e, listMenu())}
     >
       {show.sections.map((sec) => {
-        const open = !collapsed[sec.id];
+        // While searching, only matching cues show, in every section (folded or not).
+        const cues = find ? sec.cues.filter((c) => cueMatches(c, find)) : sec.cues;
+        if (find && !cues.length) return null;
+        const open = !!find || !collapsed[sec.id];
         return (
           <div key={sec.id} data-drop-section={sec.id} style={{ paddingBottom: open ? 6 : 0 }}>
             <SectionHeader section={sec} open={open} />
-            {open && sec.cues.map((c) => (
+            {open && cues.map((c) => (
               <div key={c.id}>
                 {isDropLine(sec.id, c.id) && <DropLine />}
                 <CueRow
@@ -149,15 +156,15 @@ export function CueList() {
             {open && isDropLine(sec.id, null) && <DropLine />}
             {open && !sec.cues.length && (
               <div style={{ padding: "10px 14px", margin: "0 0 4px 22px", borderRadius: 8, border: "1px dashed var(--line)", color: "var(--mute)", fontSize: 13 }}>
-                Empty section. Drag cues here or import with this section's last cue selected.
+                {t("build.emptySection")}
               </div>
             )}
           </div>
         );
       })}
-      <button className="b btn btn-ghost" style={{ marginTop: 10 }} onClick={() => useDoc.getState().edit((s) => addSection(s, "New section"))}>
-        + Add section
-      </button>
+      {find && !allCues(show).some((c) => cueMatches(c, find)) && (
+        <p style={{ padding: "18px 8px", color: "var(--mute)", fontSize: 14 }}>{t("build.noMatch")} “{find}”.</p>
+      )}
     </div>
   );
 }
@@ -185,7 +192,7 @@ function SectionHeader({ section, open }: { section: Section; open: boolean }) {
         onClick={() => useDoc.getState().setCollapsed(section.id, open)}
         style={{ display: "flex", alignItems: "center", gap: 10, background: "transparent", padding: "2px 2px", flex: editing ? "none" : 1, minWidth: 0, textAlign: "left" }}
         onDoubleClick={() => setEditing(true)}
-        title="Click to fold, double-click to rename"
+        title="Click to fold, double-click to rename, right-click for more"
       >
         <Chevron open={open} />
         {section.color && <span style={{ width: 10, height: 10, borderRadius: 5, background: section.color, flex: "none" }} />}
@@ -203,8 +210,6 @@ function SectionHeader({ section, open }: { section: Section; open: boolean }) {
       <span className="mono" style={{ fontSize: 11.5, color: "var(--mute)", whiteSpace: "nowrap" }}>
         {count} cue{count === 1 ? "" : "s"} · {fmtTime(total)}
       </span>
-      <button className="b btn btn-ghost" style={{ height: 26, fontSize: 12, padding: "0 6px" }} onClick={() => setEditing(true)}>Rename</button>
-      <button className="b btn btn-ghost" style={{ height: 26, fontSize: 12, padding: "0 6px" }} onClick={() => void deleteSectionAsk(section.id)}>Delete</button>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { useDoc } from "../store";
 import { ask, toast } from "../uiStore";
 import type { Analysis, Cue, Pad } from "../types";
 import { allCues, newCue, newId, newShow } from "../types";
+import { rememberRecent } from "../settingsStore";
 import { addPads, findAnyCue, freePadKey, insertCues, locate, updateAnyCue } from "./showOps";
 import {
   basename, call, dirname, isAudioPath, isTauri, needsConversion, pickAudioFiles, pickSavePath, pickShowToOpen, stripExt,
@@ -31,10 +32,20 @@ export async function fileNew() {
 export async function fileOpen() {
   if (!(await okToDiscard("Open another show"))) return;
   const path = await pickShowToOpen();
-  if (!path) return;
+  if (path) await openShowFile(path);
+}
+
+/** File › Open recent: open a show we already know the path of. */
+export async function fileOpenRecent(path: string) {
+  if (!(await okToDiscard("Open another show"))) return;
+  await openShowFile(path);
+}
+
+async function openShowFile(path: string) {
   try {
     const show = await call("show_open", { path });
     doc().loadShow(show, path);
+    if (isTauri) rememberRecent(path);
     toast(`Opened ${basename(path)}`);
     // Fill in any cue that was never analysed, and flag formats we can't play.
     const s = doc().show;
@@ -53,6 +64,7 @@ async function saveTo(path: string, quiet = false): Promise<boolean> {
   try {
     const saved = await call("show_save", { path, show: sent });
     doc().adoptSaved(saved, path, sent);
+    if (isTauri && !quiet) rememberRecent(path);
     if (!quiet) toast(isTauri ? `Saved ${basename(path)}` : `Downloaded ${basename(path)} (the audio files are not in it: import them again after opening)`);
     return true;
   } catch (e) {
@@ -119,8 +131,18 @@ export function addCuesForFiles(files: { file: string; name: string }[], afterId
   return cues;
 }
 
-/** New cues land after the selected cue (or at the end of the last section). */
-export function importFiles(paths: string[], sectionId?: string) {
+/** The selected cue that comes last in the show: "after the selection" means after this one. */
+export function lastSelected(): string | null {
+  const { selection, show } = doc();
+  const order = allCues(show).map((c) => c.id);
+  return [...selection].sort((a, b) => order.indexOf(a) - order.indexOf(b)).pop() ?? null;
+}
+
+/**
+ * New cues land after the selected cue (or at the end of the last section).
+ * `sectionId`: at the end of that section instead. `afterId`: after that cue instead (the Add window's choice).
+ */
+export function importFiles(paths: string[], sectionId?: string, afterId?: string | null) {
   const audio = paths.filter(isAudioPath);
   const skipped = paths.length - audio.length;
   if (!audio.length) {
@@ -128,10 +150,7 @@ export function importFiles(paths: string[], sectionId?: string) {
     return;
   }
   const cues: Cue[] = audio.map((file) => newCue({ name: stripExt(basename(file)), file }));
-  const { selection, show } = doc();
-  // "After the selection" = after the selected cue that comes last in the show.
-  const order = allCues(show).map((c) => c.id);
-  const after = sectionId ? null : [...selection].sort((a, b) => order.indexOf(a) - order.indexOf(b)).pop() ?? null;
+  const after = sectionId ? null : afterId !== undefined ? afterId : lastSelected();
   doc().edit((s) => insertCues(s, cues, after && locate(s, after) ? after : null, sectionId));
   doc().setSelection(cues.map((c) => c.id));
   toast(`Imported ${cues.length} file${cues.length > 1 ? "s" : ""}` + (skipped ? ` (${skipped} skipped: not audio)` : ""));

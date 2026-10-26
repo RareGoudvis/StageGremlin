@@ -14,7 +14,7 @@ export const ACTIONS = {
   stopCue: { label: "Stop the playing cue", key: "S", where: "Run" },
   under: { label: "Under / back up", key: "U", where: "Run" },
   releaseVamp: { label: "Release vamp", key: "V", where: "Run" },
-  find: { label: "Find a cue", key: "Ctrl+K", where: "Run" },
+  find: { label: "Find a cue", key: "Ctrl+K", where: "Build, Run" },
   preview: { label: "Headphone preview", key: "H", where: "Build, Run" },
   modeBuild: { label: "Go to Build", key: "Ctrl+1", where: "Everywhere" },
   modePreflight: { label: "Go to Preflight", key: "Ctrl+2", where: "Everywhere" },
@@ -23,8 +23,8 @@ export const ACTIONS = {
   saveAs: { label: "Save as", key: "Ctrl+Shift+S", where: "Build" },
   open: { label: "Open a show", key: "Ctrl+O", where: "Build" },
   newShow: { label: "New show", key: "Ctrl+N", where: "Build" },
-  importAudio: { label: "Import audio", key: "Ctrl+I", where: "Build" },
-  youtube: { label: "Import from YouTube", key: "Ctrl+Shift+Y", where: "Build" },
+  importAudio: { label: "Add window (audio files)", key: "Ctrl+I", where: "Build" },
+  youtube: { label: "Add window (YouTube & lists)", key: "Ctrl+Shift+Y", where: "Build" },
   undo: { label: "Undo", key: "Ctrl+Z", where: "Build" },
   redo: { label: "Redo", key: "Ctrl+Y", where: "Build" },
   print: { label: "Print cue sheet", key: "Ctrl+P", where: "Everywhere" },
@@ -61,9 +61,18 @@ export interface UiSettings {
   dumboPin: string;
   /** Default YouTube download format. */
   ytFormat: "original" | "mp3" | "wav";
+  /** Shows opened or saved on this laptop, newest first (File › Open recent). */
+  recent: string[];
 }
 
-const DEFAULTS: UiSettings = { lang: "en", keys: {}, bgLockDefault: false, zoom: 100, dumbo: false, dumboPads: false, dumboPin: "", ytFormat: "original" };
+const DEFAULTS: UiSettings = { lang: "en", keys: {}, bgLockDefault: false, zoom: 100, dumbo: false, dumboPads: false, dumboPin: "", ytFormat: "original", recent: [] };
+
+/** Put a show file at the top of the recent list (max 8, no doubles). */
+export function rememberRecent(path: string) {
+  const s = useSettings.getState();
+  const same = (a: string) => a.toLowerCase() === path.toLowerCase(); // Windows paths ignore case
+  s.update({ recent: [path, ...s.ui.recent.filter((p) => !same(p))].slice(0, 8) });
+}
 
 interface SettingsStore {
   ui: UiSettings;

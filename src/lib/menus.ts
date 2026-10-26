@@ -101,6 +101,16 @@ export function cueMenu(cueId: string): MenuItem[] {
   ];
 }
 
+/** Build's selection bar: Colour ▾ for all selected cues. */
+export function selectionColourMenu(ids: string[]): MenuItem[] {
+  return colourItems(undefined, (color) => setCues(ids, { color }));
+}
+
+/** Build's selection bar: Move to section ▾ (to the end of that section). */
+export function moveToSectionMenu(ids: string[]): MenuItem[] {
+  return doc().show.sections.map((s) => ({ label: s.name, onClick: () => doc().edit((sh) => moveCues(sh, ids, s.id, null)) }));
+}
+
 // ---------------------------------------------------------------- Build: sections and the empty list
 
 export async function deleteSectionAsk(sectionId: string) {
@@ -146,7 +156,7 @@ export function sectionMenu(sectionId: string, rename: () => void): MenuItem[] {
 export function listMenu(): MenuItem[] {
   return [
     { label: "Import audio…", shortcut: keyFor("importAudio"), onClick: () => void importDialog() },
-    { label: "Import from YouTube…", shortcut: keyFor("youtube"), onClick: () => useUi.getState().openDialog({ kind: "youtube" }) },
+    { label: "Import from YouTube…", shortcut: keyFor("youtube"), onClick: () => useUi.getState().openDialog({ kind: "add", tab: "yt" }) },
     { label: "New section", onClick: () => doc().edit((s) => addSection(s, "New section")) },
     { label: "Paste", shortcut: keyFor("paste"), onClick: pasteCues },
   ];
