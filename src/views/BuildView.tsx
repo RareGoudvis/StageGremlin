@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { MediaBin } from "../components/build/MediaBin";
+import { copyCues, cutCues, duplicateCues, pasteCues } from "../lib/clipboard";
+import { isAction } from "../settingsStore";
+import { renumber } from "../types";
+import { ask } from "../uiStore";
 import { useT } from "../i18n";
 import { useDoc } from "../store";
 import { useUi } from "../uiStore";
@@ -108,6 +112,12 @@ function Toolbar({ binOpen, openBin }: { binOpen: boolean; openBin: () => void }
         <button className="b btn" disabled={!canUndo} onClick={undo} title="Ctrl+Z">{t("build.undo")}</button>
         <button className="b btn" disabled={!canRedo} onClick={redo} title="Ctrl+Y">{t("build.redo")}</button>
         {tab === "cues" && (
+          <>
+            <button className="b btn" disabled={!selCount} onClick={duplicateCues} title="Ctrl+D">Duplicate</button>
+            <button className="b btn" onClick={() => void renumberAll()} title="Number every cue 1, 2, 3… again (attached cues 1.1, 1.2…)">Renumber all</button>
+          </>
+        )}
+        {tab === "cues" && (
           <button className="b btn" disabled={!selCount} onClick={() => void deleteCues(useDoc.getState().selection)} title="Delete">
             Delete{selCount > 1 ? ` (${selCount})` : ""}
           </button>
@@ -124,6 +134,11 @@ function Toolbar({ binOpen, openBin }: { binOpen: boolean; openBin: () => void }
       </div>
     </div>
   );
+}
+
+async function renumberAll() {
+  const ok = await ask({ title: "Renumber all cues?", body: "Every cue gets a new number in show order (1, 2, 3…; attached cues 1.1, 1.2…). Your own numbers like 2.5 are replaced. Undo brings them back.", confirmLabel: "Renumber all" });
+  if (ok) useDoc.getState().edit(renumber);
 }
 
 /**
@@ -170,6 +185,11 @@ function useBuildKeys() {
         void deleteCues(s.selection);
         return;
       }
+      // Clipboard (rebindable in Settings).
+      if (isAction(e, "cut")) { e.preventDefault(); cutCues(); return; }
+      if (isAction(e, "copy")) { e.preventDefault(); copyCues(); return; }
+      if (isAction(e, "paste")) { e.preventDefault(); pasteCues(); return; }
+      if (isAction(e, "duplicate")) { e.preventDefault(); duplicateCues(); return; }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
         e.preventDefault();
         s.setSelection(order);

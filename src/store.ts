@@ -4,7 +4,7 @@
 
 import { create } from "zustand";
 import type { Cue, Loudness, Show } from "./types";
-import { allCues, newShow, renumber } from "./types";
+import { allCues, fillNumbers, newShow, renumber } from "./types";
 import { rangeIds } from "./lib/showOps";
 
 export type Mode = "build" | "preflight" | "run";
@@ -132,7 +132,8 @@ export const useDoc = create<DocState>((set, get) => ({
       console.warn("[cueplay] edit ignored: Run mode is locked");
       return;
     }
-    const next = renumber(fn(s.show));
+    // Numbers are the operator's: only new (empty) numbers are filled in. "Renumber all" is explicit.
+    const next = fillNumbers(fn(s.show));
     if (next === s.show) return;
     const now = Date.now();
     const merge = !!coalesceKey && s.lastEdit?.key === coalesceKey && now - s.lastEdit.at < COALESCE_MS;
@@ -158,7 +159,7 @@ export const useDoc = create<DocState>((set, get) => ({
 
   loadShow: (show, path) => {
     // Older show files have no pads list yet.
-    const clean = renumber({ ...show, pads: show.pads ?? [] });
+    const clean = fillNumbers({ ...show, pads: show.pads ?? [] });
     set({ show: clean, savedShow: clean, path, past: [], future: [], lastEdit: null, selection: [], primary: null, selectedPad: null, analysis: {}, collapsed: {}, manualChecks: {} });
   },
 
@@ -170,7 +171,7 @@ export const useDoc = create<DocState>((set, get) => ({
     for (const c of [...allCues(saved), ...(saved.pads ?? []).map((p) => p.cue)]) {
       patched = patchEverywhere(patched, c.id, { file: c.file, swappedFrom: c.swappedFrom });
     }
-    const clean = renumber({ ...saved, pads: saved.pads ?? [] });
+    const clean = fillNumbers({ ...saved, pads: saved.pads ?? [] });
     if (s.show === sent) {
       // Nothing changed while saving: the saved show is the current one.
       set({ ...patched, show: clean, savedShow: clean, path });

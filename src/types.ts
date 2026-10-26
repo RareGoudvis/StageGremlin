@@ -302,3 +302,48 @@ export interface MediaChanged { path: string; kind: "modified" | "removed" | "cr
 
 /** Per-machine UI settings (`settings_get` / `settings_set`); free-form, the core never reads it. */
 export type UiSettings = Record<string, unknown>;
+
+/**
+ * Give a number to cues that have none yet (new cues), without touching numbers the
+ * operator chose. A new GO cue gets the next whole number after the cue before it; if that
+ * number is already taken further on, it gets an in-between number (2 → 2.5). A new attached
+ * cue gets parent.N. Full renumbering only happens when the operator asks ("Renumber all").
+ */
+export function fillNumbers(show: Show): Show {
+  const cues = allCues(show);
+  if (!cues.some((c) => !c.number)) return show;
+  const used = new Set(cues.map((c) => c.number).filter(Boolean));
+  const nums = new Map<string, string>();
+  const queue = cues.filter((c) => !c.attach);
+  queue.forEach((c, i) => {
+    if (c.number) return;
+    const prev = i > 0 ? parseFloat(nums.get(queue[i - 1].id) ?? queue[i - 1].number) || 0 : 0;
+    const nextRaw = queue.slice(i + 1).find((x) => x.number)?.number;
+    const next = nextRaw ? parseFloat(nextRaw) : Infinity;
+    let n = String(Math.floor(prev) + 1);
+    if (Math.floor(prev) + 1 >= next || used.has(n)) {
+      // Squeeze in between: prev + a half step, then finer steps if that is taken too.
+      let step = (Number.isFinite(next) ? next - prev : 1) / 2;
+      n = String(Math.round((prev + step) * 100) / 100);
+      while (used.has(n) && step > 0.01) {
+        step /= 2;
+        n = String(Math.round((prev + step) * 100) / 100);
+      }
+    }
+    used.add(n);
+    nums.set(c.id, n);
+  });
+  for (const c of cues) {
+    if (c.number || !c.attach) continue;
+    const parent = nums.get(c.attach.to) ?? cues.find((x) => x.id === c.attach!.to)?.number ?? "?";
+    let k = 1;
+    while (used.has(`${parent}.${k}`)) k++;
+    const n = `${parent}.${k}`;
+    used.add(n);
+    nums.set(c.id, n);
+  }
+  return {
+    ...show,
+    sections: show.sections.map((s) => (s.cues.some((c) => nums.has(c.id)) ? { ...s, cues: s.cues.map((c) => (nums.has(c.id) ? { ...c, number: nums.get(c.id)! } : c)) } : s)),
+  };
+}

@@ -30,6 +30,11 @@ export const ACTIONS = {
   bigMode: { label: "Big mode", key: "Ctrl+B", where: "Everywhere" },
   theme: { label: "Cycle theme", key: "Ctrl+T", where: "Everywhere" },
   redMode: { label: "Red night mode", key: "Ctrl+Shift+R", where: "Everywhere" },
+  pauseAll: { label: "Pause / resume everything", key: "P", where: "Run" },
+  cut: { label: "Cut cues", key: "Ctrl+X", where: "Build" },
+  copy: { label: "Copy cues", key: "Ctrl+C", where: "Build" },
+  paste: { label: "Paste cues", key: "Ctrl+V", where: "Build" },
+  duplicate: { label: "Duplicate cues", key: "Ctrl+D", where: "Build" },
 } as const;
 
 export type Action = keyof typeof ACTIONS;
