@@ -20,9 +20,9 @@ spacebar. It's a Tauri 2 app: Rust audio engine (kira) + React/TypeScript UI. Re
   comment the *why*, prefer small files. Short answers; no long recaps.
 - English in chat by default. The app's UI must stay in **both English and Dutch** (`src/i18n.ts`): every new label
   gets an EN and an NL string.
-- Commit to `main` freely with clear messages. **Never push to the `release` branch and never start a build unless I
-  say "build".** A push to `release` (or "Run workflow" on GitHub Actions) builds the Windows portable zip + installer
-  and publishes a GitHub Release — I want to group many fixes into one build.
+- Commit to `main` freely with clear messages. **Never start a build unless I say "build".** A build runs locally:
+  push `main`, then `scripts/release.ps1` builds the portable zip + installer and publishes a GitHub Release with
+  `gh`. I want to group many fixes into one build. Don't use GitHub Actions for builds (manual backup only).
 - Before every commit: `cargo test -p cueplay-engine`, `cargo clippy -p stagegremlin`, `npm run build` must all pass.
 - Don't touch the background-player Windows volume code (`src-tauri/src/background/session_volume_win.rs`) unless
   the task is about it; it's delicate.

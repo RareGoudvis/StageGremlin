@@ -21,9 +21,9 @@ Repo: `RareGoudvis/StageGremlin` (publiek, AGPL-3.0).
   eenvoudig, zet in commentaar *waarom*, liever kleine bestanden. Korte antwoorden, geen lange samenvattingen.
 - Antwoord in het Nederlands. De UI van de app blijft **Engels én Nederlands** (`src/i18n.ts`): elk nieuw label
   krijgt een EN- en een NL-tekst.
-- Commit gerust naar `main` met duidelijke berichten. **Push nooit naar de branch `release` en start nooit een build
-  tenzij ik "build" zeg.** Een push naar `release` (of "Run workflow" op GitHub Actions) bouwt de portable zip +
-  installer voor Windows en maakt een GitHub Release — ik wil veel fixes in één build bundelen.
+- Commit gerust naar `main` met duidelijke berichten. **Start nooit een build tenzij ik "build" zeg.** Een build
+  gebeurt lokaal: push `main`, dan bouwt `scripts/release.ps1` de portable zip + installer en maakt een GitHub
+  Release met `gh`. Ik wil veel fixes in één build bundelen. Gebruik GitHub Actions niet voor builds (enkel als reserve).
 - Voor elke commit moeten `cargo test -p cueplay-engine`, `cargo clippy -p stagegremlin` en `npm run build` slagen.
 - Blijf af van de Windows-volumecode van de achtergrondspeler (`src-tauri/src/background/session_volume_win.rs`),
   tenzij de taak daarover gaat; die is gevoelig.
