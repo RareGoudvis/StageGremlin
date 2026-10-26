@@ -1,6 +1,8 @@
 // Build: edit the show. Toolbar on top, cue list (or pads grid) on the left, inspector on the right.
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { MediaBin } from "../components/build/MediaBin";
+import { useT } from "../i18n";
 import { useDoc } from "../store";
 import { useUi } from "../uiStore";
 import { allCues } from "../types";
@@ -15,13 +17,32 @@ import { CueList } from "../components/build/CueList";
 import { Inspector, deleteCues } from "../components/build/Inspector";
 import { BackgroundButton } from "../components/background/BackgroundPanel";
 
+/** Remember per machine whether the media bin is open (a convenience; fine if storage is blocked). */
+function loadBinOpen(): boolean {
+  try {
+    return localStorage.getItem("cueplay.bin") !== "closed";
+  } catch {
+    return true;
+  }
+}
+
 export function BuildView() {
   useBuildKeys();
   const tab = useDoc((s) => s.buildTab);
+  const [binOpen, setBinOpenState] = useState(loadBinOpen);
+  const setBinOpen = (open: boolean) => {
+    setBinOpenState(open);
+    try {
+      localStorage.setItem("cueplay.bin", open ? "open" : "closed");
+    } catch {
+      // not remembered
+    }
+  };
   return (
-    <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(0, 1fr) 420px" }}>
+    <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: `${binOpen && tab === "cues" ? "250px " : ""}minmax(0, 1fr) 420px` }}>
+      {binOpen && tab === "cues" && <MediaBin onClose={() => setBinOpen(false)} />}
       <section aria-label="Show" style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
-        <Toolbar />
+        <Toolbar binOpen={binOpen} openBin={() => setBinOpen(true)} />
         {tab === "cues" ? <CueList /> : <PadGrid />}
       </section>
       <Inspector />
@@ -29,7 +50,8 @@ export function BuildView() {
   );
 }
 
-function Toolbar() {
+function Toolbar({ binOpen, openBin }: { binOpen: boolean; openBin: () => void }) {
+  const t = useT();
   const name = useDoc((s) => s.show.name);
   const canUndo = useDoc((s) => s.past.length > 0);
   const canRedo = useDoc((s) => s.future.length > 0);
@@ -58,11 +80,11 @@ function Toolbar() {
         />
         <span style={{ flex: 1 }} />
         <BackgroundButton />
-        <button className="b btn" onClick={() => void fileNew()} title="Ctrl+N">New</button>
-        <button className="b btn" onClick={() => void fileOpen()} title="Ctrl+O">Open…</button>
-        <button className="b btn" onClick={() => void fileSaveAs()} title="Ctrl+Shift+S">Save as…</button>
-        <button className="b btn" onClick={() => void exportZip()} title="The show and its media in one zip">Export zip…</button>
-        <button className="b btn btn-go" onClick={() => void fileSave()} title="Ctrl+S">Save</button>
+        <button className="b btn" onClick={() => void fileNew()} title="Ctrl+N">{t("build.new")}</button>
+        <button className="b btn" onClick={() => void fileOpen()} title="Ctrl+O">{t("build.open")}</button>
+        <button className="b btn" onClick={() => void fileSaveAs()} title="Ctrl+Shift+S">{t("build.saveAs")}</button>
+        <button className="b btn" onClick={() => void exportZip()} title="The show and its media in one zip">{t("build.exportZip")}</button>
+        <button className="b btn btn-go" onClick={() => void fileSave()} title="Ctrl+S">{t("build.save")}</button>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
         <div role="tablist" aria-label="Build panel" style={{ display: "flex", gap: 2, background: "var(--p2)", borderRadius: 9, padding: 3 }}>
@@ -75,24 +97,25 @@ function Toolbar() {
         </div>
         {tab === "cues" && (
           <>
-            <button className="b btn btn-go" onClick={() => void importDialog()} title="Ctrl+I · or drop files on the window">+ Import audio</button>
+            <button className="b btn btn-go" onClick={() => void importDialog()} title="Ctrl+I · or drop files on the window">{t("build.import")}</button>
             <button className="b btn" onClick={() => useUi.getState().openDialog({ kind: "youtube" })} title="Ctrl+Shift+Y">+ YouTube</button>
-            <button className="b btn" onClick={addSectionHere}>+ Section</button>
-            <button className="b btn" onClick={() => setAllCollapsed(anyOpen)}>{anyOpen ? "Collapse all" : "Expand all"}</button>
+            <button className="b btn" onClick={addSectionHere}>{t("build.section")}</button>
+            <button className="b btn" onClick={() => setAllCollapsed(anyOpen)}>{anyOpen ? t("build.collapseAll") : t("build.expandAll")}</button>
           </>
         )}
         {/* Background button: the background-player agent hooks its BackgroundButton in here. */}
         <span style={{ width: 1, height: 22, background: "var(--line)", margin: "0 4px" }} />
-        <button className="b btn" disabled={!canUndo} onClick={undo} title="Ctrl+Z">Undo</button>
-        <button className="b btn" disabled={!canRedo} onClick={redo} title="Ctrl+Y">Redo</button>
+        <button className="b btn" disabled={!canUndo} onClick={undo} title="Ctrl+Z">{t("build.undo")}</button>
+        <button className="b btn" disabled={!canRedo} onClick={redo} title="Ctrl+Y">{t("build.redo")}</button>
         {tab === "cues" && (
           <button className="b btn" disabled={!selCount} onClick={() => void deleteCues(useDoc.getState().selection)} title="Delete">
             Delete{selCount > 1 ? ` (${selCount})` : ""}
           </button>
         )}
         <span style={{ flex: 1 }} />
-        <button className="b btn" onClick={() => useUi.getState().openDialog({ kind: "print" })} title="Ctrl+P">Print sheet</button>
-        <button className="b chip" aria-pressed={fileDisplay === "path"} onClick={toggleFileDisplay} title="Show full file paths in the list">Full paths</button>
+        {!binOpen && tab === "cues" && <button className="b btn" onClick={openBin} title="Show the media bin">{t("build.bin")} ▶</button>}
+        <button className="b btn" onClick={() => useUi.getState().openDialog({ kind: "print" })} title="Ctrl+P">{t("build.print")}</button>
+        <button className="b chip" aria-pressed={fileDisplay === "path"} onClick={toggleFileDisplay} title="Show full file paths in the list">{t("build.fullPaths")}</button>
         {!isTauri && (
           <button className="b btn" onClick={loadDemoShow} title="Browser preview only" style={{ background: "var(--cybg)", color: "var(--cytx)", border: "1px solid var(--cyline)" }}>
             Load demo show

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useDoc } from "../store";
 import { useUi } from "../uiStore";
 import { ACTIONS, conflictsFor, keyFor, keyName, useSettings, type Action } from "../settingsStore";
-import { useT } from "../i18n";
+import { useT, type Lang } from "../i18n";
 import { Chips, NumField, Row } from "./controls";
 
 export function SettingsDialog() {
@@ -47,7 +47,7 @@ export function SettingsDialog() {
 
         <span className="k">Display</span>
         <Row label="Language">
-          <Chips label="Language" value={ui.lang} onChange={(lang) => update({ lang })} options={[{ value: "en", label: "English" }, { value: "nl", label: "Nederlands" }]} />
+          <Chips<Lang> label="Language" value={ui.lang} onChange={(lang) => update({ lang })} options={[{ value: "en", label: "English" }, { value: "nl", label: "Nederlands" }]} />
         </Row>
         <Row label="Theme">
           <Chips label="Theme" value={themePref} onChange={setTheme}

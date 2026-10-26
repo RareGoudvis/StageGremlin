@@ -90,6 +90,8 @@ pub struct ShowSettings {
     pub under_db: f64,
     /// Fade time for Under and back up, in seconds.
     pub under_fade: f64,
+    /// Master fader in dB (0 = unity). Before the limiter.
+    pub master_db: f64,
 }
 
 impl Default for ShowSettings {
@@ -102,6 +104,7 @@ impl Default for ShowSettings {
             double_go_ms: 300,
             under_db: -12.0,
             under_fade: 1.0,
+            master_db: 0.0,
         }
     }
 }

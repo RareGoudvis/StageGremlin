@@ -7,7 +7,7 @@ import { call, dirname, on } from "./tauri";
 import { usePreview } from "./preview";
 import { useTools } from "./tools";
 import { useYt } from "./youtube";
-import { checkFiles, startMediaChecks } from "./media";
+import { checkFiles, startMediaChecks, useMedia } from "./media";
 
 const DEBOUNCE_MS = 150;
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -47,7 +47,10 @@ export function startEngineSync() {
   void on("preview://state", (p) => usePreview.getState().set(p));
   void on("yt://install", (p) => useTools.getState().onProgress(p));
   void on("yt://progress", (p) => useYt.getState().onProgress(p));
-  void on("media://changed", () => void checkFiles());
+  void on("media://changed", (m) => {
+    useMedia.getState().onChanged(m.path, m.kind);
+    void checkFiles();
+  });
   startMediaChecks();
   // The first engine://output event may fire before we listen, so also ask once.
   call("audio_output_status").then(engine.setOutput, (e) => console.warn("[cueplay] audio_output_status", e));

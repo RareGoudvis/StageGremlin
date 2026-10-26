@@ -298,3 +298,27 @@ fn tone_plays_and_stop_all_stops_it() {
     run(&mut e, 0.5);
     assert!(!e.tone_playing());
 }
+
+#[test]
+fn pause_all_holds_cues_and_timers() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = cue(dir.path(), "a", 4.0);
+    let mut b = cue(dir.path(), "b", 4.0);
+    b.pre_wait = 0.5;
+    let (s, base) = show_with(dir.path(), vec![a, b.clone()]);
+    let mut e = engine();
+    e.set_show(s, Some(base));
+    e.go();
+    e.go(); // b waits 0.5 s
+    run(&mut e, 0.2);
+    assert!(e.toggle_pause_all());
+    run(&mut e, 0.5);
+    let st = e.state();
+    let pos = st.running[0].position;
+    assert!(st.paused && st.pending.len() == 1, "pre-wait held while paused");
+    run(&mut e, 0.5);
+    assert!((e.state().running[0].position - pos).abs() < 0.02, "position held");
+    assert!(!e.toggle_pause_all());
+    run(&mut e, 1.0);
+    assert!(e.state().running.iter().any(|r| r.cue_id == b.id), "pre-wait finished after resume");
+}

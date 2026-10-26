@@ -63,6 +63,8 @@ export interface ShowSettings {
   doubleGoMs: number;
   underDb: number;
   underFade: number;
+  /** Master fader in dB (0 = unity, −60 = off). Before the limiter. */
+  masterDb?: number;
 }
 
 export type PadMode = "oneShot" | "toggle" | "loop";
@@ -114,6 +116,9 @@ export interface LogEntry { clock: number; wallMs: number; kind: string; cueId: 
 
 export interface EngineState {
   clock: number;
+  /** P was pressed: everything holds. */
+  paused?: boolean;
+  masterDb?: number;
   playhead: string | null;
   running: RunningInfo[];
   pending: PendingInfo[];

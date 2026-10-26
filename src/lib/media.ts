@@ -9,17 +9,31 @@ import type { Cue } from "../types";
 import { allCues } from "../types";
 import { findAnyCue, updateAnyCue } from "./showOps";
 import { analyseCue } from "./fileActions";
-import { absolutePath, basename, call, dirname, pickAudioFiles } from "./tauri";
+import { absolutePath, basename, call, dirname, isAudioPath, pickAudioFiles } from "./tauri";
 
 interface MediaStore {
   /** cue id → true when its file is not on disk. */
   missing: Record<string, boolean>;
+  /**
+   * Audio files seen in the show folder through media://changed (there is no "list folder"
+   * command, so files that were already there before the app started only show up once used).
+   */
+  seen: string[];
   set: (missing: Record<string, boolean>) => void;
+  onChanged: (path: string, kind: string) => void;
 }
 
 export const useMedia = create<MediaStore>((set) => ({
   missing: {},
+  seen: [],
   set: (missing) => set({ missing }),
+  onChanged: (path, kind) =>
+    set((s) => {
+      if (!isAudioPath(path)) return s;
+      const gone = /remove|delete/i.test(kind);
+      const seen = s.seen.filter((p) => p !== path);
+      return { seen: gone ? seen : [...seen, path] };
+    }),
 }));
 
 /** Every cue that has a file: show cues and pad cues. */
