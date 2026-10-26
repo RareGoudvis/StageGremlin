@@ -2,7 +2,7 @@
 //! section "Background player").
 //!
 //! The music plays in a second window that shows a web player (Spotify, YouTube Music, Beatport
-//! or Soundtrack). Three jobs, three places:
+//! Soundtrack, SoundCloud or YouTube). Three jobs, three places:
 //!
 //! - **Volume** (duck, restore, fades, level, source offset) goes through the Windows mixer, never
 //!   through the page: `session_volume.rs`. One thread ("bg-volume", started by `start`) owns it and
@@ -45,6 +45,9 @@ pub enum BgSource {
     Ytmusic,
     Beatport,
     Soundtrack,
+    Soundcloud,
+    /// Plain YouTube (videos); YouTube Music is `Ytmusic`.
+    Youtube,
 }
 
 /// Level offset per source in dB, applied through the Windows mixer. Beatport plays loud club
@@ -56,11 +59,13 @@ pub struct BgOffsets {
     pub ytmusic: f32,
     pub beatport: f32,
     pub soundtrack: f32,
+    pub soundcloud: f32,
+    pub youtube: f32,
 }
 
 impl Default for BgOffsets {
     fn default() -> Self {
-        Self { spotify: 0.0, ytmusic: 0.0, beatport: -6.0, soundtrack: 0.0 }
+        Self { spotify: 0.0, ytmusic: 0.0, beatport: -6.0, soundtrack: 0.0, soundcloud: 0.0, youtube: 0.0 }
     }
 }
 
@@ -71,6 +76,8 @@ impl BgOffsets {
             BgSource::Ytmusic => self.ytmusic,
             BgSource::Beatport => self.beatport,
             BgSource::Soundtrack => self.soundtrack,
+            BgSource::Soundcloud => self.soundcloud,
+            BgSource::Youtube => self.youtube,
         }
     }
 }

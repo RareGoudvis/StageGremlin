@@ -30,6 +30,8 @@ pub fn source_url(source: BgSource) -> &'static str {
         BgSource::Beatport => "https://www.beatport.com",
         // Soundtrack's web player; not verified against a live account yet (M0 spike).
         BgSource::Soundtrack => "https://play.soundtrackyourbrand.com",
+        BgSource::Soundcloud => "https://soundcloud.com",
+        BgSource::Youtube => "https://www.youtube.com",
     }
 }
 
@@ -39,9 +41,14 @@ pub fn source_url(source: BgSource) -> &'static str {
 pub fn link_allowed(source: BgSource, link: &Url) -> bool {
     let Some(host) = link.host_str() else { return false };
     let start = Url::parse(source_url(source)).ok();
-    link.scheme() == "https"
-        && (start.as_ref().and_then(|u| u.host_str()) == Some(host)
-            || (source == BgSource::Soundtrack && host.ends_with(".soundtrack.io")))
+    // Short and mobile links end up on the main site (youtu.be → www.youtube.com, m.soundcloud.com…).
+    let also = match source {
+        BgSource::Soundtrack => host.ends_with(".soundtrack.io"),
+        BgSource::Youtube => matches!(host, "youtube.com" | "m.youtube.com" | "youtu.be"),
+        BgSource::Soundcloud => matches!(host, "m.soundcloud.com" | "on.soundcloud.com"),
+        _ => false,
+    };
+    link.scheme() == "https" && (start.as_ref().and_then(|u| u.host_str()) == Some(host) || also)
 }
 
 pub fn get(app: &AppHandle) -> Option<WebviewWindow> {
@@ -156,6 +163,10 @@ mod tests {
         assert!(ok(BgSource::Spotify, "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"));
         assert!(ok(BgSource::Soundtrack, "https://play.soundtrackyourbrand.com/playlist/abc"));
         assert!(ok(BgSource::Soundtrack, "https://app.soundtrack.io/music/abc"));
+        assert!(ok(BgSource::Soundcloud, "https://soundcloud.com/someone/sets/lunch"));
+        assert!(ok(BgSource::Youtube, "https://www.youtube.com/playlist?list=PL123"));
+        assert!(ok(BgSource::Youtube, "https://youtu.be/abc"));
+        assert!(!ok(BgSource::Youtube, "https://music.youtube.com/playlist?list=x"), "that's YouTube Music");
         assert!(!ok(BgSource::Spotify, "https://music.youtube.com/playlist?list=x"), "another service");
         assert!(!ok(BgSource::Spotify, "http://open.spotify.com/playlist/x"), "not https");
         assert!(!ok(BgSource::Soundtrack, "https://evil.example/soundtrack.io"), "lookalike");
