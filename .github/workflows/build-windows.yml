@@ -8,8 +8,11 @@
 # repo root, NOT in `src-tauri/target/`. Paths below use `target/release/...`.
 name: Build Windows
 
+# Only builds when asked: a version tag (v0.1.0, …) or "Run workflow" on the Actions tab.
+# Plain pushes don't build, so half-finished work never burns a build.
 on:
   push:
+    tags: ["v*"]
   workflow_dispatch:
 
 # A newer push cancels the build that's still running, so only the latest code gets built.
