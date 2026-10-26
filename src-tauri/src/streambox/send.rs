@@ -1,7 +1,8 @@
 //! Sending our sound to the streambox. The box can't receive "pushed" audio, but DLNA and Google Cast
 //! both accept "play this web address". So:
 //!
-//! 1. A tiny web server on the laptop serves one endless WAV stream (16-bit PCM).
+//! 1. A tiny web server on the laptop serves one endless stream: WAV (16-bit PCM), L16 (DLNA's raw
+//!    PCM) or MP3 (made on the fly by our ffmpeg; the format every box and Cast device plays).
 //! 2. The stream is what StageGremlin plays: its SHOW OUTPUT (the device the cues go to, e.g. the Qu-24),
 //!    recorded with Windows "loopback" (cpal). The background player is in it too when it plays on that
 //!    same device. The audio engine is not touched: this runs on its own threads.
@@ -12,6 +13,8 @@
 
 use std::io::{Read, Write};
 use std::net::{IpAddr, TcpListener, TcpStream, UdpSocket};
+use std::path::PathBuf;
+use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
 use std::sync::{Arc, Mutex};
@@ -19,10 +22,39 @@ use std::time::Duration;
 
 use super::{cast, dlna, Target};
 
-/// WAV (header + little-endian PCM) by default; L16 (no header, big-endian PCM, the DLNA standard's own
-/// format) for boxes that refuse WAV.
+/// How the stream is packed. WAV: header + little-endian PCM. L16: no header, big-endian PCM (the DLNA
+/// standard's own format). MP3: 192 kbit/s from ffmpeg, the format nearly every player accepts.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Codec {
+    Wav,
+    L16,
+    Mp3,
+}
+
+impl Codec {
+    pub fn parse(s: Option<&str>) -> Codec {
+        match s {
+            Some("l16") => Codec::L16,
+            Some("mp3") => Codec::Mp3,
+            _ => Codec::Wav,
+        }
+    }
+}
+
 fn mime(f: Format) -> String {
-    if f.l16 { format!("audio/L16;rate={};channels={}", f.rate, f.channels) } else { "audio/wav".into() }
+    match f.codec {
+        Codec::Wav => "audio/wav".into(),
+        Codec::L16 => format!("audio/L16;rate={};channels={}", f.rate, f.channels),
+        Codec::Mp3 => "audio/mpeg".into(),
+    }
+}
+
+fn extension(c: Codec) -> &'static str {
+    match c {
+        Codec::Wav => "wav",
+        Codec::L16 => "pcm",
+        Codec::Mp3 => "mp3",
+    }
 }
 /// Chunks waiting per listener; a listener that falls further behind loses audio rather than memory.
 const QUEUE: usize = 64;
@@ -46,20 +78,24 @@ type Listeners = Arc<Mutex<Vec<SyncSender<Vec<u8>>>>>;
 struct Format {
     rate: u32,
     channels: u16,
-    /// Send as L16 (big-endian, no header) instead of WAV.
-    l16: bool,
+    codec: Codec,
 }
 
-/// Start sending the show output (`device`: its name, as the engine reports it); returns the address the box was given.
-pub fn start(state: &Sending, target: Target, device: &str, l16: bool) -> Result<String, String> {
+/// Start sending the show output (`device`: its name, as the engine reports it); returns the address the box
+/// was given. `ffmpeg`: the program, needed for MP3.
+pub fn start(state: &Sending, target: Target, device: &str, codec: Codec, ffmpeg: PathBuf) -> Result<String, String> {
     stop(state);
     let box_ip: IpAddr = target.ip.parse().map_err(|_| "No streambox chosen.".to_string())?;
     let stop_flag = Arc::new(AtomicBool::new(false));
     let listeners: Listeners = Arc::default();
 
+    // Google Cast plays WAV and MP3, not L16.
+    let codec = if codec == Codec::L16 && target.via == "cast" { Codec::Wav } else { codec };
+    if codec == Codec::Mp3 && !ffmpeg.is_file() {
+        return Err("MP3 needs ffmpeg: install it in Settings › Import & tools.".into());
+    }
     let mut format = start_loopback(listeners.clone(), stop_flag.clone(), device.to_string())?;
-    // Google Cast plays WAV, not L16.
-    format.l16 = l16 && target.via != "cast";
+    format.codec = codec;
 
     // The laptop's own address as the box sees it: ask the system which interface would reach the box.
     let probe = UdpSocket::bind("0.0.0.0:0").map_err(|e| e.to_string())?;
@@ -70,13 +106,13 @@ pub fn start(state: &Sending, target: Target, device: &str, l16: bool) -> Result
     let port = server.local_addr().map_err(|e| e.to_string())?.port();
     server.set_nonblocking(true).map_err(|e| e.to_string())?;
     {
-        let (listeners, stop_flag) = (listeners.clone(), stop_flag.clone());
+        let (listeners, stop_flag, ffmpeg) = (listeners.clone(), stop_flag.clone(), Arc::new(ffmpeg));
         std::thread::Builder::new()
             .name("sbx-http".into())
-            .spawn(move || serve(server, listeners, format, stop_flag))
+            .spawn(move || serve(server, listeners, format, stop_flag, ffmpeg))
             .map_err(|e| e.to_string())?;
     }
-    let url = format!("http://{my_ip}:{port}/stream.{}", if format.l16 { "pcm" } else { "wav" });
+    let url = format!("http://{my_ip}:{port}/stream.{}", extension(format.codec));
 
     let cast_session = match target.via.as_str() {
         "cast" => Some(cast::play_url(&target.ip, &url, &mime(format)).inspect_err(|_| stop_flag.store(true, Ordering::Relaxed))?),
@@ -106,19 +142,19 @@ pub fn is_running(state: &Sending) -> bool {
 
 // ---------------------------------------------------------------- the web server
 
-fn serve(server: TcpListener, listeners: Listeners, format: Format, stop: Arc<AtomicBool>) {
+fn serve(server: TcpListener, listeners: Listeners, format: Format, stop: Arc<AtomicBool>, ffmpeg: Arc<PathBuf>) {
     while !stop.load(Ordering::Relaxed) {
         match server.accept() {
             Ok((conn, _)) => {
-                let (listeners, stop) = (listeners.clone(), stop.clone());
-                let _ = std::thread::Builder::new().name("sbx-client".into()).spawn(move || client(conn, listeners, format, stop));
+                let (listeners, stop, ffmpeg) = (listeners.clone(), stop.clone(), ffmpeg.clone());
+                let _ = std::thread::Builder::new().name("sbx-client".into()).spawn(move || client(conn, listeners, format, stop, &ffmpeg));
             }
             Err(_) => std::thread::sleep(Duration::from_millis(100)),
         }
     }
 }
 
-fn client(mut conn: TcpStream, listeners: Listeners, format: Format, stop: Arc<AtomicBool>) {
+fn client(mut conn: TcpStream, listeners: Listeners, format: Format, stop: Arc<AtomicBool>, ffmpeg: &PathBuf) {
     let _ = conn.set_nonblocking(false);
     let _ = conn.set_read_timeout(Some(Duration::from_secs(2)));
     let mut req = [0u8; 2048];
@@ -132,15 +168,19 @@ fn client(mut conn: TcpStream, listeners: Listeners, format: Format, stop: Arc<A
     if conn.write_all(headers.as_bytes()).is_err() || head_only {
         return;
     }
-    if !format.l16 && conn.write_all(&wav_header(format)).is_err() {
+    if format.codec == Codec::Wav && conn.write_all(&wav_header(format)).is_err() {
         return;
     }
     let (tx, rx): (SyncSender<Vec<u8>>, Receiver<Vec<u8>>) = sync_channel(QUEUE);
     listeners.lock().unwrap_or_else(|e| e.into_inner()).push(tx);
+    if format.codec == Codec::Mp3 {
+        mp3_client(conn, rx, format, stop, ffmpeg);
+        return;
+    }
     while !stop.load(Ordering::Relaxed) {
         match rx.recv_timeout(Duration::from_millis(500)) {
             Ok(mut chunk) => {
-                if format.l16 {
+                if format.codec == Codec::L16 {
                     // L16 is big-endian: swap each 16-bit sample.
                     chunk.chunks_exact_mut(2).for_each(|s| s.swap(0, 1));
                 }
@@ -152,6 +192,54 @@ fn client(mut conn: TcpStream, listeners: Listeners, format: Format, stop: Arc<A
             Err(_) => return,
         }
     }
+}
+
+/// MP3: our PCM goes into ffmpeg, its MP3 goes to the box. One ffmpeg per listener (usually one: the box).
+fn mp3_client(mut conn: TcpStream, rx: Receiver<Vec<u8>>, format: Format, stop: Arc<AtomicBool>, ffmpeg: &PathBuf) {
+    let mut cmd = Command::new(ffmpeg);
+    cmd.args(["-hide_banner", "-loglevel", "error", "-f", "s16le", "-ar"])
+        .arg(format.rate.to_string())
+        .args(["-ac"])
+        .arg(format.channels.to_string())
+        .args(["-i", "pipe:0", "-f", "mp3", "-b:a", "192k", "-flush_packets", "1", "pipe:1"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW: no console flashing up
+    }
+    let Ok(mut child) = cmd.spawn() else { return };
+    let (Some(mut stdin), Some(mut stdout)) = (child.stdin.take(), child.stdout.take()) else { return };
+    // Feed ffmpeg on its own thread; read its MP3 here.
+    let feeding = stop.clone();
+    std::thread::spawn(move || {
+        while !feeding.load(Ordering::Relaxed) {
+            match rx.recv_timeout(Duration::from_millis(500)) {
+                Ok(chunk) => {
+                    if stdin.write_all(&chunk).is_err() {
+                        return;
+                    }
+                }
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+                Err(_) => return,
+            }
+        }
+    });
+    let mut buf = [0u8; 8192];
+    while !stop.load(Ordering::Relaxed) {
+        match stdout.read(&mut buf) {
+            Ok(0) | Err(_) => break,
+            Ok(n) => {
+                if conn.write_all(&buf[..n]).is_err() {
+                    break; // the box hung up
+                }
+            }
+        }
+    }
+    let _ = child.kill();
+    let _ = child.wait();
 }
 
 /// Hand a chunk to every listener; drop the ones that have gone.
@@ -209,7 +297,7 @@ fn start_loopback(listeners: Listeners, stop: Arc<AtomicBool>, name: String) -> 
                     return Err(format!("Windows output uses {:?}; only 32-bit float can be recorded for now.", config.sample_format()));
                 }
                 let cfg = config.config();
-                let format = Format { rate: cfg.sample_rate, channels: cfg.channels, l16: false };
+                let format = Format { rate: cfg.sample_rate, channels: cfg.channels, codec: Codec::Wav };
                 let l = listeners.clone();
                 let stream = device
                     .build_input_stream::<f32, _, _>(cfg, move |data, _| broadcast(&l, to_pcm16(data)), |e| eprintln!("[streambox] loopback: {e}"), None)
@@ -240,7 +328,7 @@ mod tests {
 
     #[test]
     fn wav_header_describes_the_stream() {
-        let h = wav_header(Format { rate: 48_000, channels: 2, l16: false });
+        let h = wav_header(Format { rate: 48_000, channels: 2, codec: Codec::Wav });
         assert_eq!(h.len(), 44);
         assert_eq!(&h[0..4], b"RIFF");
         assert_eq!(u32::from_le_bytes(h[24..28].try_into().unwrap()), 48_000);
@@ -259,7 +347,7 @@ mod tests {
         let port = server.local_addr().unwrap().port();
         server.set_nonblocking(true).unwrap();
         let (l, s) = (listeners.clone(), stop.clone());
-        std::thread::spawn(move || serve(server, l, format, s));
+        std::thread::spawn(move || serve(server, l, format, s, Arc::new(PathBuf::new())));
         let mut r = ureq::get(&format!("http://127.0.0.1:{port}/stream.wav")).call().unwrap();
         let mut buf = vec![0u8; 44 + 64 * 1024];
         r.body_mut().as_reader().read_exact(&mut buf).unwrap();
@@ -268,10 +356,38 @@ mod tests {
         assert_eq!(&buf[0..4], b"RIFF");
     }
 
+    /// MP3 through a real ffmpeg: `FFMPEG=path\to\ffmpeg.exe cargo test -p stagegremlin live_mp3 -- --ignored --nocapture`
+    #[test]
+    #[ignore]
+    fn live_mp3_stream() {
+        let ffmpeg = PathBuf::from(std::env::var("FFMPEG").expect("set FFMPEG"));
+        let stop = Arc::new(AtomicBool::new(false));
+        let listeners: Listeners = Arc::default();
+        let mut format = start_loopback(listeners.clone(), stop.clone(), String::new()).expect("recording starts");
+        format.codec = Codec::Mp3;
+        let server = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = server.local_addr().unwrap().port();
+        server.set_nonblocking(true).unwrap();
+        let (l, s) = (listeners.clone(), stop.clone());
+        std::thread::spawn(move || serve(server, l, format, s, Arc::new(ffmpeg)));
+        let mut r = ureq::get(&format!("http://127.0.0.1:{port}/stream.mp3")).call().unwrap();
+        assert_eq!(r.headers().get("content-type").unwrap(), "audio/mpeg");
+        let mut buf = vec![0u8; 16 * 1024];
+        r.body_mut().as_reader().read_exact(&mut buf).unwrap();
+        stop.store(true, Ordering::Relaxed);
+        // An MP3 stream is MPEG frames: each starts with 11 set bits (0xFFE...).
+        let frames = buf.windows(2).filter(|w| w[0] == 0xFF && w[1] & 0xE0 == 0xE0).count();
+        println!("got {} bytes of MP3, {frames} frame starts", buf.len());
+        assert!(frames > 5);
+    }
+
     #[test]
     fn l16_names_its_format() {
-        assert_eq!(mime(Format { rate: 48_000, channels: 2, l16: true }), "audio/L16;rate=48000;channels=2");
-        assert_eq!(mime(Format { rate: 48_000, channels: 2, l16: false }), "audio/wav");
+        assert_eq!(mime(Format { rate: 48_000, channels: 2, codec: Codec::L16 }), "audio/L16;rate=48000;channels=2");
+        assert_eq!(mime(Format { rate: 48_000, channels: 2, codec: Codec::Wav }), "audio/wav");
+        assert_eq!(mime(Format { rate: 48_000, channels: 2, codec: Codec::Mp3 }), "audio/mpeg");
+        assert_eq!(Codec::parse(Some("mp3")), Codec::Mp3);
+        assert_eq!(Codec::parse(None), Codec::Wav);
     }
 
     #[test]

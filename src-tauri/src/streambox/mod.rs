@@ -266,17 +266,19 @@ pub async fn streambox_transport(target: Target, action: String) -> Result<(), S
 }
 
 /// Send StageGremlin's show output to the box (see send.rs). Returns the stream address it was given.
-/// `format`: "wav" (default) or "l16" (DLNA's own raw format, when a box refuses WAV).
+/// `format`: "wav" (default), "l16" (DLNA's own raw format) or "mp3" (via our ffmpeg; plays almost anywhere).
 #[tauri::command]
 pub async fn streambox_send_start(
     target: Target,
     format: Option<String>,
     sending: tauri::State<'_, Sending>,
     engine: tauri::State<'_, crate::engine_thread::EngineHandle>,
+    yt: tauri::State<'_, crate::yt::Yt>,
 ) -> Result<String, String> {
     let device = engine.output_status().map(|o| o.output_name).unwrap_or_default();
     // The work blocks (network, starting the recording) but is short; State can't move to another thread.
-    send::start(&sending, target, &device, format.as_deref() == Some("l16"))
+    let ffmpeg = yt.bin_dir().join(if cfg!(windows) { "ffmpeg.exe" } else { "ffmpeg" });
+    send::start(&sending, target, &device, send::Codec::parse(format.as_deref()), ffmpeg)
 }
 
 #[tauri::command]

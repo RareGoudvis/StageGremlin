@@ -87,8 +87,8 @@ export interface StreamboxSetup {
   via: "dlna" | "cast";
   /** DLNA: the box's description address, from the search. */
   dlnaUrl: string;
-  /** Stream format: WAV, or L16 (DLNA only) for boxes that refuse WAV. */
-  format: "wav" | "l16";
+  /** Stream format: WAV, L16 (DLNA only) or MP3 (via ffmpeg; plays almost anywhere). */
+  format: "wav" | "l16" | "mp3";
 }
 
 /** Names and visibility of the MTX's 8 zones and 8 inputs, plus how to reach it. */
