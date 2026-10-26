@@ -23,11 +23,12 @@ export function TopBar({ preflightOk }: { preflightOk: boolean }) {
   const audacOn = useAudacConfigured();
 
   return (
-    <header style={{ height: 56, flex: "none", display: "flex", alignItems: "center", gap: 14, padding: "0 16px", borderBottom: "1px solid var(--line)", background: "var(--bg)", position: "relative", zIndex: 30 }}>
+    // className "topbar": folds up in steps when narrow (styles.css, "Top bar").
+    <header className="topbar" style={{ height: 56, flex: "none", display: "flex", alignItems: "center", gap: 14, padding: "0 16px", borderBottom: "1px solid var(--line)", background: "var(--bg)", position: "relative", zIndex: 30 }}>
       <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
         {/* The gremlin's head: the full logo is too busy at this size (the whole artwork is in Settings › About). */}
         <img src={logoHead} alt="" width={34} height={34} style={{ borderRadius: 8, flex: "none" }} />
-        <span className="cond" style={{ fontSize: 22, fontWeight: 800, letterSpacing: ".06em", whiteSpace: "nowrap" }}>
+        <span className="cond tb-logo-text" style={{ fontSize: 22, fontWeight: 800, letterSpacing: ".06em", whiteSpace: "nowrap" }}>
           STAGE<span style={{ color: "var(--acc)" }}>GREMLIN</span>
         </span>
       </span>
@@ -43,8 +44,9 @@ export function TopBar({ preflightOk }: { preflightOk: boolean }) {
       {mode !== "run" && audacOn && <AudacButton />}
       {/* Settings is reachable everywhere, Run included: if the output disappears mid-show you need it.
           Icon AND word, so nobody has to guess what the gear does. */}
-      <button className="b btn" tabIndex={-1} onClick={() => useUi.getState().openDialog({ kind: "settings" })} title={keyFor("settings")} style={{ height: 36, background: "var(--p2)", fontWeight: 700 }}>
-        <Gear /> {t("top.settings")}
+      <button className="b btn" tabIndex={-1} onClick={() => useUi.getState().openDialog({ kind: "settings" })} title={`${t("top.settings")} · ${keyFor("settings")}`}
+        aria-label={t("top.settings")} style={{ height: 36, background: "var(--p2)", fontWeight: 700, flex: "none" }}>
+        <Gear /> <span className="tb-settings-label">{t("top.settings")}</span>
       </button>
     </header>
   );
@@ -53,15 +55,18 @@ export function TopBar({ preflightOk }: { preflightOk: boolean }) {
 export function OutputChip() {
   const output = useEngine((s) => s.output);
   const found = output?.outputFound ?? false;
+  // A button: one click to the output choice (Settings › Audio & output). In Run, switching still asks first.
   return (
-    <span
-      className="mono clamp1"
-      title={output ? `Playing on ${output.outputName}` : "Waiting for the engine"}
-      style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 600, padding: "5px 9px", borderRadius: 6, background: found ? "var(--p2)" : "var(--redbg)", color: found ? "var(--dim)" : "var(--redtx)", maxWidth: 220 }}
+    <button
+      className="b mono"
+      tabIndex={-1}
+      onClick={() => useUi.getState().openDialog({ kind: "settings", tab: "audio" })}
+      title={`${output ? `Playing on ${output.outputName}` : "Waiting for the engine"} · click to choose the output`}
+      style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 600, padding: "5px 9px", borderRadius: 6, background: found ? "var(--p2)" : "var(--redbg)", color: found ? "var(--dim)" : "var(--redtx)", maxWidth: 220, minWidth: 0 }}
     >
       <span style={{ width: 8, height: 8, borderRadius: 4, flex: "none", background: output ? (found ? "var(--acc)" : "var(--red)") : "var(--mute)" }} />
-      {output ? (found ? output.outputName : "OUTPUT MISSING") : "NO ENGINE"}
-    </span>
+      <span className="tb-output-name clamp1">{output ? (found ? output.outputName : "OUTPUT MISSING") : "NO ENGINE"}</span>
+    </button>
   );
 }
 
@@ -73,7 +78,7 @@ function WallClock() {
     return () => clearInterval(t);
   }, []);
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+    <div className="tb-clock" style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
       <span className="k">{t("top.time")}</span>
       <span className="mono" style={{ fontSize: 15, fontWeight: 600 }}>
         {now.toLocaleTimeString("nl-BE", { hour: "2-digit", minute: "2-digit" })}
@@ -100,7 +105,7 @@ export function MasterFader() {
         style={{ writingMode: "vertical-lr", direction: "rtl", width: 16, height: 44, margin: 0 }}
       />
       <span style={{ display: "flex", flexDirection: "column", width: 46 }}>
-        <span className="k" style={{ fontSize: 9.5 }}>Master</span>
+        <span className="k tb-master-label" style={{ fontSize: 9.5 }}>Master</span>
         <span className="mono" style={{ fontSize: 11, color: db > 0 ? "var(--amb)" : db < 0 ? "var(--dim)" : "var(--text)" }}>
           {db === 0 ? "0 dB" : `${db > 0 ? "+" : "−"}${Math.abs(db).toFixed(1)}`}
         </span>

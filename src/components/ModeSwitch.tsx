@@ -58,7 +58,7 @@ function ModeButton({ m, n, mode, holding, startHold, endHold, preflightOk }: {
       onPointerDown={() => startHold(m)}
       onPointerUp={endHold}
       onPointerLeave={endHold}
-      title={mode === "run" && !active ? "Hold to leave Run" : `Ctrl+${n}`}
+      title={mode === "run" && !active ? "Hold to leave Run" : `${t(`mode.${m}` as TKey)} · Ctrl+${n}`}
       style={{
         position: "relative", overflow: "hidden",
         height: 34, padding: "0 14px", borderRadius: 7, fontSize: 14, fontWeight: 800, letterSpacing: ".06em",
@@ -71,13 +71,13 @@ function ModeButton({ m, n, mode, holding, startHold, endHold, preflightOk }: {
       {holding && (
         <span aria-hidden="true" style={{ position: "absolute", left: 0, top: 0, bottom: 0, background: "var(--p3)", animation: `holdfill ${HOLD_TO_LEAVE_MS}ms linear forwards` }} />
       )}
-      <span className="mono" style={{ fontSize: 11, opacity: 0.7, position: "relative" }}>{n}</span>
+      <span className="mono tb-mode-num" style={{ fontSize: 11, opacity: 0.7, position: "relative" }}>{n}</span>
       {m === "background" && (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true" style={{ position: "relative" }}>
           <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
         </svg>
       )}
-      <span style={{ position: "relative" }}>{t(`mode.${m}` as TKey)}</span>
+      <span className={m === "background" ? "tb-mode-label-bg" : undefined} style={{ position: "relative" }}>{t(`mode.${m}` as TKey)}</span>
       {m === "preflight" && (
         <span style={{ position: "relative", width: 7, height: 7, borderRadius: 4, background: preflightOk ? "var(--acc)" : "var(--amb)" }} />
       )}

@@ -63,7 +63,7 @@ export function FileMenuButton() {
 
   return (
     <button
-      className="b" data-menu aria-label={t("top.fileMenu")} aria-haspopup="menu" disabled={locked}
+      className="b tb-file" data-menu aria-label={t("top.fileMenu")} aria-haspopup="menu" disabled={locked}
       title={path ?? t("top.notSaved")}
       onClick={(e) => toggleMenuBelow(e.currentTarget, items())}
       onDoubleClick={() => !locked && setRenaming(true)}
