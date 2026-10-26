@@ -3,7 +3,7 @@
   "identifier": "background-player",
   "description": "The background music window shows remote web players. They may call exactly one command: report what is playing. Nothing else (no engine, no files).",
   "windows": [
-    "background"
+    "background-*"
   ],
   "remote": {
     "urls": [

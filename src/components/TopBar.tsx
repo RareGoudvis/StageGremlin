@@ -41,7 +41,9 @@ export function TopBar({ preflightOk }: { preflightOk: boolean }) {
       <MasterFader />
       {/* Run has its own background dock and the booth menu; Build and Preflight get the background pill. */}
       {mode === "run" ? <BoothMenu /> : mode !== "background" && <BackgroundButton />}
-      {mode !== "run" && audacOn && <AudacButton />}
+      {/* Not on the Background screen: its right side already has the zones, and a window from here
+          would open underneath the docked player (a real window). */}
+      {mode !== "run" && mode !== "background" && audacOn && <AudacButton />}
       {/* Settings is reachable everywhere, Run included: if the output disappears mid-show you need it.
           Icon AND word, so nobody has to guess what the gear does. */}
       <button className="b btn" tabIndex={-1} onClick={() => useUi.getState().openDialog({ kind: "settings" })} title={`${t("top.settings")} · ${keyFor("settings")}`}
