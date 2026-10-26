@@ -65,6 +65,8 @@ export interface UiSettings {
   recent: string[];
   /** The school's AUDAC MTX88 (Settings › AUDAC). Empty host = not set up. */
   audac: AudacSetup;
+  /** "salt:sha256" of the admin password (see lib/admin.ts). Empty = none set yet: admin settings stay locked. */
+  adminHash: string;
 }
 
 /** Names and visibility of the MTX's 8 zones and 8 inputs, plus how to reach it. */
@@ -89,7 +91,7 @@ const AUDAC_DEFAULT: AudacSetup = {
   inputs: ["Mic 1", "Mic 2", "Line 3", "Line 4", "Line 5", "Line 6", "WLI/MWX65", "WMI"].map((name) => ({ name, show: true })),
 };
 
-const DEFAULTS: UiSettings = { lang: "en", keys: {}, bgLockDefault: false, zoom: 100, dumbo: false, dumboPads: false, dumboPin: "", ytFormat: "original", recent: [], audac: AUDAC_DEFAULT };
+const DEFAULTS: UiSettings = { lang: "en", keys: {}, bgLockDefault: false, zoom: 100, dumbo: false, dumboPads: false, dumboPin: "", ytFormat: "original", recent: [], audac: AUDAC_DEFAULT, adminHash: "" };
 
 /** Put a show file at the top of the recent list (max 8, no doubles). */
 export function rememberRecent(path: string) {

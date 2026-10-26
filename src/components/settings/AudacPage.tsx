@@ -1,5 +1,6 @@
 // Settings › AUDAC: where the school's MTX88 is on the network, and what its zones and inputs are
 // called here (e.g. input 4 = "Streambox", zone 3 = "Study hall"). Remembered on this laptop.
+// Everyone sees the status and can connect / let go; everything else needs the admin password.
 
 import { useState } from "react";
 import { useSettings, type AudacSetup } from "../../settingsStore";
@@ -7,6 +8,7 @@ import { useT } from "../../i18n";
 import { audac, audacConnectSaved, useAudac } from "../../lib/audac";
 import { Chips, Row } from "../controls";
 import { Card, PageTitle } from "./common";
+import { AdminGate } from "./AdminGate";
 
 export function AudacPage() {
   const t = useT();
@@ -20,7 +22,22 @@ export function AudacPage() {
   return (
     <>
       <PageTitle note={t("set.storedLaptop")}>AUDAC</PageTitle>
+      {/* Anyone: see the status, connect, let go. */}
       <Card title={t("audac.where")} note={t("audac.oneConnection")}>
+        <Row label={t("audac.status")}>
+          <span style={{ fontSize: 13, color: connected ? "var(--acc)" : st?.status === "retrying" ? "var(--ambtx)" : "var(--dim)", flex: 1 }}>
+            {connected ? `${t("audac.connected")} ${st!.host}` : st?.status === "retrying" ? st.message : st?.status === "connecting" ? t("audac.connecting") : t("audac.off")}
+          </span>
+          {st?.status === "off" || !st ? (
+            <button className="b btn btn-go" disabled={!setup.host.trim()} onClick={audacConnectSaved}>{t("audac.connect")}</button>
+          ) : (
+            <button className="b btn" onClick={() => void audac.disconnect()}>{t("audac.release")}</button>
+          )}
+        </Row>
+      </Card>
+      {/* Admin only: where the MTX is, how StageGremlin behaves, and the zone and input names. */}
+      <AdminGate>
+      <Card title={t("audac.setupTitle")}>
         <Row label={t("audac.ip")}>
           <input className="input mono" aria-label={t("audac.ip")} placeholder="192.168.1.50" value={host}
             onChange={(e) => setHost(e.target.value)} onBlur={() => save({ host: host.trim() })} style={{ width: 180 }} />
@@ -36,19 +53,10 @@ export function AudacPage() {
           <Chips<AudacSetup["inRun"]> label={t("audac.inRun")} value={setup.inRun} onChange={(inRun) => save({ inRun })}
             options={[{ value: "show", label: t("audac.runShow") }, { value: "locked", label: t("audac.runLocked") }, { value: "hide", label: t("audac.runHide") }]} />
         </Row>
-        <Row label={t("audac.status")}>
-          <span style={{ fontSize: 13, color: connected ? "var(--acc)" : st?.status === "retrying" ? "var(--ambtx)" : "var(--dim)", flex: 1 }}>
-            {connected ? `${t("audac.connected")} ${st!.host}` : st?.status === "retrying" ? st.message : st?.status === "connecting" ? t("audac.connecting") : t("audac.off")}
-          </span>
-          {st?.status === "off" || !st ? (
-            <button className="b btn btn-go" disabled={!host.trim()} onClick={() => { save({ host: host.trim() }); setTimeout(audacConnectSaved, 0); }}>{t("audac.connect")}</button>
-          ) : (
-            <button className="b btn" onClick={() => void audac.disconnect()}>{t("audac.release")}</button>
-          )}
-        </Row>
       </Card>
       <Names title={t("audac.inputs")} note={t("audac.inputsNote")} list={setup.inputs} onChange={(inputs) => save({ inputs })} />
       <Names title={t("audac.zones")} note={t("audac.zonesNote")} list={setup.zones} onChange={(zones) => save({ zones })} />
+      </AdminGate>
     </>
   );
 }
