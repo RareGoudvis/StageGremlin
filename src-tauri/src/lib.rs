@@ -15,6 +15,7 @@
 //! - `audac`: remote for the school's AUDAC MTX88 zone matrix (network, not audio)
 //! - `updates`: "is there a newer build on GitHub?"
 //! - `extensions`: uBlock Origin Lite for the background player window
+//! - `streambox`: find cast targets (Google Cast, AirPlay, Spotify Connect, DLNA) on the network
 
 mod audac;
 mod background;
@@ -29,6 +30,7 @@ mod portable;
 mod preview;
 mod resume;
 mod settings;
+mod streambox;
 mod updates;
 mod yt;
 
@@ -138,6 +140,7 @@ pub fn run() {
             audac::audac_set_mute,
             updates::app_check_update,
             updates::open_release_page,
+            streambox::net_discover,
         ])
         .build(tauri::generate_context!())
         .expect("error while starting StageGremlin")

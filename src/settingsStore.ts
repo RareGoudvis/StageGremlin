@@ -67,8 +67,22 @@ export interface UiSettings {
   recent: string[];
   /** The school's AUDAC MTX88 (Settings › AUDAC). Empty host = not set up. */
   audac: AudacSetup;
+  /** The network player that feeds the AUDAC (Settings › Streambox). */
+  streambox: StreamboxSetup;
   /** "salt:sha256" of the admin password (see lib/admin.ts). Empty = none set yet: admin settings stay locked. */
   adminHash: string;
+}
+
+/** The streambox chosen from a network search (Settings › Streambox). */
+export interface StreamboxSetup {
+  /** One of STREAMBOX_MODELS (settings/StreamboxPage.tsx). */
+  model: string;
+  ip: string;
+  name: string;
+  /** What the search found it speaks: "Google Cast", "AirPlay", "Spotify Connect", "DLNA". */
+  kinds: string[];
+  /** The AUDAC input (1-8) it is plugged into; 0 = not set. */
+  audacInput: number;
 }
 
 /** Names and visibility of the MTX's 8 zones and 8 inputs, plus how to reach it. */
@@ -122,7 +136,8 @@ const AUDAC_DEFAULT: AudacSetup = {
   scheduleAfter: "release",
 };
 
-const DEFAULTS: UiSettings = { lang: "en", keys: {}, bgLockDefault: false, zoom: 100, dumbo: false, dumboPads: false, dumboPin: "", ytFormat: "original", recent: [], audac: AUDAC_DEFAULT, adminHash: "" };
+const DEFAULTS: UiSettings = { lang: "en", keys: {}, bgLockDefault: false, zoom: 100, dumbo: false, dumboPads: false, dumboPin: "", ytFormat: "original", recent: [], audac: AUDAC_DEFAULT, adminHash: "",
+  streambox: { model: "s2ultra", ip: "", name: "", kinds: [], audacInput: 0 } };
 
 /** Put a show file at the top of the recent list (max 8, no doubles). */
 export function rememberRecent(path: string) {
@@ -145,7 +160,7 @@ export const useSettings = create<SettingsStore>((set, get) => ({
     try {
       const all = await call("settings_get");
       const ui = (all.ui ?? {}) as Partial<UiSettings>;
-      set({ ui: { ...DEFAULTS, ...ui, keys: { ...(ui.keys ?? {}) }, audac: { ...AUDAC_DEFAULT, ...(ui.audac ?? {}) } }, loaded: true });
+      set({ ui: { ...DEFAULTS, ...ui, keys: { ...(ui.keys ?? {}) }, audac: { ...AUDAC_DEFAULT, ...(ui.audac ?? {}) }, streambox: { ...DEFAULTS.streambox, ...(ui.streambox ?? {}) } }, loaded: true });
     } catch (e) {
       console.warn("[cueplay] settings_get", e);
       set({ loaded: true });

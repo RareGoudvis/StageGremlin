@@ -35,6 +35,8 @@ export interface Commands {
   app_check_update: { args: undefined; ret: { current: string | null; latest: string | null; url: string | null; newer: boolean } };
   /** Opens one of StageGremlin's own release pages in the browser (nothing else is allowed). */
   open_release_page: { args: { url: string }; ret: void };
+  /** Search the network for cast targets (src-tauri/src/streambox.rs); takes ~4 s. */
+  net_discover: { args: undefined; ret: { ip: string; name: string; model: string | null; kinds: string[] }[] };
   audio_list_outputs: { args: undefined; ret: AudioOutput[] };
   audio_output_status: { args: undefined; ret: OutputStatus };
   /** null = follow the Windows default output. Rebuilds the engine (cuts sound): never offer it in Run. */

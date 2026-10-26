@@ -15,16 +15,18 @@ import { AudioPage, LookPage, RunBoothPage, ShortcutsPage } from "./settings/Lap
 import { BackgroundPage, LevelsPage } from "./settings/ShowPages";
 import { AudacPage } from "./settings/AudacPage";
 import { SchedulePage } from "./settings/SchedulePage";
+import { StreamboxPage } from "./settings/StreamboxPage";
 import { useAudac } from "../lib/audac";
 import { lockAdmin } from "../lib/admin";
 
-type Page = "audio" | "run" | "audac" | "schedule" | "look" | "shortcuts" | "levels" | "background" | "tools" | "about";
+type Page = "audio" | "run" | "audac" | "streambox" | "schedule" | "look" | "shortcuts" | "levels" | "background" | "tools" | "about";
 
 const NAV: ({ head: TKey } | { id: Page; label: TKey })[] = [
   { head: "set.laptop" },
   { id: "audio", label: "set.audio" },
   { id: "run", label: "set.run" },
   { id: "audac", label: "set.audac" },
+  { id: "streambox", label: "set.streambox" },
   { id: "schedule", label: "set.schedule" },
   { id: "look", label: "set.look" },
   { id: "shortcuts", label: "set.shortcuts" },
@@ -37,7 +39,7 @@ const NAV: ({ head: TKey } | { id: Page; label: TKey })[] = [
 ];
 
 const PAGES: Record<Page, () => ReactNode> = {
-  audio: AudioPage, run: RunBoothPage, audac: AudacPage, schedule: SchedulePage, look: LookPage, shortcuts: ShortcutsPage,
+  audio: AudioPage, run: RunBoothPage, audac: AudacPage, streambox: StreamboxPage, schedule: SchedulePage, look: LookPage, shortcuts: ShortcutsPage,
   levels: LevelsPage, background: BackgroundPage, tools: ToolsPage, about: AboutPage,
 };
 

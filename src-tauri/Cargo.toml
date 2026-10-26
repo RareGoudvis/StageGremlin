@@ -24,6 +24,7 @@ ureq = "3"
 # Unpacks ffmpeg.exe / ffprobe.exe from the ffmpeg release zip.
 zip = { version = "2", default-features = false, features = ["deflate"] }
 notify = "8"
+mdns-sd = "0.21.6"
 
 [target.'cfg(windows)'.dependencies]
 # Only for SetThreadExecutionState (keep the laptop awake during a show).
