@@ -490,18 +490,24 @@ pub fn load(path: &Path) -> Result<Show, ShowFileError> {
 /// are copied in and their paths rewritten, so the folder is always complete.
 /// Writes to a temp file first, then renames, so a crash mid-save never leaves a
 /// half-written show. The previous version is kept in `backups/` (last 20).
-pub fn save(path: &Path, show: &mut Show) -> Result<(), ShowFileError> {
+///
+/// `from_dir` is the folder the show was opened from or last saved to. Relative paths
+/// (`media/x.m4a`) are read from THERE, so "Save as" into another folder copies the
+/// media along instead of pointing at files that don't exist in the new folder.
+/// `None` = same folder as `path` (a normal Save, or a show that was never saved).
+pub fn save(path: &Path, show: &mut Show, from_dir: Option<&Path>) -> Result<(), ShowFileError> {
     let dir = path.parent().map(Path::to_path_buf).unwrap_or_default();
+    let from = from_dir.map(Path::to_path_buf).unwrap_or_else(|| dir.clone());
     let media = dir.join("media");
     std::fs::create_dir_all(&media)?;
     for p in &mut show.pads {
-        p.cue.file = collect_media(&dir, &media, &p.cue.file)?;
+        p.cue.file = collect_media(&from, &dir, &media, &p.cue.file)?;
     }
     for s in &mut show.sections {
         for c in &mut s.cues {
-            c.file = collect_media(&dir, &media, &c.file)?;
+            c.file = collect_media(&from, &dir, &media, &c.file)?;
             if let Some(orig) = &c.swapped_from {
-                c.swapped_from = Some(collect_media(&dir, &media, orig)?);
+                c.swapped_from = Some(collect_media(&from, &dir, &media, orig)?);
             }
         }
     }
@@ -514,23 +520,28 @@ pub fn save(path: &Path, show: &mut Show) -> Result<(), ShowFileError> {
     Ok(())
 }
 
-fn collect_media(dir: &Path, media: &Path, file: &str) -> Result<String, std::io::Error> {
+/// Makes sure one media file lives in `<new show folder>/media` and returns its path relative
+/// to the new show folder. `from` = the folder relative paths were written against.
+fn collect_media(from: &Path, dir: &Path, media: &Path, file: &str) -> Result<String, std::io::Error> {
     if file.is_empty() {
         return Ok(String::new());
     }
     let p = PathBuf::from(file);
-    let abs = if p.is_absolute() { p } else { dir.join(&p) };
+    let abs = if p.is_absolute() { p } else { from.join(&p) };
     if abs.starts_with(media) {
         return Ok(rel(dir, &abs));
     }
     if !abs.exists() {
-        // Missing file: keep the reference so Locate… can fix it later.
-        return Ok(file.to_string());
+        // Missing file: keep the reference so Locate… can fix it later. A relative reference
+        // is rewritten as absolute (from the old folder), so it still points at the right place.
+        return Ok(if Path::new(file).is_absolute() || from == dir { file.to_string() } else { abs.to_string_lossy().to_string() });
     }
     let name = abs.file_name().map(|n| n.to_owned()).unwrap_or_default();
     let mut target = media.join(&name);
     let mut i = 1;
-    while target.exists() && !same_file(&abs, &target) {
+    // Reuse an existing file only when its CONTENT is identical; a different recording
+    // with the same name (and maybe the same size) gets a new name instead.
+    while target.exists() && !same_contents(&abs, &target) {
         let stem = Path::new(&name).file_stem().unwrap_or_default().to_string_lossy();
         let ext = Path::new(&name).extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
         target = media.join(format!("{stem} ({i}){ext}"));
@@ -542,10 +553,33 @@ fn collect_media(dir: &Path, media: &Path, file: &str) -> Result<String, std::io
     Ok(rel(dir, &target))
 }
 
-fn same_file(a: &Path, b: &Path) -> bool {
-    match (std::fs::metadata(a), std::fs::metadata(b)) {
-        (Ok(x), Ok(y)) => x.len() == y.len(),
-        _ => false,
+/// True only when both files have exactly the same bytes. Sizes are compared first (cheap),
+/// then the contents in 64 KB chunks. Used only while saving, never during playback.
+fn same_contents(a: &Path, b: &Path) -> bool {
+    use std::io::Read;
+    let (Ok(ma), Ok(mb)) = (std::fs::metadata(a), std::fs::metadata(b)) else { return false };
+    if ma.len() != mb.len() {
+        return false;
+    }
+    let (Ok(mut fa), Ok(mut fb)) = (std::fs::File::open(a), std::fs::File::open(b)) else { return false };
+    let mut ba = vec![0u8; 64 * 1024];
+    let mut bb = vec![0u8; 64 * 1024];
+    loop {
+        let Ok(na) = fa.read(&mut ba) else { return false };
+        if na == 0 {
+            return true;
+        }
+        // Fill exactly `na` bytes from b (reads may return fewer bytes than asked).
+        let mut got = 0;
+        while got < na {
+            match fb.read(&mut bb[got..na]) {
+                Ok(0) | Err(_) => return false,
+                Ok(n) => got += n,
+            }
+        }
+        if ba[..na] != bb[..na] {
+            return false;
+        }
     }
 }
 

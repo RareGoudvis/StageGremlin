@@ -5,6 +5,7 @@ pub mod analysis;
 #[cfg(feature = "device")]
 pub mod devices;
 pub mod dsp;
+pub mod loader;
 pub mod player;
 pub mod show;
 pub mod tone;

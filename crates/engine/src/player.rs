@@ -18,13 +18,15 @@ use kira::backend::Backend;
 use kira::effect::compressor::CompressorBuilder;
 use kira::effect::eq_filter::{EqFilterBuilder, EqFilterKind};
 use kira::effect::filter::{FilterBuilder, FilterMode};
-use kira::sound::streaming::{StreamingSoundData, StreamingSoundHandle};
+use kira::sound::streaming::StreamingSoundHandle;
 use kira::sound::{FromFileError, PlaybackState};
 use kira::track::{MainTrackBuilder, TrackBuilder, TrackHandle};
 use kira::{AudioManager, AudioManagerSettings, Decibels, Easing, Panning, StartTime, Tween};
 use serde::Serialize;
 
 use crate::dsp::{LimiterBuilder, MeterReading, MeterShared};
+use crate::loader::{Data, Loader};
+use std::collections::HashSet;
 use crate::show::{Curve, Cue, Follow, PadMode, Show};
 use crate::tone::{self, ToneKind};
 use kira::sound::static_sound::StaticSoundHandle;
@@ -153,6 +155,26 @@ pub enum GoResult {
     EndOfShow,
 }
 
+/// What should happen once a sound's file is open.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StartMode {
+    /// A cue started by GO, a follow or a pre-wait: also schedules its attached cues and
+    /// its "start next after N s" trigger.
+    Fire,
+    /// Just the sound: pads, headphone preview, crash resume.
+    Plain,
+}
+
+#[derive(Debug, Clone)]
+struct StartReq {
+    cue: Cue,
+    parent: Option<u64>,
+    pad: Option<String>,
+    /// Position in the file to start at (seconds); 0 = from the trim-in point.
+    from: f64,
+    mode: StartMode,
+}
+
 pub struct Engine<B: Backend> {
     manager: AudioManager<B>,
     meter: Arc<MeterShared>,
@@ -168,8 +190,15 @@ pub struct Engine<B: Backend> {
     unsent_log: usize,
     tone: Option<StaticSoundHandle>,
     /// Files already opened and probed for the next cues, so GO doesn't wait on the disk.
-    prepared: HashMap<PathBuf, StreamingSoundData<FromFileError>>,
+    prepared: HashMap<PathBuf, Data>,
     failed_prepare: Vec<PathBuf>,
+    /// Opens files on a helper thread; the engine thread never waits for the disk.
+    loader: Loader,
+    /// Files asked from the loader and not back yet.
+    inflight: HashSet<PathBuf>,
+    /// Sounds that should start as soon as their file is open (GO on a cue that wasn't
+    /// pre-opened). They start on the tick the file arrives.
+    waiting: Vec<StartReq>,
     paused: bool,
     master_db: f64,
 }
@@ -196,6 +225,9 @@ impl<B: Backend> Engine<B> {
             tone: None,
             prepared: HashMap::new(),
             failed_prepare: vec![],
+            loader: Loader::new(),
+            inflight: HashSet::new(),
+            waiting: vec![],
             paused: false,
             master_db: 0.0,
         })
@@ -274,36 +306,42 @@ impl<B: Backend> Engine<B> {
     }
 
     fn fire(&mut self, cue: &Cue, parent: Option<u64>) {
-        match self.start_sound(cue, parent, None, 0.0) {
+        self.request_start(StartReq { cue: cue.clone(), parent, pad: None, from: 0.0, mode: StartMode::Fire });
+    }
+
+    /// Starts a sound now if its file is already open, otherwise as soon as the loader has it.
+    /// Never touches the disk itself.
+    fn request_start(&mut self, req: StartReq) {
+        let path = self.show.resolve(self.base_dir.as_deref(), &req.cue.file);
+        if let Some(data) = self.prepared.remove(&path) {
+            self.begin(req, Ok(data));
+            return;
+        }
+        if !self.inflight.contains(&path) {
+            self.inflight.insert(path.clone());
+            self.loader.request(path);
+        }
+        self.waiting.push(req);
+    }
+
+    /// The file is open (or failed): start the sound and, for a fired cue, schedule what hangs on it.
+    fn begin(&mut self, req: StartReq, data: Result<Data, String>) {
+        let StartReq { cue, parent, pad, from, mode } = req;
+        let started = data.and_then(|d| self.start_with_data(&cue, parent, pad.clone(), from, d));
+        match started {
             Ok(instance) => {
-                // Attached cues: due at their moment inside this cue's file.
-                let children: Vec<Cue> = self.show.children_of(&cue.id).cloned().collect();
-                for ch in children {
-                    let at = ch.attach.as_ref().map(|a| a.at).unwrap_or(0.0) - cue.trim_in;
-                    if at >= 0.0 {
-                        self.pending.push(Pending {
-                            at: self.clock + at + ch.pre_wait,
-                            cue_id: ch.id.clone(),
-                            kind: PendingKind::Attached,
-                            parent: Some(instance),
-                        });
-                    }
-                }
-                if let Follow::AfterStart { delay } = cue.follow {
-                    if let Some(next) = self.show.next_in_queue(&cue.id) {
-                        self.pending.push(Pending {
-                            at: self.clock + delay.max(0.0),
-                            cue_id: next.id.clone(),
-                            kind: PendingKind::Follow,
-                            parent: None,
-                        });
-                    }
+                if mode == StartMode::Fire {
+                    self.schedule_after_start(&cue, instance, from);
                 }
             }
             Err(e) => {
-                self.push_log("skip", Some(cue), format!("{} {}: {e}", cue.number, cue.name));
+                let label = if pad.is_some() { format!("pad {}", cue.name) } else { format!("{} {}", cue.number, cue.name) };
+                self.push_log("skip", Some(&cue), format!("{label}: {e}"));
                 // A missing file must not stall an automatic sequence.
-                if matches!(cue.follow, Follow::AfterEnd | Follow::AfterStart { .. }) && parent.is_none() {
+                if mode == StartMode::Fire
+                    && parent.is_none()
+                    && matches!(cue.follow, Follow::AfterEnd | Follow::AfterStart { .. })
+                {
                     if let Some(next) = self.show.next_in_queue(&cue.id).map(|c| c.id.clone()) {
                         self.go_cue(&next, "auto");
                     }
@@ -312,14 +350,66 @@ impl<B: Backend> Engine<B> {
         }
     }
 
-    /// Starts one sound. `from` is a position in the file (seconds) to start at
-    /// instead of the trim-in point (rehearsal, resume after a crash).
-    fn start_sound(&mut self, cue: &Cue, parent: Option<u64>, pad: Option<String>, from: f64) -> Result<u64, String> {
-        let path = self.show.resolve(self.base_dir.as_deref(), &cue.file);
-        let data = match self.prepared.remove(&path) {
-            Some(d) => d,
-            None => StreamingSoundData::from_file(&path).map_err(|e| format!("cannot open {}: {e}", path.display()))?,
-        };
+    /// Attached cues and "start the next cue N s after this one starts", measured from where
+    /// the cue really started: normally the trim-in point, in rehearsal a marker further on.
+    /// Anything whose moment already lies before the start point is skipped.
+    fn schedule_after_start(&mut self, cue: &Cue, instance: u64, from: f64) {
+        let started_at = from.max(cue.trim_in);
+        let children: Vec<Cue> = self.show.children_of(&cue.id).cloned().collect();
+        for ch in children {
+            let due = ch.attach.as_ref().map(|a| a.at).unwrap_or(0.0) - started_at;
+            if due >= 0.0 {
+                self.pending.push(Pending {
+                    at: self.clock + due + ch.pre_wait,
+                    cue_id: ch.id.clone(),
+                    kind: PendingKind::Attached,
+                    parent: Some(instance),
+                });
+            }
+        }
+        if let Follow::AfterStart { delay } = cue.follow {
+            let remaining = delay.max(0.0) - (started_at - cue.trim_in);
+            if remaining >= 0.0 {
+                if let Some(next) = self.show.next_in_queue(&cue.id) {
+                    self.pending.push(Pending {
+                        at: self.clock + remaining,
+                        cue_id: next.id.clone(),
+                        kind: PendingKind::Follow,
+                        parent: None,
+                    });
+                }
+            }
+        }
+    }
+
+    /// Picks up files the loader finished. Never blocks.
+    fn poll_loader(&mut self) {
+        while let Some((path, result)) = self.loader.try_recv() {
+            self.inflight.remove(&path);
+            if let Some(i) = self.waiting.iter().position(|w| self.show.resolve(self.base_dir.as_deref(), &w.cue.file) == path) {
+                let req = self.waiting.remove(i);
+                // Another sound waits for the same file (a cue and its pad, say): ask again.
+                if self.waiting.iter().any(|w| self.show.resolve(self.base_dir.as_deref(), &w.cue.file) == path) {
+                    self.inflight.insert(path.clone());
+                    self.loader.request(path.clone());
+                }
+                self.begin(req, result);
+            } else {
+                match result {
+                    Ok(d) => {
+                        self.prepared.insert(path, d);
+                    }
+                    // Missing or unreadable: GO will log it. Don't keep retrying.
+                    Err(_) => self.failed_prepare.push(path),
+                }
+            }
+        }
+    }
+
+    /// Starts one sound from an already-opened file (no disk access here). `from` is a
+    /// position in the file (seconds) to start at instead of the trim-in point
+    /// (rehearsal, resume after a crash).
+    fn start_with_data(&mut self, cue: &Cue, parent: Option<u64>, pad: Option<String>, from: f64, data: Data) -> Result<u64, String> {
         let file_len = data.unsliced_duration().as_secs_f64();
         let start = cue.trim_in.clamp(0.0, file_len);
         let end = cue.trim_out.unwrap_or(file_len).clamp(start, file_len);
@@ -394,6 +484,7 @@ impl<B: Backend> Engine<B> {
     /// Advances timers and housekeeping. `dt` is seconds since the last tick.
     pub fn tick(&mut self, dt: f64) {
         self.clock += dt;
+        self.poll_loader();
         if self.paused {
             // Hold every timer: shift them forward by the time spent paused.
             for p in &mut self.pending {
@@ -455,9 +546,8 @@ impl<B: Backend> Engine<B> {
         self.prepare_upcoming();
     }
 
-    /// Opens the files of the standing-by cue, the two after it and their attached
-    /// cues ahead of time. Opening = reading the header and probing the format,
-    /// which can take tens of milliseconds on a slow disk; doing it now keeps GO instant.
+    /// Has the files of the standing-by cue, the two after it and their attached cues opened
+    /// ahead of time (on the loader thread), so GO starts at once.
     fn prepare_upcoming(&mut self) {
         let mut wanted: Vec<PathBuf> = vec![];
         let mut id = self.playhead.clone();
@@ -472,22 +562,18 @@ impl<B: Backend> Engine<B> {
             id = self.show.next_in_queue(&cid).map(|c| c.id.clone());
         }
         self.prepared.retain(|p, _| wanted.contains(p));
-        // At most one new file per tick, so a tick never stalls for long.
-        if let Some(p) = wanted.into_iter().find(|p| !self.prepared.contains_key(p) && !self.failed_prepare.contains(p)) {
-            match StreamingSoundData::from_file(&p) {
-                Ok(d) => {
-                    self.prepared.insert(p, d);
-                }
-                Err(_) => {
-                    // Missing or unreadable: GO will log it. Don't retry every tick.
-                    self.failed_prepare.push(p);
-                }
+        // Ask the loader for every upcoming file that isn't open or on its way yet.
+        for p in wanted {
+            if !self.prepared.contains_key(&p) && !self.inflight.contains(&p) && !self.failed_prepare.contains(&p) {
+                self.inflight.insert(p.clone());
+                self.loader.request(p);
             }
         }
     }
 
     fn stop_children(&mut self, parent: u64) {
         self.pending.retain(|p| p.parent != Some(parent));
+        self.waiting.retain(|w| w.parent != Some(parent));
         let mut kids = vec![];
         for r in self.running.iter_mut().filter(|r| r.parent == Some(parent) && !r.stopping) {
             r.sound.stop(tween(r.cue.stop_fade, r.cue.curve));
@@ -512,6 +598,7 @@ impl<B: Backend> Engine<B> {
             self.stop_children(id);
         }
         self.pending.retain(|p| p.cue_id != cue_id);
+        self.waiting.retain(|w| w.cue.id != cue_id);
     }
 
     /// The normal way to end things: everything fades over the stop-all time.
@@ -534,6 +621,8 @@ impl<B: Backend> Engine<B> {
             r.stopping = true;
         }
         self.pending.clear();
+        // Nothing that is still waiting for its file may start after Stop all / Panic.
+        self.waiting.clear();
         self.stop_tone();
     }
 
@@ -548,17 +637,18 @@ impl<B: Backend> Engine<B> {
             r.sound.stop(tween(fade, r.cue.curve));
             r.stopping = true;
         }
-        if !playing.is_empty() && pad.mode != PadMode::OneShot {
+        // A toggle/loop pad whose file is still opening counts as "on" too.
+        let was_waiting = self.waiting.iter().any(|w| w.pad.as_deref() == Some(pad_id));
+        self.waiting.retain(|w| w.pad.as_deref() != Some(pad_id));
+        if (!playing.is_empty() || was_waiting) && pad.mode != PadMode::OneShot {
             self.push_log("pad", Some(&pad.cue), format!("pad {} off", pad.cue.name));
             return;
         }
         let mut cue = pad.cue.clone();
         cue.follow = Follow::None;
         cue.play_count = if pad.mode == PadMode::Loop { 0 } else { 1 };
-        match self.start_sound(&cue, None, Some(pad.id.clone()), 0.0) {
-            Ok(_) => self.push_log("pad", Some(&cue), format!("pad {}", cue.name)),
-            Err(e) => self.push_log("skip", Some(&cue), format!("pad {}: {e}", cue.name)),
-        }
+        self.push_log("pad", Some(&cue), format!("pad {}", cue.name));
+        self.request_start(StartReq { cue, parent: None, pad: Some(pad.id.clone()), from: 0.0, mode: StartMode::Plain });
     }
 
     /// Rehearsal: start a cue at a point inside it (a marker), as if GO was pressed.
@@ -567,17 +657,24 @@ impl<B: Backend> Engine<B> {
         let Some(cue) = self.show.cue(cue_id).cloned() else { return };
         self.playhead = self.show.next_in_queue(cue_id).map(|c| c.id.clone());
         self.push_log("rehearsal", Some(&cue), format!("{} {} from {:.1} s", cue.number, cue.name, at));
-        if let Err(e) = self.start_sound(&cue, None, None, at) {
-            self.push_log("skip", Some(&cue), format!("{} {}: {e}", cue.number, cue.name));
-        }
+        // Fire mode: attached cues and follow triggers still happen, measured from `at`.
+        self.request_start(StartReq { cue, parent: None, pad: None, from: at, mode: StartMode::Fire });
     }
 
     /// Plays one cue on its own: no playhead, no follow, no attached cues.
     /// Used for headphone preview (on a second engine) and for resuming after a crash.
+    /// The file is opened on the loader thread, so the sound starts a tick or two later;
+    /// if it can't be opened, that shows up in the log as a "skip".
     pub fn play_one(&mut self, cue: &Cue, at: f64) -> Result<(), String> {
         let mut c = cue.clone();
         c.follow = Follow::None;
-        self.start_sound(&c, None, None, at).map(|_| ())
+        self.request_start(StartReq { cue: c, parent: None, pad: None, from: at, mode: StartMode::Plain });
+        Ok(())
+    }
+
+    /// True while a started sound is still waiting for its file to open.
+    pub fn is_loading(&self) -> bool {
+        !self.waiting.is_empty()
     }
 
     /// Calibration or line-check tone on the show output.

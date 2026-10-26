@@ -62,7 +62,9 @@ async function saveTo(path: string, quiet = false): Promise<boolean> {
   saving = true;
   const sent = doc().show;
   try {
-    const saved = await call("show_save", { path, show: sent });
+    // Where the show lives now: "Save as" into another folder copies the media from there.
+    const fromDir = dirname(doc().path);
+    const saved = await call("show_save", { path, show: sent, fromDir });
     doc().adoptSaved(saved, path, sent);
     if (isTauri && !quiet) rememberRecent(path);
     if (!quiet) toast(isTauri ? `Saved ${basename(path)}` : `Downloaded ${basename(path)} (the audio files are not in it: import them again after opening)`);
