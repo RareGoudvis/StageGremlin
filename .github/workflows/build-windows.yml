@@ -1,25 +1,31 @@
-# Builds RG CuePlay for Windows on every push (or by hand from the Actions tab).
-# Produces two downloads under the run's "Artifacts":
-#   - RG-CuePlay-portable.zip : the .exe + an empty portable.txt (the main build;
-#     unzip anywhere, all data stays in a `data` folder next to the .exe)
-#   - RG-CuePlay-installer    : the NSIS setup .exe
+# Builds RG CuePlay for Windows and publishes it as a GitHub Release.
 #
-# Note: this repo is a Cargo workspace, so Rust builds land in `target/` at the
-# repo root, NOT in `src-tauri/target/`. Paths below use `target/release/...`.
+# Starts only when asked: a push to the `release` branch, a version tag (v0.1.0, …),
+# or "Run workflow" on the Actions tab. Work on `main` never starts a build.
+#
+# Each build becomes a Release (Releases page of the repo) with two downloads:
+#   - RG-CuePlay-portable.zip : rg-cueplay.exe + portable.txt + data/bin (yt-dlp, ffmpeg, ffprobe).
+#                               Unzip anywhere; settings and sign-ins stay in that folder.
+#   - RG-CuePlay-setup.exe    : the installer (no admin rights needed; installs per user)
+# Nothing else has to be installed on the show laptop: WebView2 ships with Windows 10/11
+# (the installer fetches it if missing) and the C runtime is linked into the .exe.
+#
+# Note: this repo is a Cargo workspace, so Rust builds land in `target/` at the repo root.
 name: Build Windows
 
-# Only builds when asked: a push to the `release` branch, a version tag (v0.1.0, …),
-# or "Run workflow" on the Actions tab. Work on `main` never starts a build.
 on:
   push:
     branches: [release]
     tags: ["v*"]
   workflow_dispatch:
 
-# A newer push cancels the build that's still running, so only the latest code gets built.
+# A newer build request cancels one that's still running.
 concurrency:
   group: build-windows-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: write # needed to create the Release
 
 jobs:
   build:
@@ -40,23 +46,59 @@ jobs:
       - name: Install npm packages
         run: npm ci
 
+      - name: Download yt-dlp, ffmpeg and ffprobe to bundle
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force tools/bin | Out-Null
+          Invoke-WebRequest https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe -OutFile tools/bin/yt-dlp.exe
+          Invoke-WebRequest https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip -OutFile ffmpeg.zip
+          Expand-Archive ffmpeg.zip -DestinationPath ffmpeg-x
+          Get-ChildItem ffmpeg-x -Recurse -Include ffmpeg.exe,ffprobe.exe | Copy-Item -Destination tools/bin/
+          Get-ChildItem tools/bin
+
       - name: Build app (UI + Rust + installer)
-        run: npm run tauri build
+        run: npm run tauri build -- --config src-tauri/tauri.release.conf.json
 
       - name: Make portable zip
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force portable | Out-Null
+          New-Item -ItemType Directory -Force portable/data/bin | Out-Null
           Copy-Item target/release/rg-cueplay.exe portable/
           New-Item -ItemType File -Force portable/portable.txt | Out-Null
+          Copy-Item tools/bin/* portable/data/bin/
           Compress-Archive -Path portable/* -DestinationPath RG-CuePlay-portable.zip -Force
+          $setup = Get-ChildItem target/release/bundle/nsis/*.exe | Select-Object -First 1
+          Copy-Item $setup.FullName RG-CuePlay-setup.exe
 
+      - name: Version label
+        id: ver
+        shell: pwsh
+        run: |
+          $v = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
+          if ("${{ github.ref_type }}" -eq "tag") { $tag = "${{ github.ref_name }}" } else { $tag = "v$v-build.${{ github.run_number }}" }
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: RG CuePlay ${{ steps.ver.outputs.tag }}
+          prerelease: true
+          body: |
+            Test build from `${{ github.sha }}`. Not tested on a real show yet — see docs/TESTING.md.
+
+            **Portable (recommended):** download RG-CuePlay-portable.zip → right-click → Properties → Unblock → unzip → run rg-cueplay.exe.
+            **Installer:** RG-CuePlay-setup.exe (no admin rights needed).
+          files: |
+            RG-CuePlay-portable.zip
+            RG-CuePlay-setup.exe
+
+      # Also keep them on the run page, for 30 days.
       - uses: actions/upload-artifact@v4
         with:
-          name: RG-CuePlay-portable
-          path: RG-CuePlay-portable.zip
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: RG-CuePlay-installer
-          path: target/release/bundle/nsis/*.exe
+          name: RG-CuePlay-windows
+          path: |
+            RG-CuePlay-portable.zip
+            RG-CuePlay-setup.exe
+          retention-days: 30

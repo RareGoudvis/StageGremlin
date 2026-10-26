@@ -110,6 +110,7 @@ impl Yt {
     /// Starts the two download workers. They wait for jobs until the app exits.
     pub fn new(app: AppHandle, data_dir: &Path) -> Self {
         let bin_dir = data_dir.join("bin");
+        seed_bundled_tools(&app, &bin_dir);
         let (queue, rx) = mpsc::channel::<Job>();
         let rx = Arc::new(Mutex::new(rx));
         for n in 0..WORKERS {
@@ -511,6 +512,26 @@ fn run_download(app: &AppHandle, bin: &Path, job: &Job) -> Result<String, String
                 msg = "This video only has Opus/WebM audio, which needs ffmpeg — install it in Settings.".to_string();
             }
             Err(msg)
+        }
+    }
+}
+
+/// The installer ships yt-dlp, ffmpeg and ffprobe in its `bin` resource folder (the portable
+/// zip puts them straight into `data/bin`). On start, copy any that are missing into the
+/// data folder, so they work offline from the first run. Later updates (Settings › Update)
+/// overwrite the copies in the data folder, never the bundled originals.
+fn seed_bundled_tools(app: &AppHandle, bin_dir: &Path) {
+    use tauri::Manager;
+    let Ok(res) = app.path().resource_dir() else { return };
+    let bundled = res.join("bin");
+    if !bundled.is_dir() {
+        return;
+    }
+    let _ = std::fs::create_dir_all(bin_dir);
+    for name in ["yt-dlp.exe", "ffmpeg.exe", "ffprobe.exe"] {
+        let (from, to) = (bundled.join(name), bin_dir.join(name));
+        if from.is_file() && !to.is_file() {
+            let _ = std::fs::copy(&from, &to);
         }
     }
 }
