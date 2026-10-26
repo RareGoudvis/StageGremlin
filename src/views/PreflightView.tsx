@@ -10,7 +10,7 @@ import { call, type AudioOutput } from "../lib/tauri";
 import type { ToneKind } from "../types";
 import { fileSave } from "../lib/fileActions";
 import { canEnterRun, locateCue, useMedia } from "../lib/media";
-import { toast } from "../uiStore";
+import { ask, toast } from "../uiStore";
 
 export function PreflightView() {
   const { checks, passed, allOk } = usePreflight();
@@ -165,6 +165,16 @@ export function OutputPicker({ preview = false }: { preview?: boolean }) {
         setPreviewChoice(name);
         return;
       }
+      // Mid-show the operator should know what they're about to do.
+      if (useDoc.getState().mode === "run") {
+        const ok = await ask({
+          title: "Switch the show output now?",
+          body: "Switching restarts the audio engine: there is a short silence on the output. Only do this if the sound is already gone.",
+          confirmLabel: "Switch output",
+          danger: true,
+        });
+        if (!ok) return;
+      }
       await call("audio_set_output", { name: name || null });
     } catch (e) {
       toast(`Could not switch output: ${e}`);
@@ -182,7 +192,7 @@ export function OutputPicker({ preview = false }: { preview?: boolean }) {
       <span style={{ fontSize: 12.5, color: "var(--mute)" }}>
         {preview
           ? "Where Preview (H) plays. Pick the laptop's headphone jack, never the desk."
-          : "Switching restarts the audio engine (a short silence), so it's only offered here, not in Run."}
+          : "Switching restarts the audio engine (a short silence). In Run it asks first."}
       </span>
       <div style={{ display: "flex", gap: 6 }}>
         <select className="select" aria-label="Audio output" value={preferred} onChange={(e) => void choose(e.target.value)} style={{ flex: 1, height: 36 }}>

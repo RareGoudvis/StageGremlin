@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useDoc } from "../store";
 import { useEngine } from "../engineStore";
 import { useUi } from "../uiStore";
-import { useSettings } from "../settingsStore";
+import { keyFor, useSettings } from "../settingsStore";
 import { enableDumbo } from "../lib/media";
 import { ModeSwitch } from "./ModeSwitch";
 import { MasterMeter } from "./MasterMeter";
@@ -30,17 +30,13 @@ export function TopBar({ preflightOk }: { preflightOk: boolean }) {
       <WallClock />
       <MasterMeter />
       <MasterFader />
-      {/* Run has its own background dock and booth settings; Build and Preflight get the pill and the gear. */}
-      {mode === "run" ? (
-        <BoothMenu />
-      ) : (
-        <>
-          <BackgroundButton />
-          <button className="b btn btn-icon" onClick={() => useUi.getState().openDialog({ kind: "settings" })} aria-label={t("top.settings")} title={t("top.settings")} style={{ width: 36, height: 36, background: "var(--p2)" }}>
-            <Gear />
-          </button>
-        </>
-      )}
+      {/* Run has its own background dock and the booth menu; Build and Preflight get the background pill. */}
+      {mode === "run" ? <BoothMenu /> : <BackgroundButton />}
+      {/* Settings is reachable everywhere, Run included: if the output disappears mid-show you need it.
+          Icon AND word, so nobody has to guess what the gear does. */}
+      <button className="b btn" tabIndex={-1} onClick={() => useUi.getState().openDialog({ kind: "settings" })} title={keyFor("settings")} style={{ height: 36, background: "var(--p2)", fontWeight: 700 }}>
+        <Gear /> {t("top.settings")}
+      </button>
     </header>
   );
 }

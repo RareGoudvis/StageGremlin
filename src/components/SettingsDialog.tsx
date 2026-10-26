@@ -1,6 +1,8 @@
-// Settings (gear in the top bar or Ctrl+, — not offered in Run): a full page with a left nav grouped
+// Settings (Settings button in the top bar or Ctrl+, — in every mode): a full page with a left nav grouped
 // by where each setting is stored: THIS LAPTOP · THIS SHOW (in the .sg file) · TOOLS.
 // Everything saves as you change it; Esc or "Back" closes. The pages live in settings/.
+// In Run, Run's keys (GO, Stop all) pause while this is open, and the show's own settings are locked
+// (Run never edits the show); laptop settings such as the output stay usable for emergencies.
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useDoc } from "../store";
@@ -57,10 +59,14 @@ export function SettingsDialog() {
   return (
     <div role="dialog" aria-label={t("top.settings")} style={{ position: "absolute", inset: 0, zIndex: 66, background: "var(--bg)", display: "flex", flexDirection: "column" }}>
       <header style={{ height: 64, flex: "none", display: "flex", alignItems: "center", gap: 16, padding: "0 24px", borderBottom: "1px solid var(--line)" }}>
-        <button className="b btn" onClick={close} style={{ height: 40 }}>‹ {mode === "preflight" ? t("set.backPreflight") : t("set.backBuild")}</button>
+        <button className="b btn" onClick={close} style={{ height: 40 }}>‹ {mode === "run" ? t("set.backRun") : mode === "preflight" ? t("set.backPreflight") : t("set.backBuild")}</button>
         <span className="cond" style={{ fontSize: 26, fontWeight: 800, letterSpacing: ".04em" }}>{t("set.title")}</span>
         <span style={{ flex: 1 }} />
-        <span style={{ fontSize: 13, color: "var(--dim)" }}>{t("set.autosave")}</span>
+        {mode === "run" ? (
+          <span style={{ fontSize: 13, fontWeight: 700, padding: "6px 10px", borderRadius: 8, background: "var(--ambbg)", color: "var(--ambtx)" }}>{t("set.runPaused")}</span>
+        ) : (
+          <span style={{ fontSize: 13, color: "var(--dim)" }}>{t("set.autosave")}</span>
+        )}
       </header>
       <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
         <nav role="tablist" aria-orientation="vertical" aria-label={t("top.settings")} style={{ width: 280, flex: "none", padding: "18px 14px", borderRight: "1px solid var(--line)", display: "flex", flexDirection: "column", gap: 4, background: "var(--p1)" }}>
@@ -78,7 +84,17 @@ export function SettingsDialog() {
         </nav>
         <main className="scroll" style={{ flex: 1, minWidth: 0, padding: "28px 40px 40px" }}>
           <div style={{ maxWidth: 860, display: "flex", flexDirection: "column", gap: 18 }}>
-            <Current />
+            {mode === "run" && (page === "levels" || page === "background") ? (
+              <>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ambtx)" }}>{t("set.showLocked")}</span>
+                {/* A disabled fieldset greys out and blocks every control inside it. */}
+                <fieldset disabled style={{ border: 0, padding: 0, margin: 0, minWidth: 0, display: "flex", flexDirection: "column", gap: 18, opacity: 0.6 }}>
+                  <Current />
+                </fieldset>
+              </>
+            ) : (
+              <Current />
+            )}
           </div>
         </main>
       </div>
