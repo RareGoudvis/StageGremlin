@@ -1,5 +1,8 @@
 {
   "bundle": {
-    "resources": { "../tools/bin/*": "bin/" }
+    "resources": {
+      "../tools/bin/*": "bin/",
+      "../tools/extensions/": "extensions/"
+    }
   }
 }

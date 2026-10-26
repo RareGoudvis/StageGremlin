@@ -76,6 +76,11 @@ Portable: download the zip, right-click → Properties → Unblock, unzip, run `
 Backup: **Actions → Build Windows → Run workflow** on GitHub still builds the same thing in the cloud. Nothing
 else (pushes, tags) starts it.
 
+## Bundled
+
+Release builds include yt-dlp, ffmpeg and [uBlock Origin Lite](https://github.com/uBlockOrigin/uBOL-home) (GPL-3.0, for
+the background player window: it cleans up the players' pages, not their audio/video ads). Each keeps its own licence.
+
 ## License
 
 AGPL-3.0-or-later.

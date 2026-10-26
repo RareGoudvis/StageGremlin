@@ -14,11 +14,13 @@
 //! - `media_watch`: watches the show's media/ folder for changed files
 //! - `audac`: remote for the school's AUDAC MTX88 zone matrix (network, not audio)
 //! - `updates`: "is there a newer build on GitHub?"
+//! - `extensions`: uBlock Origin Lite for the background player window
 
 mod audac;
 mod background;
 mod commands;
 mod engine_thread;
+mod extensions;
 mod files;
 mod keep_awake;
 mod media_watch;
@@ -74,6 +76,7 @@ pub fn run() {
             app.manage(yt::Yt::new(app.handle().clone(), &data_dir));
             app.manage(engine);
             app.manage(media_watch::MediaWatch::new(app.handle().clone()));
+            app.manage(extensions::Extensions::prepare(app.handle(), &data_dir));
             app.manage(background::start(app.handle().clone(), data_dir.clone()));
             app.manage(audac::start(app.handle().clone()));
             Ok(())
