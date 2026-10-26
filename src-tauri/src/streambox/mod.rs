@@ -5,8 +5,12 @@
 //!   ("Bonjour"), found with the mdns-sd library.
 //! - DLNA / UPnP media renderer: announced over SSDP; we ask the device's description for its name.
 //!
-//! Only looking, nothing is sent to the devices. What StageGremlin does with the box comes next,
-//! depending on what it speaks. Runs on a blocking thread (a few seconds of listening).
+//! The search only looks. Controlling the chosen box (volume, mute, play/pause) is in `dlna.rs` and
+//! `cast.rs`; both are here so the school can test which one its streambox answers to.
+//! Everything runs on blocking threads (network waits), never on the engine thread.
+
+mod cast;
+mod dlna;
 
 use std::collections::BTreeMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
@@ -34,6 +38,8 @@ pub struct Found {
     pub model: Option<String>,
     /// e.g. ["AirPlay", "DLNA"]
     pub kinds: Vec<String>,
+    /// DLNA only: the device's description address, needed to control it.
+    pub dlna_url: Option<String>,
 }
 
 #[tauri::command]
@@ -46,8 +52,11 @@ fn discover() -> Result<Vec<Found>, String> {
     let mut by_ip: BTreeMap<Ipv4Addr, Found> = BTreeMap::new();
     let ssdp = std::thread::spawn(ssdp_renderers);
     mdns(&mut by_ip)?;
-    for (ip, name, model) in ssdp.join().unwrap_or_default() {
+    for (ip, name, model, location) in ssdp.join().unwrap_or_default() {
         add(&mut by_ip, ip, &name, model, "DLNA");
+        if let Some(f) = by_ip.get_mut(&ip) {
+            f.dlna_url = Some(location);
+        }
     }
     Ok(by_ip.into_values().collect())
 }
@@ -100,8 +109,8 @@ fn mdns(by_ip: &mut BTreeMap<Ipv4Addr, Found>) -> Result<(), String> {
     Ok(())
 }
 
-/// SSDP search for DLNA renderers; returns (ip, friendly name, "manufacturer model").
-fn ssdp_renderers() -> Vec<(Ipv4Addr, String, Option<String>)> {
+/// SSDP search for DLNA renderers; returns (ip, friendly name, "manufacturer model", description URL).
+fn ssdp_renderers() -> Vec<(Ipv4Addr, String, Option<String>, String)> {
     let Ok(socket) = UdpSocket::bind("0.0.0.0:0") else { return vec![] };
     let _ = socket.set_read_timeout(Some(Duration::from_millis(300)));
     let search = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: \"ssdp:discover\"\r\nMX: 2\r\nST: urn:schemas-upnp-org:device:MediaRenderer:1\r\n\r\n";
@@ -130,9 +139,84 @@ fn ssdp_renderers() -> Vec<(Ipv4Addr, String, Option<String>)> {
                 (None, Some(n)) => Some(n),
                 _ => None,
             };
-            (ip, name, model)
+            (ip, name, model, loc)
         })
         .collect()
+}
+
+// ---------------------------------------------------------------------------------------------
+// Control (docs/ipc.md, "Streambox"): `via` = "dlna" or "cast"
+// ---------------------------------------------------------------------------------------------
+
+/// What the box is doing, as far as the protocol tells us.
+#[derive(Debug, Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct BoxStatus {
+    /// 0–100.
+    pub volume: u8,
+    pub muted: bool,
+    /// DLNA only (Cast doesn't tell a second sender).
+    pub playing: Option<bool>,
+    /// DLNA: the track title; Cast: the app's status text ("Casting: …").
+    pub title: Option<String>,
+    /// DLNA: the artist; Cast: the app that is casting ("Spotify").
+    pub app: Option<String>,
+    /// Play / pause / stop work (DLNA with AVTransport).
+    pub can_transport: bool,
+}
+
+/// Where to send: the box's IP (Cast) and its description address (DLNA).
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Target {
+    pub via: String,
+    pub ip: String,
+    pub dlna_url: Option<String>,
+}
+
+fn dlna_url(t: &Target) -> Result<&str, String> {
+    t.dlna_url.as_deref().filter(|u| !u.is_empty()).ok_or_else(|| "Search the network again: DLNA needs the box's description address.".to_string())
+}
+
+async fn blocking<T: Send + 'static>(job: impl FnOnce() -> Result<T, String> + Send + 'static) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(job).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn streambox_status(target: Target) -> Result<BoxStatus, String> {
+    blocking(move || match target.via.as_str() {
+        "cast" => cast::status(&target.ip),
+        _ => dlna::status(dlna_url(&target)?),
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn streambox_set_volume(target: Target, volume: u8) -> Result<(), String> {
+    blocking(move || match target.via.as_str() {
+        "cast" => cast::set_volume(&target.ip, volume),
+        _ => dlna::set_volume(dlna_url(&target)?, volume),
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn streambox_set_mute(target: Target, mute: bool) -> Result<(), String> {
+    blocking(move || match target.via.as_str() {
+        "cast" => cast::set_mute(&target.ip, mute),
+        _ => dlna::set_mute(dlna_url(&target)?, mute),
+    })
+    .await
+}
+
+/// "play" | "pause" | "stop": DLNA only.
+#[tauri::command]
+pub async fn streambox_transport(target: Target, action: String) -> Result<(), String> {
+    blocking(move || match target.via.as_str() {
+        "cast" => Err("Google Cast doesn't let StageGremlin pause someone else's cast.".into()),
+        _ => dlna::transport(dlna_url(&target)?, &action),
+    })
+    .await
 }
 
 /// A device description is a small XML file on the device itself (its own address).
@@ -149,7 +233,7 @@ fn header(response: &str, name: &str) -> Option<String> {
 }
 
 /// The text of the first `<name>…</name>` (enough for device descriptions; no XML library needed).
-fn tag(xml: &str, name: &str) -> Option<String> {
+pub(crate) fn tag(xml: &str, name: &str) -> Option<String> {
     let start = xml.find(&format!("<{name}>"))? + name.len() + 2;
     let end = start + xml[start..].find(&format!("</{name}>"))?;
     Some(xml[start..end].trim().to_string()).filter(|s| !s.is_empty())
