@@ -3,6 +3,7 @@
 
 import { useDoc } from "../store";
 import { useEngine } from "../engineStore";
+import { useMedia } from "./media";
 import { allCues } from "../types";
 
 export interface Check {
@@ -11,6 +12,8 @@ export interface Check {
   detail: string;
   ok: boolean;
   kind: "auto" | "manual";
+  /** For the missing-files check: the first cue to Locate. */
+  fixId?: string;
 }
 
 export const MANUAL_CHECKS: { key: string; title: string; detail: string }[] = [
@@ -34,8 +37,10 @@ export function usePreflight(): { checks: Check[]; passed: number; allOk: boolea
   const analysis = useDoc((s) => s.analysis);
   const manual = useDoc((s) => s.manualChecks);
   const output = useEngine((s) => s.output);
+  const missingMap = useMedia((s) => s.missing);
 
   const cues = allCues(show);
+  const missing = [...cues, ...show.pads.map((p) => p.cue)].filter((c) => missingMap[c.id]);
   const busy = cues.filter((c) => analysis[c.id]?.state === "busy").length;
   const failed = cues.filter((c) => analysis[c.id]?.state === "error");
   const noLoudness = cues.filter((c) => !c.loudness && analysis[c.id]?.state !== "busy");
@@ -54,6 +59,13 @@ export function usePreflight(): { checks: Check[]; passed: number; allOk: boolea
       title: cues.length ? `${cues.length} cue${cues.length > 1 ? "s" : ""} in the show` : "The show has no cues",
       detail: cues.length ? `${show.sections.length} section${show.sections.length > 1 ? "s" : ""}.` : "Import audio in Build first.",
       ok: cues.length > 0,
+    },
+    {
+      key: "missing", kind: "auto",
+      title: missing.length ? `${missing.length} file${missing.length > 1 ? "s are" : " is"} missing — Run is blocked` : "Every cue file is on disk",
+      detail: missing.length ? missing.map((c) => `${c.number || "pad"} ${c.name} (${c.file})`).join(" · ") : "Checked against the disk; changes in the media folder are noticed.",
+      ok: missing.length === 0,
+      fixId: missing[0]?.id,
     },
     {
       key: "files", kind: "auto",

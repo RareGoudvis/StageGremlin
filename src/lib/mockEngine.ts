@@ -6,6 +6,7 @@
 import type { Analysis, Cue, EngineState, LogEntry, RunningInfo, Show } from "../types";
 import { goQueue, passLen } from "../types";
 import type { YtItem } from "../types";
+import { fileFor } from "./browserFiles";
 
 type Listener = (p: unknown) => void;
 const listeners = new Map<string, Set<Listener>>();
@@ -258,6 +259,27 @@ export async function mockInvoke(cmd: string, args?: Record<string, unknown>): P
       if (!sim.ffmpeg) throw new Error("ffmpeg is not installed");
       await new Promise((r) => setTimeout(r, 800));
       return String(args?.path).replace(/\.(opus|webm)$/i, ".m4a");
+    case "file_exists":
+      // Browser: picked files exist while the tab is open; demo paths exist unless they're in a "missing" folder.
+      return ((args?.paths as string[]) ?? []).map((p) => (p.startsWith("browser:") ? !!fileFor(p) : !/[\\/]missing[\\/]/i.test(p)));
+    case "settings_get":
+      try {
+        return { ui: JSON.parse(localStorage.getItem("cueplay.settings") ?? "null") ?? undefined };
+      } catch {
+        return {};
+      }
+    case "settings_set":
+      try {
+        const patch = (args?.patch ?? {}) as { ui?: unknown };
+        if (patch.ui !== undefined) localStorage.setItem("cueplay.settings", JSON.stringify(patch.ui));
+      } catch {
+        // Not remembered in this browser.
+      }
+      return;
+    case "show_export_zip":
+      throw new Error("Exporting a zip needs the desktop app");
+    case "show_in_folder":
+    case "media_watch":
     case "engine_tone":
     case "audio_set_preview_output":
     case "app_session":

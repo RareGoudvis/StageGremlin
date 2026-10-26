@@ -34,7 +34,11 @@ export interface BgState {
   ducked: boolean;
   sessionFound: boolean;
   error: string | null;
+  /** Rows the page shows (playlist / queue), best effort. null = not available for this source. */
+  tracks: BgTrack[] | null;
 }
+
+export interface BgTrack { title: string; artist: string | null }
 
 export const SOURCES: { id: BgSource; label: string }[] = [
   { id: "spotify", label: "Spotify" },
@@ -63,7 +67,32 @@ export const bg = {
   setConfig: (config: BgConfig) => cmd<void>("bg_set_config", { config }),
   getState: () => cmd<BgState>("bg_get_state"),
   getConfig: () => cmd<BgConfig>("bg_get_config"),
+  playTrack: (index: number, title: string) => cmd<void>("bg_play_track", { index, title }),
 };
+
+// ---- keyboard (Run) ----
+
+/**
+ * Background keys in Run: D duck · R restore · Shift+D play/pause · Shift+→ next ·
+ * Alt+D / Alt+R the same without a fade. They work even when the dock is locked (the lock only
+ * guards against mis-taps). Returns true when the key was ours.
+ */
+export function backgroundKey(e: KeyboardEvent): boolean {
+  if (e.ctrlKey || e.metaKey) return false;
+  const instant = e.altKey;
+  if (e.code === "KeyD" && e.shiftKey) {
+    // Play/pause toggles, so ask the core what it is doing right now (the dock may not be open).
+    bgDo(bg.getState().then((st) => bg.command(st.playing ? "pause" : "play", instant)));
+    return true;
+  }
+  let c: BgCmd | null = null;
+  if (e.code === "KeyD") c = "duck";
+  else if (e.code === "KeyR" && !e.shiftKey) c = "restore";
+  else if (e.key === "ArrowRight" && e.shiftKey) c = "next";
+  if (!c) return false;
+  bgDo(bg.command(c, instant));
+  return true;
+}
 
 /** Runs a command and shows nothing on success; errors go to the console and the caller. */
 export function bgDo(p: Promise<unknown>, onError?: (msg: string) => void) {
@@ -111,6 +140,7 @@ const sim = {
   state: {
     source: "spotify", open: true, visible: false, playing: true, title: TRACKS[0].title, artist: TRACKS[0].artist,
     position: 42, duration: TRACKS[0].duration, levelDb: 0, ducked: false, sessionFound: true, error: null,
+    tracks: TRACKS.map((t) => ({ title: t.title, artist: t.artist })),
   } as BgState,
   config: { ...DEFAULT_CONFIG, offsets: { ...DEFAULT_CONFIG.offsets } } as BgConfig,
   track: 0,
@@ -165,5 +195,9 @@ function mockCmd(name: string, args?: Record<string, unknown>): unknown {
       return { ...s };
     case "bg_get_config":
       return sim.config;
+    case "bg_play_track":
+      setTrack(Number(args?.index ?? 0));
+      s.playing = true;
+      return;
   }
 }

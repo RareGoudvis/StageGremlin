@@ -61,16 +61,75 @@ export function Panel({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Several cues selected: edit the settings they share. A field shows its value when all
+ * selected cues agree, otherwise "mixed". Every change goes to all of them as one undo step.
+ */
 function MultiInspector({ count }: { count: number }) {
-  const deleteSelected = () => deleteCues(useDoc.getState().selection);
+  const selection = useDoc((s) => s.selection);
+  const show = useDoc((s) => s.show);
+  const edit = useDoc((s) => s.edit);
+  const cues = selection.map((id) => findCue(show, id)).filter((c): c is Cue => !!c);
+  const setAll = (patch: Partial<Cue>, key?: string) =>
+    edit((s) => selection.reduce((acc, id) => updateAnyCue(acc, id, patch), s), key ? { coalesce: `bulk:${key}` } : undefined);
+  /** The shared value, or undefined when the cues differ. */
+  const same = <T,>(get: (c: Cue) => T): T | undefined => {
+    const first = cues[0] ? JSON.stringify(get(cues[0])) : undefined;
+    return cues.every((c) => JSON.stringify(get(c)) === first) && cues[0] ? get(cues[0]) : undefined;
+  };
+  const mixed = <span className="mono" style={{ fontSize: 12, color: "var(--mute)" }}>mixed</span>;
+  const gain = same((c) => c.gainDb);
+  const fadeIn = same((c) => c.fadeIn);
+  const fadeOut = same((c) => c.fadeOut);
+  const hpf = same((c) => c.hpf ?? 0);
+  const duck = same((c) => c.duckBg);
+  const follow = same((c) => c.follow.kind);
+  const color = same((c) => c.color);
+
   return (
     <Panel>
-      <span className="k">Inspector</span>
-      <span style={{ fontSize: 20, fontWeight: 700 }}>{count} cues selected</span>
-      <p style={{ color: "var(--dim)", fontSize: 13.5, margin: 0, lineHeight: 1.5 }}>
-        Drag them by a row to move them together, or use Alt+↑ / Alt+↓. Delete removes all of them.
+      <span className="k">Inspector · {count} cues</span>
+      <span style={{ fontSize: 20, fontWeight: 700 }}>{cues.map((c) => c.number).join(", ")}</span>
+      <p style={{ color: "var(--dim)", fontSize: 13, margin: 0, lineHeight: 1.5 }}>
+        Changes here apply to all selected cues (one undo step). Drag them by a row to move them together, or use Alt+↑ / Alt+↓.
       </p>
-      <button className="b btn btn-danger" onClick={deleteSelected} style={{ alignSelf: "flex-start" }}>Delete {count} cues</button>
+      <Group title="Colour">
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+          <button className="b chip" aria-pressed={color === null} onClick={() => setAll({ color: null })}>None</button>
+          {CUE_COLORS.map((c) => (
+            <button key={c.value} className="b" aria-label={c.name} title={c.name} onClick={() => setAll({ color: c.value })}
+              style={{ width: 30, height: 30, borderRadius: 15, background: c.value, boxShadow: color?.toUpperCase() === c.value ? "0 0 0 2px var(--bg), 0 0 0 4px var(--hl)" : "none" }} />
+          ))}
+          {color === undefined && mixed}
+        </div>
+      </Group>
+      <Group title="Playback">
+        <Row label="Gain">
+          {gain === undefined && mixed}
+          <Slider label="Gain (all)" min={-24} max={12} step={0.5} value={gain ?? 0} format={(v) => (gain === undefined ? "set all" : fmtDb(v))} onChange={(v) => setAll({ gainDb: v }, "gain")} />
+        </Row>
+        <Row label="Fade in">{fadeIn === undefined && mixed}<NumField label="Fade in (all)" unit="s" value={fadeIn ?? 0} min={0} onChange={(v) => setAll({ fadeIn: v })} /></Row>
+        <Row label="Fade out">{fadeOut === undefined && mixed}<NumField label="Fade out (all)" unit="s" value={fadeOut ?? 0} min={0} onChange={(v) => setAll({ fadeOut: v })} /></Row>
+      </Group>
+      <Group title="Timing and show">
+        <Row label="Then">
+          <Chips<Follow["kind"] | "">
+            label="Follow (all)" value={follow ?? ""}
+            onChange={(kind) => kind && setAll({ follow: kind === "afterStart" ? { kind, delay: 10 } : { kind } })}
+            options={[{ value: "none", label: "Wait for GO" }, { value: "afterEnd", label: "Next at end" }, { value: "afterStart", label: "Next after 10 s" }]} />
+        </Row>
+        <Row label="Background">
+          <Chips<boolean | "">
+            label="Duck background (all)" value={duck ?? ""} onChange={(v) => v !== "" && setAll({ duckBg: v })}
+            options={[{ value: true, label: "Ducks" }, { value: false, label: "Leaves it" }]} />
+        </Row>
+        <Row label="High-pass">
+          <Chips<number | "">
+            label="High-pass (all)" value={hpf ?? ""} onChange={(v) => v !== "" && setAll({ hpf: v === 0 ? null : v })}
+            options={[{ value: 0, label: "Off" }, { value: 60, label: "60 Hz" }, { value: 80, label: "80 Hz" }, { value: 120, label: "120 Hz" }]} />
+        </Row>
+      </Group>
+      <button className="b btn btn-danger" onClick={() => void deleteCues(selection)} style={{ alignSelf: "flex-start" }}>Delete {count} cues</button>
     </Panel>
   );
 }

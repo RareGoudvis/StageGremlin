@@ -65,6 +65,61 @@
     try { h({ action: action }); return true; } catch (e) { return false; }
   }
 
+  // --- Track list (best effort, per source) ----------------------------------------------
+  // The web players don't offer an API for this, so we read the rows the page shows. Class
+  // names change when a site updates; if a source stops showing tracks, these selectors are
+  // the place to fix. Returns [{ title, artist, el }] or null when this source isn't supported.
+  var MAX_TRACKS = 100;
+
+  function text(root, sel) {
+    var n = root.querySelector(sel);
+    return n ? (n.textContent || "").trim() : "";
+  }
+
+  function scrapeTracks() {
+    var host = location.hostname;
+    var out = [];
+    var rows, i;
+    if (host === "open.spotify.com") {
+      // Rows of the playlist / album currently open in the main view.
+      rows = document.querySelectorAll('[data-testid="tracklist-row"]');
+      for (i = 0; i < rows.length && out.length < MAX_TRACKS; i++) {
+        var title = text(rows[i], '[data-testid="internal-track-link"]') || text(rows[i], 'a[href*="/track/"]');
+        var artists = rows[i].querySelectorAll('a[href*="/artist/"]');
+        var names = [];
+        for (var j = 0; j < artists.length; j++) names.push((artists[j].textContent || "").trim());
+        if (title) out.push({ title: title, artist: names.join(", "), el: rows[i] });
+      }
+      return out;
+    }
+    if (host === "music.youtube.com") {
+      // The "Up next" queue first; else the rows of the playlist that is open.
+      rows = document.querySelectorAll("ytmusic-player-queue-item");
+      if (rows.length) {
+        for (i = 0; i < rows.length && out.length < MAX_TRACKS; i++) {
+          var t = text(rows[i], ".song-title");
+          if (t) out.push({ title: t, artist: text(rows[i], ".byline"), el: rows[i] });
+        }
+        return out;
+      }
+      rows = document.querySelectorAll("ytmusic-responsive-list-item-renderer");
+      for (i = 0; i < rows.length && out.length < MAX_TRACKS; i++) {
+        var t2 = text(rows[i], ".title");
+        if (t2) out.push({ title: t2, artist: text(rows[i], ".secondary-flex-columns"), el: rows[i] });
+      }
+      return out;
+    }
+    return null;
+  }
+
+  /** Starts a row: its own play button when there is one, else a click / double-click on it. */
+  function playRow(el) {
+    var btn = el.querySelector('button[aria-label^="Play"], ytmusic-play-button-renderer, .song-info');
+    if (btn) { btn.click(); return; }
+    el.click();
+    el.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  }
+
   // --- 2. Report to the app -----------------------------------------------------------------
   function isPlaying() {
     var m = media();
@@ -91,6 +146,11 @@
     if (!t || typeof t.invoke !== "function") return;
     var meta = navigator.mediaSession && navigator.mediaSession.metadata;
     var p = readPosition();
+    var tracks = null;
+    try {
+      var found = scrapeTracks();
+      if (found) tracks = found.map(function (t) { return { title: t.title, artist: t.artist || null }; });
+    } catch (e) {}
     var payload = {
       playing: isPlaying(),
       title: meta && meta.title ? String(meta.title) : null,
@@ -98,7 +158,8 @@
       position: p.position,
       duration: p.duration,
       hasMediaSession: Object.keys(handlers).length > 0,
-      url: location.href
+      url: location.href,
+      tracks: tracks
     };
     try {
       var r = t.invoke("plugin:cueplay-bg|report", { report: payload });
@@ -125,6 +186,18 @@
     },
     next: function () { callHandler("nexttrack"); setTimeout(report, 300); },
     prev: function () { callHandler("previoustrack"); setTimeout(report, 300); },
+    // Plays row `index` of the list we last reported; `title` guards against the list having
+    // changed in between (then we look the title up instead).
+    playTrack: function (index, title) {
+      var list = scrapeTracks() || [];
+      var row = list[index];
+      if (!row || row.title !== title) {
+        row = null;
+        for (var i = 0; i < list.length; i++) if (list[i].title === title) { row = list[i]; break; }
+      }
+      if (row) playRow(row.el);
+      setTimeout(report, 300);
+    },
     report: report
   };
 })();

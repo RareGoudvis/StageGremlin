@@ -5,6 +5,7 @@
 //
 // Keys (only here): Space/Enter GO · Esc Stop all · Esc Esc Panic · S stop · U under ·
 // V release vamp · ↑/↓ move the up-next selection · Ctrl+K find · H preview the selected row ·
+// D / R duck / restore background · Shift+D play/pause it · Shift+→ next track (Alt: no fade) ·
 // 1–9, 0 pads. Big mode (Ctrl+B) shows only GO, now playing and next.
 
 import { useEffect, useRef, useState } from "react";
@@ -22,6 +23,7 @@ import { NowPlaying } from "../components/run/NowPlaying";
 import { UpNext, upNextCues } from "../components/run/UpNext";
 import { GoBlock } from "../components/run/GoBlock";
 import { Dock } from "../components/run/Dock";
+import { backgroundKey } from "../components/background/useBackground";
 
 const DOUBLE_ESC_MS = 500;
 
@@ -98,6 +100,12 @@ export function RunView() {
       // Pads: keys 1–9 and 0 (also the number pad).
       if (/^[0-9]$/.test(e.key)) {
         if (firePadByKey(e.key)) e.preventDefault();
+        return;
+      }
+      // Background music: D duck · R restore · Shift+D play/pause · Shift+→ next · Alt = no fade.
+      // These work even when the dock is locked (the lock only guards against mis-taps).
+      if (backgroundKey(e)) {
+        e.preventDefault();
         return;
       }
       const k = e.key.toLowerCase();

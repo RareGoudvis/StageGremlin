@@ -5,7 +5,7 @@ import { useDoc } from "../store";
 import { useUi } from "../uiStore";
 import { allCues } from "../types";
 import { addSection, locate, moveBy } from "../lib/showOps";
-import { fileNew, fileOpen, fileSave, fileSaveAs, importDialog } from "../lib/fileActions";
+import { exportZip, fileNew, fileOpen, fileSave, fileSaveAs, importDialog } from "../lib/fileActions";
 import { findAnyCue } from "../lib/showOps";
 import { previewToggle } from "../lib/preview";
 import { PadGrid } from "../components/build/PadGrid";
@@ -61,6 +61,7 @@ function Toolbar() {
         <button className="b btn" onClick={() => void fileNew()} title="Ctrl+N">New</button>
         <button className="b btn" onClick={() => void fileOpen()} title="Ctrl+O">Open…</button>
         <button className="b btn" onClick={() => void fileSaveAs()} title="Ctrl+Shift+S">Save as…</button>
+        <button className="b btn" onClick={() => void exportZip()} title="The show and its media in one zip">Export zip…</button>
         <button className="b btn btn-go" onClick={() => void fileSave()} title="Ctrl+S">Save</button>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
