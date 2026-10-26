@@ -1,0 +1,122 @@
+/* Theme tokens ported from the "Cueplay — alternate take" mockup.
+   .th-oled = Run (black booth), .th-light = Build. The app root carries one of the two classes. */
+
+.th-oled {
+  --bg: #000000; --p1: #0A0A09; --p2: #121310; --p3: #1C1E19; --line: #262922;
+  --hl: #ECEDE4; --text: #ECEDE4; --dim: #A6A99C; --mute: #7C8074;
+  --acc: #C6F432; --gobg: #C6F432; --ongo: #1A2300;
+  --amb: #FFB224; --ambbg: #2A1E05; --ambtx: #FFD68A; --onamb: #2A1A00;
+  --red: #FF5C4D; --redbg: #2E0B08; --redtx: #FF8A7E; --onred: #2A0703;
+  --cy: #3DD6EC; --cybg: #061B1F; --cyline: #135A66; --cytx: #BDF3FB; --cydim: #8FC9D2; --cybtn: #0F3238; --oncy: #04262B;
+  --lx: #C9A2FF; --lxbg: #1C1229; --st: #7FB2FF; --stbg: #0E1A2C;
+  --scrim: rgba(0, 0, 0, .8); --wave: #3A3E33;
+  /* Text on a cue's own colour swatch (cue colours are all light pastels). */
+  --oncue: #0C0D0B;
+  color-scheme: dark;
+}
+
+.th-light {
+  --bg: #F4F3EE; --p1: #FFFFFF; --p2: #ECEBE4; --p3: #E1E0D7; --line: #D2D1C7;
+  --hl: #17180F; --text: #17180F; --dim: #55574D; --mute: #64665B;
+  --acc: #3F6600; --gobg: #B8EA2A; --ongo: #172000;
+  --amb: #8A5200; --ambbg: #FFEDC7; --ambtx: #5A3600; --onamb: #FFFFFF;
+  --red: #C8261A; --redbg: #FDE3E0; --redtx: #9E1B12; --onred: #FFFFFF;
+  --cy: #0B7C8C; --cybg: #E3F6F8; --cyline: #9AD8E0; --cytx: #08505A; --cydim: #2C6E78; --cybtn: #C9EEF2; --oncy: #FFFFFF;
+  --lx: #6B3FA8; --lxbg: #F1E8FD; --st: #1F5BB5; --stbg: #E6EFFC;
+  --scrim: rgba(23, 24, 15, .45); --wave: #C4C3B8;
+  --oncue: #0C0D0B;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { background: #000; overflow: hidden; }
+
+.app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Archivo Variable', system-ui, sans-serif;
+  font-size: 14px;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* ---- typography helpers ---- */
+.k { font-stretch: 75%; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; font-size: 11px; color: var(--mute); }
+.mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.cond { font-stretch: 75%; }
+.clamp1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dim { color: var(--dim); }
+.mute { color: var(--mute); }
+
+/* ---- buttons ---- */
+.b {
+  cursor: pointer; font-family: inherit; border: 0; color: var(--text); background: var(--p3);
+  transition: filter .12s, transform .06s, background-color .12s;
+}
+.b:hover { filter: brightness(1.08); }
+.th-light .b:hover { filter: brightness(.96); }
+.b:active { transform: scale(.98); }
+.b:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.b:disabled { opacity: .45; cursor: default; filter: none; transform: none; }
+
+.btn { height: 32px; padding: 0 12px; border-radius: 8px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.btn-go { background: var(--gobg); color: var(--ongo); font-weight: 800; }
+.btn-danger { background: var(--redbg); color: var(--redtx); border: 1px solid var(--red); font-weight: 700; }
+.btn-ghost { background: transparent; color: var(--dim); }
+.btn-icon { width: 32px; padding: 0; justify-content: center; }
+
+/* A chip is a toggle button. Pressed = inverted (hl background, bg text): always a
+   different colour from its label in both themes. (The mockup had a pressed chip where
+   background and text used the same token; never set both to the same variable.) */
+.chip { height: 30px; padding: 0 10px; border-radius: 7px; font-size: 12.5px; font-weight: 700; background: var(--p3); color: var(--text); white-space: nowrap; }
+.chip[aria-pressed="true"] { background: var(--hl); color: var(--bg); }
+.chips { display: flex; gap: 4px; flex-wrap: wrap; }
+
+/* ---- inputs ---- */
+.input, .select, .textarea {
+  font: inherit; font-size: 13.5px; color: var(--text); background: var(--p2);
+  border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; height: 32px; min-width: 0;
+  user-select: text;
+}
+.textarea { height: auto; padding: 6px 10px; resize: vertical; line-height: 1.35; }
+.input:focus, .select:focus, .textarea:focus { outline: 2px solid var(--acc); outline-offset: -1px; }
+.input.mono { font-size: 13px; }
+input[type=range] { accent-color: var(--acc); width: 100%; margin: 0; }
+input[type=checkbox] { accent-color: var(--acc); width: 18px; height: 18px; margin: 0; }
+
+.scroll { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+
+/* small tags in cue rows */
+.tag { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; padding: 2px 6px; border-radius: 5px; white-space: nowrap; background: var(--p3); color: var(--dim); }
+.tag-amb { background: var(--ambbg); color: var(--ambtx); }
+.tag-cy { background: var(--cybg); color: var(--cy); border: 1px solid var(--cyline); }
+.tag-lx { background: var(--lxbg); color: var(--lx); }
+.tag-red { background: var(--redbg); color: var(--redtx); }
+.tag-ok { background: var(--p3); color: var(--acc); }
+
+/* modal */
+.scrim { position: absolute; inset: 0; background: var(--scrim); z-index: 60; display: flex; justify-content: center; align-items: flex-start; padding: 110px 24px; }
+.dialog { width: 100%; max-width: 520px; background: var(--bg); border: 1px solid var(--line); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 16px 40px rgba(0, 0, 0, .35); }
+
+.toast { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); background: var(--hl); color: var(--bg); padding: 12px 18px; border-radius: 10px; font-size: 14px; font-weight: 600; z-index: 90; max-width: 80%; }
+
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+.pulse { animation: pulse 1.2s ease-in-out infinite; }
+
+/* Red night mode: everything goes through a red multiply layer (keeps night vision in a dark hall). */
+.red-mode::after { content: ""; position: absolute; inset: 0; background: #FF0000; mix-blend-mode: multiply; pointer-events: none; z-index: 95; }
+
+/* Cue sheet: hidden on screen, the only thing printed. */
+.print-sheet { display: none; }
+@media print {
+  html, body, #root { height: auto; overflow: visible; background: #fff; }
+  .app { display: none !important; }
+  .print-sheet { display: block; color: #000; background: #fff; font-family: 'Archivo Variable', Arial, sans-serif; }
+  .print-sheet th { font-size: 8pt; text-transform: uppercase; letter-spacing: .06em; padding: 2pt 3pt 2pt 0; }
+  .print-sheet td { padding: 3pt 4pt 3pt 0; }
+}

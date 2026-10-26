@@ -1,0 +1,8 @@
+node_modules/
+dist/
+target/
+*.cueplay.tmp
+.DS_Store
+src-tauri/gen/
+data/
+preview-dist/

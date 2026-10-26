@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+members = ["crates/engine", "src-tauri"]
+
+[profile.release]
+# Audio code wants optimisations even in dev; keep release lean.
+lto = true
+codegen-units = 1
+
+[profile.dev.package."*"]
+# Decoders and DSP are far too slow unoptimised; this keeps `tauri dev` glitch-free.
+opt-level = 3

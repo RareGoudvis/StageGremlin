@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "background-player",
+  "description": "The background music window shows remote web players. They may call exactly one command: report what is playing. Nothing else (no engine, no files).",
+  "windows": ["background"],
+  "remote": {
+    "urls": [
+      "https://open.spotify.com",
+      "https://music.youtube.com",
+      "https://www.beatport.com",
+      "https://play.soundtrackyourbrand.com",
+      "https://*.soundtrack.io"
+    ]
+  },
+  "permissions": ["cueplay-bg:allow-report"]
+}
