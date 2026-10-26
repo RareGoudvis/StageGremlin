@@ -1,5 +1,5 @@
-// Build: edit the show. Left rail (Cues · Pads · Media), one toolbar (or the selection bar),
-// the list in the middle and the inspector on the right. See docs/ui-v2.md.
+// Build: edit the show. Left rail (Media · Cues · Pads), the foldable media sidebar, one toolbar
+// (or the selection bar), the cue list or pads in the middle and the inspector on the right.
 
 import { useEffect } from "react";
 import { MediaBin } from "../components/build/MediaBin";
@@ -24,12 +24,14 @@ export function BuildView() {
   const t = useT();
   const tab = useDoc((s) => s.buildTab);
   const multi = useDoc((s) => s.selection.length > 1);
+  const binOpen = useUi((s) => s.binOpen);
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
       <BuildRail />
+      {binOpen && <MediaBin />}
       <section aria-label="Show" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", minHeight: 0 }}>
         {multi && tab === "cues" ? <SelectionBar /> : <BuildToolbar />}
-        {tab === "cues" ? <CueList /> : tab === "pads" ? <PadGrid /> : <MediaBin />}
+        {tab === "cues" ? <CueList /> : <PadGrid />}
         {tab === "cues" && (
           <p style={{ margin: 0, padding: "8px 20px", fontSize: 12, color: "var(--mute)", borderTop: "1px solid var(--line)" }}>{t("build.tip")}</p>
         )}

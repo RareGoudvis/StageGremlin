@@ -10,8 +10,8 @@ import { rangeIds } from "./lib/showOps";
 export type Mode = "build" | "preflight" | "run";
 export type ThemePref = "auto" | "oled" | "light";
 export type FileDisplay = "name" | "path";
-/** What Build's left rail shows: the cue list, the pads grid or the media bin. */
-export type BuildTab = "cues" | "pads" | "media";
+/** What the middle of Build shows: the cue list or the pads grid (the media sidebar sits beside both). */
+export type BuildTab = "cues" | "pads";
 
 /** Per-cue analysis progress. Not part of the document (not saved, not undoable). */
 export type AnalysisStatus =

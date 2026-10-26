@@ -30,9 +30,20 @@ export interface AudacState {
 
 export const MIN_VOLUME = 70;
 
+/** The pretend MTX answers in a browser, and in the app when Settings › AUDAC › Demo is on. */
+const simulated = () => !isTauri || useSettings.getState().ui.audac.demo;
+
 async function cmd<T>(name: string, args?: Record<string, unknown>): Promise<T> {
-  if (isTauri) return invoke<T>(name, args);
+  if (!simulated()) return invoke<T>(name, args);
   return sim.handle(name, args) as T;
+}
+
+/** Switch the demo on or off: let go of the real MTX first, then connect to whichever is now in use. */
+export async function setAudacDemo(on: boolean) {
+  await audac.disconnect().catch(() => {});
+  const s = useSettings.getState();
+  s.update({ audac: { ...s.ui.audac, demo: on } });
+  if (on || s.ui.audac.autoConnect) audacConnectSaved();
 }
 
 /** One function per Tauri command (docs/ipc.md, "AUDAC"). Zones and inputs count from 1. */
@@ -46,20 +57,23 @@ export const audac = {
   setMute: (zone: number, mute: boolean) => cmd<void>("audac_set_mute", { zone, mute }),
 };
 
-/** Connect with this laptop's saved address. */
+/** Connect with this laptop's saved address (or to the pretend MTX in demo). */
 export function audacConnectSaved() {
   const a = useSettings.getState().ui.audac;
-  if (a.host.trim()) audac.connect(a.host.trim(), a.port).catch((e) => console.warn("[audac]", e));
+  const host = a.demo ? "demo" : a.host.trim();
+  if (host) audac.connect(host, a.port).catch((e) => console.warn("[audac]", e));
 }
 
 /** Live state from `audac://state`. */
 export function useAudac(): AudacState | null {
   const [state, setState] = useState<AudacState | null>(null);
+  // Re-subscribe when the demo is switched: the state then comes from the other source.
+  const demo = useSettings((s) => s.ui.audac.demo);
   useEffect(() => {
     let alive = true;
     let stop: (() => void) | null = null;
     audac.getState().then((s) => alive && setState(s)).catch(() => {});
-    if (isTauri) {
+    if (isTauri && !demo) {
       listen<AudacState>("audac://state", (e) => setState(e.payload)).then((un) => (alive ? (stop = un) : un()));
     } else {
       stop = sim.subscribe((s) => alive && setState(s));
@@ -68,7 +82,7 @@ export function useAudac(): AudacState | null {
       alive = false;
       stop?.();
     };
-  }, []);
+  }, [demo]);
   return state;
 }
 
@@ -77,13 +91,13 @@ export function useAudacAutoConnect() {
   const loaded = useSettings((s) => s.loaded);
   useEffect(() => {
     const a = useSettings.getState().ui.audac;
-    if (loaded && a.autoConnect && a.host.trim()) audacConnectSaved();
+    if (loaded && a.autoConnect && (a.host.trim() || a.demo)) audacConnectSaved();
   }, [loaded]);
 }
 
 /** Is an MTX set up on this laptop? (The AUDAC pill and dock tab only show when it is.) */
 export function useAudacConfigured(): boolean {
-  return useSettings((s) => !!s.ui.audac.host.trim());
+  return useSettings((s) => !!s.ui.audac.host.trim() || s.ui.audac.demo);
 }
 
 /** The zones / inputs this laptop chose to show, with their names (1-based numbers). */

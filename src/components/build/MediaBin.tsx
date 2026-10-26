@@ -1,17 +1,20 @@
-// Build › Media (left rail): every audio file the show uses, plus files seen in the show folder
-// that no cue uses yet. Filter on problems. "Add to show" (or right-click) turns a file into a cue;
-// new files come in by dragging them from Windows Explorer onto the window.
+// Build › media sidebar (left of the cue list and the pads, foldable): every audio file the show uses,
+// plus files seen in the show folder that no cue uses yet. "+ Add" brings new files in (the Add window);
+// drag a file onto the cue list (a row or a section) to make a cue, or onto the pads to make a pad.
+// Drag uses pointer events, like the cue list's own drag & drop (WebView2 swallows HTML5 drag events).
 
-import { useState } from "react";
+import { useState, type PointerEvent as RPointerEvent } from "react";
 import { useDoc } from "../../store";
 import type { Cue } from "../../types";
 import { allCues, normGain } from "../../types";
 import { useMedia } from "../../lib/media";
 import { addCuesForFiles, importPadFiles, lastSelected } from "../../lib/fileActions";
 import { absolutePath, basename, stripExt } from "../../lib/tauri";
-import { toast } from "../../uiStore";
-import { openMenu } from "../ContextMenu";
 import { fmtTime } from "../../lib/format";
+import { useUi } from "../../uiStore";
+import { keyFor } from "../../settingsStore";
+import { openMenu } from "../ContextMenu";
+import { Plus } from "../Icons";
 import { useT } from "../../i18n";
 
 type Filter = "all" | "used" | "unused" | "problems";
@@ -35,6 +38,7 @@ export function MediaBin() {
   const seen = useMedia((s) => s.seen);
   const fileDisplay = useDoc((s) => s.fileDisplay);
   const [filter, setFilter] = useState<Filter>("all");
+  const [drag, setDrag] = useState<{ file: string; x: number; y: number; moved: boolean } | null>(null);
 
   // One item per file (several cues may share a file).
   const byFile = new Map<string, BinItem>();
@@ -62,50 +66,91 @@ export function MediaBin() {
     filter === "used" ? i.users.length > 0 : filter === "unused" ? i.users.length === 0 : filter === "problems" ? i.problems.length > 0 : true,
   );
 
+  // ---- drag a file onto the cue list or the pads ----
+  const onDown = (file: string) => (e: RPointerEvent) => {
+    if (e.button !== 0) return;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    setDrag({ file, x: e.clientX, y: e.clientY, moved: false });
+  };
+  const onMove = (e: RPointerEvent) => {
+    if (!drag) return;
+    const moved = drag.moved || Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 5;
+    setDrag({ ...drag, x: e.clientX, y: e.clientY, moved });
+  };
+  const onUp = (e: RPointerEvent) => {
+    if (!drag) return;
+    const { file, moved } = drag;
+    setDrag(null);
+    if (!moved) return; // a click, not a drag
+    const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+    if (el?.closest("[data-drop-pads]")) {
+      importPadFiles([file]);
+      return;
+    }
+    const row = el?.closest<HTMLElement>("[data-cue-id]");
+    const sec = el?.closest<HTMLElement>("[data-drop-section]");
+    if (!row && !sec) return; // dropped somewhere else: nothing happens
+    const [cue] = addCuesForFiles([{ file, name: stripExt(basename(file)) }], row?.dataset.cueId ?? null, row ? undefined : sec?.dataset.dropSection);
+    useDoc.getState().setSelection([cue.id]);
+  };
+
   const filterLabel = { all: t("media.all"), used: t("media.used"), unused: t("media.unused"), problems: t("media.problems") };
 
   return (
-    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-      <div style={{ padding: "10px 20px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid var(--line)" }}>
-        <span className="k">{t("rail.media")} · {byFile.size}</span>
+    <aside aria-label={t("rail.media")} style={{ width: 270, flex: "none", borderRight: "1px solid var(--line)", background: "var(--p1)", display: "flex", flexDirection: "column", minHeight: 0 }}>
+      <div style={{ padding: "12px 12px 10px", display: "flex", flexDirection: "column", gap: 10, borderBottom: "1px solid var(--line)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button className="b btn btn-go" onClick={() => useUi.getState().openDialog({ kind: "add" })} title={keyFor("importAudio")} style={{ height: 36, flex: 1, justifyContent: "center", borderRadius: 10 }}>
+            <Plus /> {t("build.add")}
+          </button>
+          <button className="b btn btn-ghost btn-icon" onClick={() => useUi.getState().setBinOpen(false)} aria-label={t("media.hide")} title={t("media.hide")} style={{ width: 32, height: 36 }}>◀</button>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span className="k" style={{ flex: 1 }}>{t("rail.media")} · {byFile.size}</span>
+        </div>
         <div role="group" aria-label="Filter" className="chips">
           {(["all", "used", "unused", "problems"] as Filter[]).map((f) => (
-            <button key={f} className="b chip" aria-pressed={filter === f} onClick={() => setFilter(f)}>{filterLabel[f]}</button>
+            <button key={f} className="b chip" aria-pressed={filter === f} onClick={() => setFilter(f)} style={{ height: 26, fontSize: 11.5, padding: "0 8px" }}>{filterLabel[f]}</button>
           ))}
         </div>
       </div>
-      <div className="scroll" style={{ flex: 1, minHeight: 0, padding: "8px 14px", display: "flex", flexDirection: "column", gap: 2 }}>
+      <div className="scroll" style={{ flex: 1, minHeight: 0, padding: 6, display: "flex", flexDirection: "column", gap: 2 }}>
         {items.map((i) => (
-          <div key={i.file} title={i.hint}
+          <div key={i.file} onPointerDown={onDown(i.file)} onPointerMove={onMove} onPointerUp={onUp}
+            onDoubleClick={() => addToShow(i.file)}
             onContextMenu={(e) => openMenu(e, [
               { label: t("media.add"), onClick: () => addToShow(i.file) },
               { label: t("media.addPad"), onClick: () => importPadFiles([i.file]) },
             ])}
-            style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 50, padding: "6px 10px", borderRadius: 10, background: i.problems.includes("missing") ? "var(--redbg)" : "transparent" }}>
-            <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-              <span className="mono clamp1" style={{ fontSize: 13 }}>{fileDisplay === "path" ? i.file : basename(i.file)}</span>
-              <span style={{ fontSize: 12, color: "var(--mute)" }}>
-                {i.users.length ? `${i.users.map((u) => u.number || "pad").join(", ")}` : t("media.notUsed")}
-                {i.hint && <span style={{ color: "var(--ambtx)" }}> · {i.hint}</span>}
+            title={i.hint ?? t("media.dragHint")}
+            style={{ padding: "7px 8px", borderRadius: 8, cursor: "grab", background: i.problems.includes("missing") ? "var(--redbg)" : "transparent", display: "flex", flexDirection: "column", gap: 2 }}>
+            <span className="mono clamp1" style={{ fontSize: 12 }}>{fileDisplay === "path" ? i.file : basename(i.file)}</span>
+            <span style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+              <span style={{ fontSize: 11, color: "var(--mute)" }}>
+                {i.users.length ? i.users.map((u) => u.number || "pad").join(", ") : t("media.notUsed")}{i.duration ? ` · ${fmtTime(i.duration)}` : ""}
               </span>
+              {i.problems.map((p) => (
+                <span key={p} className={`tag ${p === "missing" || p.startsWith("can't") ? "tag-red" : "tag-amb"}`} style={{ fontSize: 9.5 }}>{p.toUpperCase()}</span>
+              ))}
             </span>
-            {i.problems.map((p) => (
-              <span key={p} className={`tag ${p === "missing" || p.startsWith("can't") ? "tag-red" : "tag-amb"}`}>{p.toUpperCase()}</span>
-            ))}
-            <span className="mono" style={{ width: 48, textAlign: "right", fontSize: 13, color: "var(--dim)" }}>{i.duration ? fmtTime(i.duration) : ""}</span>
-            <button className="b btn" onClick={() => addToShow(i.file)} disabled={i.problems.includes("missing")}>+ {t("media.add")}</button>
           </div>
         ))}
-        {!items.length && <span style={{ padding: 10, fontSize: 13, color: "var(--mute)" }}>{t("media.nothing")}</span>}
+        {!items.length && <span style={{ padding: 10, fontSize: 12.5, color: "var(--mute)" }}>{t("media.nothing")}</span>}
       </div>
-      <p style={{ margin: 0, padding: "8px 20px", fontSize: 12, color: "var(--mute)", borderTop: "1px solid var(--line)" }}>{t("media.dropHint")}</p>
-    </div>
+      <div style={{ padding: "8px 12px", borderTop: "1px solid var(--line)", fontSize: 11.5, color: "var(--mute)", lineHeight: 1.45 }}>
+        {t("media.dropHint")}
+      </div>
+      {drag?.moved && (
+        <span className="mono" style={{ position: "fixed", left: drag.x + 12, top: drag.y + 8, zIndex: 70, padding: "4px 10px", borderRadius: 7, background: "var(--hl)", color: "var(--bg)", fontSize: 12, pointerEvents: "none" }}>
+          + {basename(drag.file)}
+        </span>
+      )}
+    </aside>
   );
 }
 
-/** A file from the bin becomes a new cue after the selected cue, and gets selected. */
+/** Double-click or right-click › Add to show: a new cue after the selected one. */
 function addToShow(file: string) {
   const [cue] = addCuesForFiles([{ file, name: stripExt(basename(file)) }], lastSelected());
   useDoc.getState().setSelection([cue.id]);
-  toast(`Added “${cue.name}” as cue ${useDoc.getState().show.sections.flatMap((s) => s.cues).find((c) => c.id === cue.id)?.number ?? ""}`);
 }

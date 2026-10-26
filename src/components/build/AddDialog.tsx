@@ -1,12 +1,13 @@
 // The Add window (+ Add, Ctrl+I, Ctrl+Shift+Y): one place for everything that comes into the show.
-// Tabs: Audio files · YouTube & lists · Soundboard pad · Section. The footer says where new cues go.
+// Tabs: Audio files · YouTube & lists · Soundboard pad. The footer says where new cues go.
+// (New sections: "+ Section" in the cue list's toolbar.)
 // Files dropped from Explorer while this window is open go to the open tab (see App.tsx useFileDrop).
 
 import { useEffect, useState } from "react";
 import { useDoc } from "../../store";
 import { useUi, type AddTab } from "../../uiStore";
 import { importFiles, importPadFiles, lastSelected } from "../../lib/fileActions";
-import { addSection, findCue, locate } from "../../lib/showOps";
+import { findCue, locate } from "../../lib/showOps";
 import { pickAudioFiles } from "../../lib/tauri";
 import { useT, type TKey } from "../../i18n";
 import { YoutubePanel, type AddTarget } from "../youtube/YoutubePanel";
@@ -16,7 +17,6 @@ const TABS: { id: AddTab; label: TKey }[] = [
   { id: "files", label: "add.files" },
   { id: "yt", label: "add.yt" },
   { id: "pad", label: "add.pad" },
-  { id: "section", label: "add.section" },
 ];
 
 /** Set while the Add window is open: App.tsx hands dropped files to it instead of the cue list. */
@@ -30,13 +30,11 @@ export function dropOnAddDialog(paths: string[]): boolean {
 export function AddDialog({ tab: firstTab }: { tab?: AddTab }) {
   const t = useT();
   const close = useUi((s) => s.closeDialog);
-  const show = useDoc((s) => s.show);
+  // Re-render when the show changes, so the "Add to" list stays current.
+  useDoc((s) => s.show);
   const [tab, setTab] = useState<AddTab>(firstTab ?? "files");
   const [where, setWhere] = useState(() => defaultWhere());
-  const [sectionName, setSectionName] = useState(t("add.newSection"));
-  // The Section tab only offers sections: "after cue 3" becomes "after the section cue 3 is in".
-  const shownWhere = tab === "section" && where.startsWith("after:") ? `end:${locate(show, where.slice(6))?.section.id ?? ""}` : where;
-  const target = toTarget(shownWhere);
+  const target = toTarget(where);
 
   const addFiles = (paths: string[]) => {
     if (!paths.length) return;
@@ -45,12 +43,6 @@ export function AddDialog({ tab: firstTab }: { tab?: AddTab }) {
     close();
   };
   const choose = async () => addFiles(await pickAudioFiles());
-
-  const addNewSection = () => {
-    // Right after the section the footer points at.
-    useDoc.getState().edit((s) => addSection(s, sectionName.trim() || t("add.newSection"), target.sectionId ?? null));
-    close();
-  };
 
   useEffect(() => {
     dropHandler = tab === "files" || tab === "pad" ? addFiles : null;
@@ -92,27 +84,18 @@ export function AddDialog({ tab: firstTab }: { tab?: AddTab }) {
             </>
           )}
           {tab === "yt" && <YoutubePanel target={target} />}
-          {tab === "section" && (
-            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, color: "var(--dim)" }}>
-              {t("add.sectionName")}
-              <input className="input" autoFocus value={sectionName} onChange={(e) => setSectionName(e.target.value)}
-                onFocus={(e) => e.target.select()} onKeyDown={(e) => e.key === "Enter" && addNewSection()} style={{ height: 44, fontSize: 15 }} />
-            </label>
-          )}
-
           <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 12, borderTop: "1px solid var(--line)", flexWrap: "wrap" }}>
             {tab !== "pad" && (
               <>
-                <span style={{ fontSize: 13, color: "var(--dim)" }}>{tab === "section" ? t("add.after") : t("add.to")}</span>
-                <select className="select" aria-label={t("add.to")} value={shownWhere} onChange={(e) => setWhere(e.target.value)} style={{ maxWidth: 320 }}>
-                  {whereOptions(t, tab === "section").map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                <span style={{ fontSize: 13, color: "var(--dim)" }}>{t("add.to")}</span>
+                <select className="select" aria-label={t("add.to")} value={where} onChange={(e) => setWhere(e.target.value)} style={{ maxWidth: 320 }}>
+                  {whereOptions(t).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </>
             )}
             <span style={{ flex: 1 }} />
             <button className="b btn btn-ghost" onClick={() => useUi.getState().openDialog({ kind: "settings", tab: "tools" })}>{t("add.importSettings")}</button>
             {(tab === "files" || tab === "pad") && <button className="b btn btn-go" onClick={() => void choose()}>{t("add.choose")}</button>}
-            {tab === "section" && <button className="b btn btn-go" onClick={addNewSection}>{t("add.addSection")}</button>}
           </div>
         </div>
       </div>
@@ -134,15 +117,15 @@ function toTarget(where: string): AddTarget {
   return kind === "after" ? { afterId: id } : { afterId: null, sectionId: id || undefined };
 }
 
-function whereOptions(t: (k: TKey) => string, sectionsOnly: boolean): { value: string; label: string }[] {
+function whereOptions(t: (k: TKey) => string): { value: string; label: string }[] {
   const s = useDoc.getState();
   const after = lastSelected();
   const cue = findCue(s.show, after);
   const opts: { value: string; label: string }[] = [];
-  if (cue && after && !sectionsOnly) {
+  if (cue && after) {
     const sec = locate(s.show, after)?.section.name ?? "";
     opts.push({ value: `after:${after}`, label: `${t("add.afterCue")} ${cue.number} · ${sec}` });
   }
-  for (const sec of s.show.sections) opts.push({ value: `end:${sec.id}`, label: sectionsOnly ? sec.name : `${t("add.endOf")} ${sec.name}` });
+  for (const sec of s.show.sections) opts.push({ value: `end:${sec.id}`, label: `${t("add.endOf")} ${sec.name}` });
   return opts;
 }

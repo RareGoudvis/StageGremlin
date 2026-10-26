@@ -22,7 +22,7 @@ export type Dialog =
   /** `tab`: open Settings on that page (e.g. "tools" from the Add window's "Import settings…"). */
   | { kind: "settings"; tab?: string };
 
-export type AddTab = "files" | "yt" | "pad" | "section";
+export type AddTab = "files" | "yt" | "pad";
 
 /** Booth settings for a dark hall: dimmer, red night mode, Big mode. Remembered per machine. */
 export interface Booth { dim: number; red: boolean; big: boolean }
@@ -37,6 +37,9 @@ interface UiStore {
   /** Build's search field: filters the cue list while not empty. */
   find: string;
   setFind: (find: string) => void;
+  /** Build's media sidebar is open (remembered on this machine). */
+  binOpen: boolean;
+  setBinOpen: (open: boolean) => void;
   showToast: (text: string) => void;
   ask: (req: Omit<ConfirmRequest, "resolve">) => Promise<boolean>;
   answer: (ok: boolean) => void;
@@ -57,6 +60,14 @@ function loadBooth(): Booth {
   }
 }
 
+function loadBinOpen(): boolean {
+  try {
+    return localStorage.getItem("cueplay.bin") !== "closed";
+  } catch {
+    return true;
+  }
+}
+
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
 export const useUi = create<UiStore>((set, get) => ({
@@ -67,6 +78,15 @@ export const useUi = create<UiStore>((set, get) => ({
   booth: loadBooth(),
   find: "",
   setFind: (find) => set({ find }),
+  binOpen: loadBinOpen(),
+  setBinOpen: (binOpen) => {
+    try {
+      localStorage.setItem("cueplay.bin", binOpen ? "open" : "closed");
+    } catch {
+      // not remembered; still applies now
+    }
+    set({ binOpen });
+  },
   showToast: (text) => {
     const id = Date.now();
     set({ toast: { text, id } });

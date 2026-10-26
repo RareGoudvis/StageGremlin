@@ -58,7 +58,7 @@ async function check() {
   checking = true;
   try {
     const setup = useSettings.getState().ui.audac;
-    if (!setup.host.trim()) return;
+    if (!setup.host.trim() && !setup.demo) return; // no MTX set up (the demo counts as one)
     const now = new Date();
     const inShow = useDoc.getState().mode === "run";
 

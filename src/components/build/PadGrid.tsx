@@ -15,7 +15,8 @@ export function PadGrid() {
   const selectPad = useDoc((s) => s.selectPad);
 
   return (
-    <div className="scroll" style={{ flex: 1, minHeight: 0, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+    // data-drop-pads: a file dragged from the media sidebar and dropped here becomes a pad.
+    <div className="scroll" data-drop-pads style={{ flex: 1, minHeight: 0, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 13.5, color: "var(--dim)", flex: 1 }}>
           Pads are short sounds you fire in Run with keys 1–9 and 0. They use the same sound settings as cues.
