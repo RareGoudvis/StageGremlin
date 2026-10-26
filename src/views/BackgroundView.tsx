@@ -10,15 +10,15 @@
 import { useEffect, useRef } from "react";
 import { useUi } from "../uiStore";
 import { useMenu } from "../components/ContextMenu";
-import { backgroundKey, bg, bgDo, SOURCES, useBackground, useEnabledSources, type BgSource } from "../components/background/useBackground";
+import { backgroundKey, bg, bgDo, useBackground, useEnabledSources, type BgSource } from "../components/background/useBackground";
 import { AudacPanel } from "../components/audac/AudacPanel";
 import { useAudacConfigured } from "../lib/audac";
 import { useSettings } from "../settingsStore";
 import { StreamboxPanel } from "../components/StreamboxPanel";
 import { MasterFader, OutputChip } from "../components/TopBar";
 import { MasterMeter } from "../components/MasterMeter";
+import { Decks, DECK_COLOR, playerStatus } from "../components/background/Decks";
 import { isTauri } from "../lib/tauri";
-import { fmtTime } from "../lib/format";
 import { useT } from "../i18n";
 
 export function BackgroundView() {
@@ -30,7 +30,7 @@ export function BackgroundView() {
   return (
     <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "300px minmax(0, 1fr) 380px", gap: 12, padding: "12px 14px" }}>
       <section aria-label={t("bgv.playback")} className="scroll" style={{ ...panel, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
-        <Playback />
+        <Decks />
         <span style={{ marginTop: "auto", paddingTop: 10, borderTop: "1px solid var(--line)", fontSize: 12, color: "var(--mute)", lineHeight: 1.45 }}>{t("bgv.noGo")}</span>
       </section>
       {/* Square bottom corners: the player window laid over this panel is square, and fills it to the bottom. */}
@@ -62,66 +62,6 @@ function useBackgroundKeys() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-}
-
-// ---------------------------------------------------------------- left: playback
-
-function Playback() {
-  const t = useT();
-  const st = useBackground();
-  const source = SOURCES.find((s) => s.id === st?.source)?.label;
-  const pct = st?.position != null && st.duration ? Math.min(100, (st.position / st.duration) * 100) : 0;
-  const big = { height: 52, borderRadius: 12, justifyContent: "center" } as const;
-  const tile = (on: boolean) => ({ height: 44, justifyContent: "center", borderRadius: 10, fontWeight: 700, background: on ? "var(--hl)" : "var(--p2)", color: on ? "var(--bg)" : "var(--text)" });
-
-  return (
-    <>
-      <span className="k">{t("bgv.nowPlaying")}{source ? ` · ${source}` : ""}</span>
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, minHeight: 52 }}>
-        <span style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.15 }}>{st?.title ?? t("bgv.nothing")}</span>
-        {st?.artist && <span style={{ fontSize: 14, color: "var(--dim)" }}>{st.artist}</span>}
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <div style={{ height: 6, borderRadius: 3, background: "var(--p3)" }}><div style={{ width: `${pct}%`, height: 6, borderRadius: 3, background: "var(--acc)" }} /></div>
-        <div className="mono" style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--dim)" }}>
-          <span>{st?.position != null ? fmtTime(st.position) : "–:––"}</span><span>{st?.duration ? fmtTime(st.duration) : "–:––"}</span>
-        </div>
-      </div>
-
-      <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-        <button className="b btn" aria-label={t("bgv.prev")} disabled={!st?.open} onClick={() => bgDo(bg.command("prev"))} style={{ ...big, width: 52 }}>⏮</button>
-        <button className="b btn btn-go" aria-label={st?.playing ? t("bg.pause") : t("bg.play")} disabled={!st?.open} onClick={() => bgDo(bg.command(st?.playing ? "pause" : "play"))} style={{ ...big, width: 72, fontSize: 20 }}>
-          {st?.playing ? "❚❚" : "▶"}
-        </button>
-        <button className="b btn" aria-label={t("bgv.next")} disabled={!st?.open} onClick={() => bgDo(bg.command("next"))} style={{ ...big, width: 52 }}>⏭</button>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
-        <button className="b btn" onClick={() => bgDo(bg.command("duck"))} style={tile(!!st?.ducked)}>{t("bgv.duck")} · D</button>
-        <button className="b btn" onClick={() => bgDo(bg.command("restore"))} style={tile(!st?.ducked)}>{t("bgv.restore")} · R</button>
-      </div>
-
-      <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, color: "var(--dim)" }}>
-        <span style={{ display: "flex", justifyContent: "space-between" }}>
-          <span>{t("bgv.level")}</span><span className="mono" style={{ color: "var(--text)" }}>{(st?.levelDb ?? 0).toFixed(1)} dB</span>
-        </span>
-        <input type="range" min={-40} max={0} step={0.5} value={st?.levelDb ?? 0} aria-label={t("bgv.level")}
-          onChange={(e) => bgDo(bg.setLevel(Number(e.target.value)))} />
-      </label>
-
-      {st?.tracks && st.tracks.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 2, borderTop: "1px solid var(--line)", paddingTop: 10 }}>
-          <span className="k">{t("bgv.upNext")}</span>
-          {st.tracks.slice(0, 12).map((tr, i) => (
-            <button key={i} className="b" onClick={() => bgDo(bg.playTrack(i, tr.title))}
-              style={{ display: "flex", gap: 6, textAlign: "left", padding: "5px 6px", borderRadius: 6, background: "transparent", color: "var(--text)", fontSize: 13 }}>
-              <span className="clamp1" style={{ flex: 1 }}>{tr.title}{tr.artist && <span style={{ color: "var(--dim)" }}> · {tr.artist}</span>}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </>
-  );
 }
 
 // ---------------------------------------------------------------- middle: the player
@@ -187,17 +127,27 @@ function Player() {
         {sources.map((s) => {
           const on = st?.source === s.id;
           const isOpen = !!st?.openSources?.includes(s.id);
+          // On a deck: filled in the deck's colour (solid while looked at, tinted otherwise).
+          const deck = st?.decks ? st.decks.indexOf(s.id) : -1;
+          const color = deck >= 0 ? DECK_COLOR[deck] : null;
+          const fill = color ? (on ? color.solid : color.tint) : on ? "var(--hl)" : "transparent";
+          const text = (color && on) ? "var(--ondeck)" : on ? "var(--bg)" : "var(--text)";
+          const status = playerStatus(st, s.id);
           return (
-            <span key={s.id} style={{ display: "flex", alignItems: "center", borderRadius: 8, background: on ? "var(--hl)" : "transparent" }}>
+            <span key={s.id} style={{ display: "flex", alignItems: "center", borderRadius: 8, background: fill, border: `2px solid ${color ? color.solid : "transparent"}` }}>
               <button role="tab" aria-selected={on} className="b" onClick={() => pick(s.id)}
-                style={{ height: 34, padding: "0 10px 0 12px", borderRadius: 8, fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, background: "transparent", color: on ? "var(--bg)" : "var(--text)" }}>
-                {/* Dot: this service's window is open (and may be playing). */}
-                {isOpen && <span style={{ width: 7, height: 7, borderRadius: 4, background: on ? "var(--bg)" : "var(--acc)" }} />}
+                style={{ height: 32, padding: "0 8px 0 10px", borderRadius: 8, fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, background: "transparent", color: text }}>
+                {/* Green ▶ playing · red ❚❚ paused · blue ● loaded but not playing. */}
+                {isOpen && (
+                  <span title={t(`deck.st.${status}`)} style={{ fontSize: 11, fontWeight: 900, color: on ? text : `var(--st-${status === "playing" ? "play" : status === "paused" ? "pause" : "idle"})` }}>
+                    {status === "playing" ? "▶" : status === "paused" ? "❚❚" : "●"}
+                  </span>
+                )}
                 {s.label}
               </button>
               {isOpen && (
                 <button className="b" aria-label={`${t("bgv.closeService")} ${s.label}`} title={`${t("bgv.closeService")} ${s.label}`} onClick={() => bgDo(bg.close(s.id))}
-                  style={{ height: 34, width: 26, padding: 0, borderRadius: 8, background: "transparent", color: on ? "var(--bg)" : "var(--mute)", fontSize: 14 }}>×</button>
+                  style={{ height: 32, width: 24, padding: 0, borderRadius: 8, background: "transparent", color: text, fontSize: 14 }}>×</button>
               )}
             </span>
           );

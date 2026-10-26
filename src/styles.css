@@ -9,6 +9,8 @@
   --red: #FF5C4D; --redbg: #2E0B08; --redtx: #FF8A7E; --onred: #2A0703;
   --cy: #3DD6EC; --cybg: #061B1F; --cyline: #135A66; --cytx: #BDF3FB; --cydim: #8FC9D2; --cybtn: #0F3238; --oncy: #04262B;
   --lx: #C9A2FF; --lxbg: #1C1229; --st: #7FB2FF; --stbg: #0E1A2C;
+  --deckA: #B48EEB; --deckAbg: #1E1530; --deckB: #3DD6EC; --deckBbg: #061B1F; --ondeck: #0C0D0B;
+  --st-play: #5BD16A; --st-pause: #FF6B5E; --st-idle: #7FB2FF;
   --scrim: rgba(0, 0, 0, .8); --wave: #3A3E33;
   /* Text on a cue's own colour swatch (cue colours are all light pastels). */
   --oncue: #0C0D0B;
@@ -23,6 +25,8 @@
   --red: #C8261A; --redbg: #FDE3E0; --redtx: #9E1B12; --onred: #FFFFFF;
   --cy: #0B7C8C; --cybg: #E3F6F8; --cyline: #9AD8E0; --cytx: #08505A; --cydim: #2C6E78; --cybtn: #C9EEF2; --oncy: #FFFFFF;
   --lx: #6B3FA8; --lxbg: #F1E8FD; --st: #1F5BB5; --stbg: #E6EFFC;
+  --deckA: #6B3FA8; --deckAbg: #F1E8FD; --deckB: #0B7C8C; --deckBbg: #E3F6F8; --ondeck: #FFFFFF;
+  --st-play: #2E7D32; --st-pause: #C8261A; --st-idle: #1F5BB5;
   --scrim: rgba(23, 24, 15, .45); --wave: #C4C3B8;
   --oncue: #0C0D0B;
   color-scheme: light;
