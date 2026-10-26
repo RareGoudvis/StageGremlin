@@ -37,7 +37,11 @@
     ],
     "windows": {
       "webviewInstallMode": { "type": "downloadBootstrapper" },
-      "nsis": { "installMode": "currentUser" }
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "sidebarImage": "icons/installer-sidebar.bmp"
+      }
     }
   }
 }
