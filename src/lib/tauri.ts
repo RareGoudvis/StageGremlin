@@ -57,6 +57,8 @@ export interface Commands {
   // ---- round 3 (names as announced; check docs/ipc.md) ----
   /** One boolean per (absolute) path: does the file exist. */
   file_exists: { args: { paths: string[] }; ret: boolean[] };
+  /** P in Run: pause / resume everything. Returns true when now paused. GO while paused resumes. */
+  engine_pause_all: { args: undefined; ret: boolean };
   show_in_folder: { args: { path: string }; ret: void };
   /** Watch a folder; changes arrive as media://changed. */
   media_watch: { args: { dir: string }; ret: void };

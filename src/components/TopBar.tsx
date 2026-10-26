@@ -42,6 +42,7 @@ export function TopBar({ preflightOk }: { preflightOk: boolean }) {
       <OutputChip />
       <WallClock />
       <MasterMeter />
+      <MasterFader />
       <BoothMenu />
       <ThemeButton />
       {mode !== "run" && (
@@ -80,6 +81,33 @@ function WallClock() {
       <span className="k">{t("top.time")}</span>
       <span className="mono" style={{ fontSize: 15, fontWeight: 600 }}>
         {now.toLocaleTimeString("nl-BE", { hour: "2-digit", minute: "2-digit" })}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * The show's master fader (−60 … +10 dB, 0 = unity). Works in Run too: riding the overall
+ * level is part of running the show. One drag = one undo step. Double-click resets to 0 dB.
+ */
+function MasterFader() {
+  const db = useDoc((s) => s.show.settings.masterDb ?? 0);
+  const set = (v: number) =>
+    useDoc.getState().edit((s) => ({ ...s, settings: { ...s.settings, masterDb: v } }), { coalesce: "master-fader", allowInRun: true });
+  return (
+    <div title="Master level (double-click: 0 dB)" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <input
+        type="range" aria-label="Master level" min={-60} max={10} step={0.5} value={db} tabIndex={-1}
+        onChange={(e) => set(Number(e.target.value))}
+        onDoubleClick={() => set(0)}
+        // A vertical fader, like on the desk.
+        style={{ writingMode: "vertical-lr", direction: "rtl", width: 16, height: 44, margin: 0 }}
+      />
+      <span style={{ display: "flex", flexDirection: "column", width: 46 }}>
+        <span className="k" style={{ fontSize: 9.5 }}>Master</span>
+        <span className="mono" style={{ fontSize: 11, color: db > 0 ? "var(--amb)" : db < 0 ? "var(--dim)" : "var(--text)" }}>
+          {db === 0 ? "0 dB" : `${db > 0 ? "+" : "−"}${Math.abs(db).toFixed(1)}`}
+        </span>
       </span>
     </div>
   );

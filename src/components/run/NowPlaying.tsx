@@ -5,7 +5,7 @@ import { useDoc } from "../../store";
 import type { Cue, RunningInfo } from "../../types";
 import { findCue } from "../../lib/showOps";
 import { fmtTime } from "../../lib/format";
-import { releaseVamp, stopCue, toggleUnder } from "../../lib/runActions";
+import { pauseAll, releaseVamp, stopCue, toggleUnder } from "../../lib/runActions";
 import { useEngine } from "../../engineStore";
 import { showRunning } from "../../lib/showMath";
 import { useUi } from "../../uiStore";
@@ -21,6 +21,7 @@ export function NowPlaying({ run, standbyId, onFocus }: {
   const show = useDoc((s) => s.show);
   const others = showRunning(useEngine((s) => s.state?.running));
   const pending = useEngine((s) => s.state?.pending) ?? [];
+  const paused = useEngine((s) => !!s.state?.paused);
   const cue = run ? findCue(show, run.cueId) : findCue(show, standbyId);
   const underDb = cue?.underDb ?? show.settings.underDb;
 
@@ -29,10 +30,18 @@ export function NowPlaying({ run, standbyId, onFocus }: {
   const frac = run && run.length > 0 ? run.position / run.length : 0;
 
   return (
-    <section aria-label="Now playing" style={{
+    <section aria-label="Now playing" style={{ position: "relative",
       flex: "none", borderRadius: 16, background: "var(--p1)", border: `1px solid ${run ? "var(--acc)" : "var(--line)"}`,
       padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10,
     }}>
+      {paused && (
+        // Across the whole card: impossible to miss in a dark booth.
+        <div role="alert" onClick={() => pauseAll()} style={{ position: "absolute", inset: 0, zIndex: 5, borderRadius: 16, background: "rgba(0,0,0,.55)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+          <span className="cond" style={{ padding: "14px 28px", borderRadius: 12, background: "var(--amb)", color: "var(--onamb)", fontSize: 40, fontWeight: 800, letterSpacing: ".06em" }}>
+            PAUSED · P to resume
+          </span>
+        </div>
+      )}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", minHeight: 34 }}>
         <span className="k" style={{ color: run ? "var(--acc)" : "var(--mute)" }}>{run ? "Now playing" : "Silence · GO plays"}</span>
         {run && (

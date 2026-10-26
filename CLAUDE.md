@@ -48,19 +48,25 @@ cargo test -p cueplay-engine              # engine tests (no audio device needed
 npm run build                             # type-check + build the UI
 ```
 
-## Status (see the brief's milestones)
+## Status (v0.1.0, 26 Oct 2026)
 
-- [x] M1 engine core: cues in sections, GO / stop / panic with fades, trim, pre-wait, follow (after end / after
-      start), passes, attached cues, vamp + release, under, Fade & GO, save/open with media copy and backups
-- [x] M2 partly: per-cue high-pass, 4-band EQ, compressor (kira effects); R128 analysis with peak cap; master
-      limiter + meters. Missing: live EQ/compressor curves in the editor
-- [ ] M0 spikes on the real laptop: Qu-24 output, WebView2 + Widevine for Spotify / YouTube Music / Beatport / Soundtrack
-- [ ] M3 cue editor (waveform drag handles for trim/fades/vamp/markers/attach), headphone preview (second output)
-- [ ] M4 Run polish: pads dock, background dock, emergency swap, print cue sheet
-- [ ] M5 YouTube import (yt-dlp + ffmpeg sidecars)
-- [ ] M6 background player (WebView2 window, Windows audio session volume for duck/restore)
-- [ ] M7 Preflight checks + calibration tone + failure drills, booth (dimmer, red mode, Big mode)
-- [ ] M8 show-proofing: crash resume, USB dropout fallback to laptop output, full dry run on the rig
+Everything in the brief is written; NOTHING has been tested on Windows or with the real Qu-24 yet.
+`docs/TESTING.md` is the test plan. Code that only runs on Windows (background volume sessions, keep-awake,
+explorer /select, WebView2 data dir, yt-dlp/ffmpeg) compiles but is untested.
+
+- Engine (tested on kira's mock backend): playhead, GO + double-press guard, pre-wait, follow, passes, attached cues,
+  vamp/release, under, Fade & GO, pads, rehearsal start-at, pause all, master fader, calibration tones, limiter with
+  live ceiling, peak + short-term loudness meters, pre-opening the next cues' files, save/open/backups/export zip.
+- Shell: engine thread, output device by name + fallback, headphone preview engine, crash resume file, USB-dropout
+  rescue, YouTube (yt-dlp/ffmpeg install, resolve, download, convert), media watcher, per-machine settings.
+- Background player: WebView2 window per source, Windows audio-session volume fades, auto-duck, track list, per-show config.
+- UI: Build (sections, media bin, inspector, bulk edit, cut/copy/paste, editable numbers), cue editor (waveform
+  handles, EQ/comp curves, preview), Pads, YouTube dialog, Preflight, Run (rail, now playing, up next, Make next,
+  swap, dock), booth modes, print, settings (NL/EN, rebindable shortcuts), resume dialog.
+- Browser mode (no Tauri): real sound through Web Audio (`src/lib/webAudioEngine.ts`); YouTube/background simulated.
+
+Next: run docs/TESTING.md on Windows, fix what breaks; Run keys (Space/Esc/S/U/V) aren't rebindable yet
+(RunView still reads fixed keys); M0 Widevine results decide which background sources stay.
 
 ## Known limitations / next steps
 

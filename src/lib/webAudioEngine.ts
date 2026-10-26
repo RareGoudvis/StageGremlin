@@ -39,6 +39,8 @@ interface Master {
 }
 
 let master: Master | null = null;
+/** Pause all (P in Run): the whole audio context is suspended, so everything freezes in place. */
+let paused = false;
 
 /** Creates the audio graph on first use. Browsers only allow sound after a click or key press,
  *  so every command (GO, import, …) also calls resume(). */
@@ -62,9 +64,18 @@ function audio(): Master {
     split.connect(aL, 0);
     split.connect(aR, 1);
     master = { ctx, input, limiter, analysers: [aL, aR], buf: new Float32Array(1024) };
+    applyMasterLevel();
   }
-  if (master.ctx.state === "suspended") void master.ctx.resume();
+  // Commands wake the audio up (browsers start it suspended), but never out of a deliberate pause.
+  if (master.ctx.state === "suspended" && !paused) void master.ctx.resume();
   return master;
+}
+
+/** The show's master fader (settings.masterDb, 0 dB = unity) on the master input. */
+function applyMasterLevel() {
+  if (!master) return;
+  const db = eng.show?.settings.masterDb ?? 0;
+  master.input.gain.setTargetAtTime(Math.pow(10, db / 20), master.ctx.currentTime, 0.02);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -178,7 +189,19 @@ const eng = {
   overs: 0,
 };
 
-const clock = () => (performance.now() - eng.t0) / 1000;
+/** Engine time in seconds. It stands still while paused, so positions, pre-waits and follows freeze too. */
+let pausedAt: number | null = null;
+const clock = () => ((pausedAt ?? performance.now()) - eng.t0) / 1000;
+
+function setPaused(on: boolean) {
+  if (on === paused) return;
+  paused = on;
+  if (on) pausedAt = performance.now();
+  else if (pausedAt !== null) {
+    eng.t0 += performance.now() - pausedAt; // skip the paused stretch
+    pausedAt = null;
+  }
+}
 
 function log(kind: string, cue: Cue | null, text: string) {
   eng.newLog.push({ clock: clock(), wallMs: Date.now(), kind, cueId: cue?.id ?? null, text });
@@ -597,7 +620,7 @@ function state(): EngineState {
     if (peakL > ceiling || peakR > ceiling) eng.overs += 1;
     meter = { peakL, peakR, grDb: Math.max(0, -master.limiter.reduction), overs: eng.overs };
   }
-  const s: EngineState = { clock: now, playhead: eng.playhead, running, pending, meter, newLog: eng.newLog };
+  const s: EngineState = { clock: now, playhead: eng.playhead, running, pending, meter, newLog: eng.newLog, paused };
   eng.newLog = [];
   return s;
 }
@@ -705,12 +728,28 @@ export async function webInvoke(cmd: string, args?: Record<string, unknown>): Pr
       const ids = new Set(allCues(eng.show).map((c) => c.id));
       eng.pending = eng.pending.filter((p) => ids.has(p.cueId));
       eng.show.pads.forEach((p) => prepare(p.cue.file));
+      applyMasterLevel();
       ensureTimer();
       return mockInvoke(cmd, args); // keep the simulator's copy in sync for preview / YouTube
     }
     case "engine_go":
+      // GO while paused resumes everything instead of firing the next cue.
+      if (paused) {
+        setPaused(false);
+        audio();
+        log("resume", null, "Resumed");
+        return "ignored";
+      }
       audio();
       return go();
+    case "engine_pause_all": {
+      const m = audio();
+      setPaused(!paused);
+      if (paused) void m.ctx.suspend();
+      else void m.ctx.resume();
+      log(paused ? "pause" : "resume", null, paused ? "Paused everything" : "Resumed");
+      return paused;
+    }
     case "engine_stop_all":
       stopEverything(eng.show?.settings.stopAllFade ?? 2, "sCurve");
       log("stopAll", null, "Stop all");

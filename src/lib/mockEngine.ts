@@ -259,6 +259,9 @@ export async function mockInvoke(cmd: string, args?: Record<string, unknown>): P
       if (!sim.ffmpeg) throw new Error("ffmpeg is not installed");
       await new Promise((r) => setTimeout(r, 800));
       return String(args?.path).replace(/\.(opus|webm)$/i, ".m4a");
+    case "engine_pause_all":
+      // The simulator has no audio; the browser build pauses in webAudioEngine.ts.
+      return false;
     case "file_exists":
       // Browser: picked files exist while the tab is open; demo paths exist unless they're in a "missing" folder.
       return ((args?.paths as string[]) ?? []).map((p) => (p.startsWith("browser:") ? !!fileFor(p) : !/[\\/]missing[\\/]/i.test(p)));
