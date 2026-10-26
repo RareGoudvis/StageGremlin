@@ -22,6 +22,11 @@ if (-not $NoPublish) {
   if (-not (git branch -r --contains $sha)) { throw "Commit $sha is not on GitHub yet. Push main first (git push origin main)." }
 }
 
+# The one admin password for every install (scripts/make-admin-hash.mjs writes it; never committed).
+if (-not (Test-Path .env.local) -or -not (Select-String -Path .env.local -Pattern '^VITE_ADMIN_HASH=pbkdf2:' -Quiet)) {
+  throw "No admin password hash in .env.local. Run: node scripts/make-admin-hash.mjs"
+}
+
 # 2. yt-dlp and ffmpeg go into the zip and the installer. Downloaded once, reused after that.
 New-Item -ItemType Directory -Force tools/bin | Out-Null
 if ($FreshTools -or -not (Test-Path tools/bin/yt-dlp.exe)) {

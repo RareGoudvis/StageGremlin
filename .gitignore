@@ -8,3 +8,5 @@ data/
 preview-dist/
 tools/
 release-out/
+.env.local
+*.local

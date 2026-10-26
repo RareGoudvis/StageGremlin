@@ -15,6 +15,7 @@ import { AudioPage, LookPage, RunBoothPage, ShortcutsPage } from "./settings/Lap
 import { BackgroundPage, LevelsPage } from "./settings/ShowPages";
 import { AudacPage } from "./settings/AudacPage";
 import { useAudac } from "../lib/audac";
+import { lockAdmin } from "../lib/admin";
 
 type Page = "audio" | "run" | "audac" | "look" | "shortcuts" | "levels" | "background" | "tools" | "about";
 
@@ -49,6 +50,8 @@ export function SettingsDialog() {
   const [page, setPageState] = useState<Page>(asked && asked in PAGES ? (asked as Page) : lastPage);
   const setPage = (p: Page) => { lastPage = p; setPageState(p); };
   const hints = useNavHints();
+  // Unlocking admin settings lasts only while Settings is open.
+  useEffect(() => lockAdmin, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
