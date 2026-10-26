@@ -26,7 +26,11 @@ export function BackgroundButton() {
         style={{ background: "var(--cybg)", color: "var(--cy)", border: "1px solid var(--cyline)", fontWeight: 700, maxWidth: 260, borderRadius: st?.open ? "8px 0 0 8px" : undefined }}
       >
         <span style={{ width: 8, height: 8, borderRadius: 4, flex: "none", background: st?.playing ? "var(--cy)" : "var(--mute)" }} />
-        <span className="clamp1">{nowPlaying ?? t("top.background")}</span>
+        {/* The note stays when the title folds away (narrow window); the title is in the tooltip. */}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true" style={{ flex: "none" }}>
+          <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
+        </svg>
+        <span className="clamp1 tb-bg-label">{nowPlaying ?? t("top.background")}</span>
       </button>
       {st?.open && (
         <button

@@ -120,3 +120,22 @@ input[type=checkbox] { accent-color: var(--acc); width: 18px; height: 18px; marg
   .print-sheet th { font-size: 8pt; text-transform: uppercase; letter-spacing: .06em; padding: 2pt 3pt 2pt 0; }
   .print-sheet td { padding: 3pt 4pt 3pt 0; }
 }
+
+/* ---- Top bar: fold up step by step when the window is narrow ----
+   The header is a size container, so these follow its own width (and the UI-size setting).
+   Order: least needed first. Everything hidden keeps its meaning in a tooltip or an icon. */
+.topbar { container-type: inline-size; container-name: topbar; }
+@container topbar (max-width: 1650px) {
+  .tb-logo-text, .tb-settings-label { display: none; }
+}
+@container topbar (max-width: 1450px) {
+  .tb-clock, .tb-mode-num { display: none; }
+  .tb-file { max-width: 200px !important; }
+}
+@container topbar (max-width: 1350px) {
+  .tb-output-name, .tb-bg-label, .tb-master-label { display: none; }
+  .topbar { gap: 10px !important; }
+}
+@container topbar (max-width: 1250px) {
+  .tb-mode-label-bg { display: none; }
+}
