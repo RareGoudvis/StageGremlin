@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useSettings, type AudacSetup } from "../../settingsStore";
 import { useT } from "../../i18n";
 import { audac, audacConnectSaved, useAudac } from "../../lib/audac";
-import { Row } from "../controls";
+import { Chips, Row } from "../controls";
 import { Card, PageTitle } from "./common";
 
 export function AudacPage() {
@@ -31,6 +31,10 @@ export function AudacPage() {
           <button className="b chip" aria-pressed={setup.autoConnect} onClick={() => save({ autoConnect: !setup.autoConnect })}>
             {setup.autoConnect ? t("audac.autoOn") : t("audac.autoOff")}
           </button>
+        </Row>
+        <Row label={t("audac.inRun")} hint={t("audac.inRunHint")}>
+          <Chips<AudacSetup["inRun"]> label={t("audac.inRun")} value={setup.inRun} onChange={(inRun) => save({ inRun })}
+            options={[{ value: "show", label: t("audac.runShow") }, { value: "locked", label: t("audac.runLocked") }, { value: "hide", label: t("audac.runHide") }]} />
         </Row>
         <Row label={t("audac.status")}>
           <span style={{ fontSize: 13, color: connected ? "var(--acc)" : st?.status === "retrying" ? "var(--ambtx)" : "var(--dim)", flex: 1 }}>

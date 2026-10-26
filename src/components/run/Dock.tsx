@@ -7,12 +7,14 @@ import { PadsDock } from "./PadsDock";
 import { BackgroundDock } from "../background/BackgroundDock";
 import { AudacPanel } from "../audac/AudacPanel";
 import { useAudacConfigured } from "../../lib/audac";
+import { useSettings } from "../../settingsStore";
 
 type Tab = "pads" | "bg" | "audac" | "log";
 
 export function Dock() {
   const [tab, setTab] = useState<Tab>("pads");
-  const audacOn = useAudacConfigured();
+  // Hidden in Run when this laptop says so (Settings › AUDAC › In Run).
+  const audacOn = useAudacConfigured() && useSettings((s) => s.ui.audac.inRun) !== "hide";
   const tabs: { id: Tab; label: string }[] = [
     { id: "pads", label: "PADS" },
     { id: "bg", label: "BACKGROUND" },
@@ -41,7 +43,7 @@ export function Dock() {
       </div>
       {tab === "pads" && <PadsDock />}
       {tab === "bg" && <BackgroundDock />}
-      {tab === "audac" && <div style={{ flex: 1, minHeight: 0, padding: 8, display: "flex", flexDirection: "column" }}><AudacPanel /></div>}
+      {tab === "audac" && <div style={{ flex: 1, minHeight: 0, padding: 8, display: "flex", flexDirection: "column" }}><AudacPanel inRun /></div>}
       {tab === "log" && <Log />}
     </section>
   );

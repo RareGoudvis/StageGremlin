@@ -8,17 +8,20 @@ import { useUi } from "../../uiStore";
 import { audac, audacConnectSaved, MIN_VOLUME, useAudac, visible, type AudacState } from "../../lib/audac";
 import { useT } from "../../i18n";
 
-export function AudacPanel({ big = false }: { big?: boolean }) {
+export function AudacPanel({ big = false, inRun = false }: { big?: boolean; inRun?: boolean }) {
   const t = useT();
   const st = useAudac();
   const setup = useSettings((s) => s.ui.audac);
   const zones = visible(setup.zones);
   const inputs = visible(setup.inputs);
-  const live = st?.status === "connected" && st.known;
+  // In Run the panel can start locked: you see the levels, but a stray tap changes nothing.
+  const [unlocked, setUnlocked] = useState(false);
+  const locked = inRun && setup.inRun === "locked" && !unlocked;
+  const live = st?.status === "connected" && st.known && !locked;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: big ? 10 : 6, minHeight: 0 }}>
-      <StatusBar st={st} />
+      <StatusBar st={st} locked={locked} onUnlock={() => setUnlocked(true)} />
       {!setup.host.trim() ? (
         <span style={{ fontSize: 13, color: "var(--dim)" }}>{t("audac.notSetUp")}</span>
       ) : (
@@ -32,7 +35,7 @@ export function AudacPanel({ big = false }: { big?: boolean }) {
   );
 }
 
-function StatusBar({ st }: { st: AudacState | null }) {
+function StatusBar({ st, locked, onUnlock }: { st: AudacState | null; locked: boolean; onUnlock: () => void }) {
   const t = useT();
   const status = st?.status ?? "off";
   const color = status === "connected" ? "var(--acc)" : status === "off" ? "var(--mute)" : "var(--amb)";
@@ -45,7 +48,9 @@ function StatusBar({ st }: { st: AudacState | null }) {
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <span style={{ width: 9, height: 9, borderRadius: 5, flex: "none", background: color }} />
       <span className="clamp1" title={text} style={{ flex: 1, fontSize: 12.5, color: status === "retrying" ? "var(--ambtx)" : "var(--dim)" }}>{text}</span>
-      {status === "off" ? (
+      {locked ? (
+        <button className="b btn" tabIndex={-1} onClick={onUnlock} title={t("audac.lockedHint")} style={{ height: 28, fontSize: 12 }}>{t("audac.unlock")}</button>
+      ) : status === "off" ? (
         <button className="b btn" tabIndex={-1} onClick={audacConnectSaved} style={{ height: 28, fontSize: 12 }}>{t("audac.connect")}</button>
       ) : (
         // Letting go frees the MTX for the Touch 2 app.

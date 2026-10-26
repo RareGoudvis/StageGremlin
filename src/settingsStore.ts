@@ -73,6 +73,8 @@ export interface AudacSetup {
   port: number;
   /** Connect (and hold the connection) as soon as the app starts. */
   autoConnect: boolean;
+  /** The AUDAC tab in Run's dock: shown, shown but locked against mis-taps, or not there at all. */
+  inRun: "show" | "locked" | "hide";
   zones: { name: string; show: boolean }[];
   inputs: { name: string; show: boolean }[];
 }
@@ -82,6 +84,7 @@ const AUDAC_DEFAULT: AudacSetup = {
   host: "",
   port: 5001,
   autoConnect: true,
+  inRun: "show",
   zones: Array.from({ length: 8 }, (_, i) => ({ name: `Zone ${i + 1}`, show: true })),
   inputs: ["Mic 1", "Mic 2", "Line 3", "Line 4", "Line 5", "Line 6", "WLI/MWX65", "WMI"].map((name) => ({ name, show: true })),
 };
