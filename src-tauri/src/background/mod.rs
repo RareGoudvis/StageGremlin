@@ -807,7 +807,8 @@ pub enum BgCmd {
 #[tauri::command]
 pub fn bg_command(app: AppHandle, state: State<'_, BgHandle>, cmd: BgCmd, instant: bool, source: Option<BgSource>) -> Result<(), String> {
     // A deck (one particular service): play / pause with its own fader; next / previous on its page.
-    if let Some(src) = source.filter(|src| Some(*src) != window::active() || window::low_spec()) {
+    // (Always through the deck's own fader: the overall pause would silence the other deck too.)
+    if let Some(src) = source {
         if app.get_webview_window(&window::label(src)).is_none() {
             return Err("That service isn't open.".into());
         }

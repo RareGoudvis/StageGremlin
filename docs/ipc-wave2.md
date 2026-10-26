@@ -55,7 +55,12 @@ YouTube's own audio stream and needs no ffmpeg).
 | --- | --- | --- | --- |
 | `bg_open` | `{ source: BgSource, show: boolean, link?: string \| null }` | `void` | creates/navigates the background window; `show` brings it to front (Build) or keeps it hidden (Run). `link`: a playlist page to open instead of the start page; only https on that service's own site (same hosts as capabilities/background.json), else an error |
 | `bg_hide` | – | `void` | hides the window; playback continues |
-| `bg_command` | `{ cmd: "duck" \| "restore" \| "play" \| "pause" \| "next" \| "prev", instant: boolean }` | `void` | play/pause fade through the Windows session volume unless instant |
+| `bg_command` | `{ cmd: "duck" \| "restore" \| "play" \| "pause" \| "next" \| "prev", instant: boolean, source?: BgSource \| null }` | `void` | without `source`: the active player, play/pause fade the overall background level unless instant (Run). With `source` (a deck): play/pause fade that service's own fader only |
+| `bg_close` | `{ source: BgSource }` | `void` | closes that service's player (its engine and login stay on disk) |
+| `bg_set_deck` | `{ deck: 0 \| 1, source: BgSource \| null }` | `void` | puts a service on deck A or B (null = empty) |
+| `bg_crossfade` | `{ secs: number }` | `void` | on-air deck fades out and pauses, the other fades in and goes on air; 0 = cut. Low spec mode: always a cut (one engine, no separate faders) |
+| `bg_set_fader` | `{ source: BgSource, db: number }` | `void` | that service's own fader (−60…0 dB), on top of the overall level |
+| `bg_set_low_spec` | `{ on: boolean }` | `void` | per laptop. Off: one browser engine per account (Google = YouTube Music + YouTube), each its own Windows audio session. On: one shared engine. Switching closes all players |
 | `bg_set_level` | `{ db: number }` | `void` | the "normal" level (0 dB = unity), before the source offset |
 | `bg_set_config` | `{ config: BgConfig }` | `void` | stored per show (UI keeps it in the document under `show.background` later; for now per machine) |
 | `bg_get_state` | – | `BgState` | |
@@ -66,6 +71,9 @@ YouTube's own audio stream and needs no ffmpeg).
 
 `bg_dock` `{ rect: { x, y, w, h } | null }`: the Background screen places the player window over its middle area (physical px inside the main window; frameless, owned by the main window); `null` makes it a normal hidden window again.
 `BgConfig = { duckDb: number /* −30 */, duckTime: number /* 1.5 */, restoreTime: number /* 3 */, restoreHold: number /* 2 */, autoDuck: boolean, offsets: Record<BgSource, number> /* beatport −6 */ }`
-`BgState` event `bg://state` (~4 Hz) → `{ source: BgSource \| null, open: boolean, visible: boolean, playing: boolean, title: string \| null, artist: string \| null, position: number \| null, duration: number \| null, levelDb: number, ducked: boolean, sessionFound: boolean, error: string \| null, tracks: { title: string, artist: string \| null }[] \| null }` (tracks: best effort, null = not available for this source)
+`BgState` event `bg://state` (~4 Hz) → `{ source: BgSource \| null, open: boolean, visible: boolean, playing: boolean, title: string \| null, artist: string \| null, position: number \| null, duration: number \| null, levelDb: number, ducked: boolean, sessionFound: boolean, error: string \| null, tracks: { title: string, artist: string \| null }[] \| null, openSources: BgSource[], players: PlayerState[], decks: [BgSource \| null, BgSource \| null], onAir: 0 \| 1, lowSpec: boolean }` (tracks: best effort, null = not available for this source)
+`PlayerState = { source, playing, title, artist, position, duration, levelDb /* its fader */, held /* faded out */ }`
+
+Each player's volume = overall gain (level, duck, auto-duck, faded pause) × its own fader, applied per engine to the Windows audio sessions (mixer.rs, 20 ms ticks).
 
 Auto-duck lives in Rust: when any running cue has `duckBg` → Duck; when none is left → Restore after `restoreHold`. A manual Duck/Restore overrides it until the next GO.

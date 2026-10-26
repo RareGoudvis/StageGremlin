@@ -1,9 +1,9 @@
 // Settings › THIS SHOW: saved inside the .sg file, so they travel with the show to another laptop.
 
 import { useT } from "../../i18n";
-import { NumField, Row } from "../controls";
+import { Chips, NumField, Row } from "../controls";
 import { BackgroundSettings } from "../background/BackgroundPanel";
-import { SOURCES, type BgSource } from "../background/useBackground";
+import { bg, SOURCES, useBackground, type BgSource } from "../background/useBackground";
 import { useSettings } from "../../settingsStore";
 import { Card, PageTitle, useShowSetting } from "./common";
 
@@ -38,6 +38,7 @@ export function LevelsPage() {
 
 export function BackgroundPage() {
   const t = useT();
+  const st = useBackground();
   const enabled = useSettings((s) => s.ui.bgServices);
   const update = useSettings((s) => s.update);
   const toggle = (id: BgSource) => {
@@ -57,6 +58,12 @@ export function BackgroundPage() {
             </label>
           ))}
         </div>
+      </Card>
+      <Card title={t("bgs.lowSpec")} note={t("bgs.lowSpecNote")}>
+        <Row label={t("bgs.engines")}>
+          <Chips<boolean> label={t("bgs.engines")} value={!!st?.lowSpec} onChange={(on) => void bg.setLowSpec(on)}
+            options={[{ value: false, label: t("bgs.separate") }, { value: true, label: t("bgs.shared") }]} />
+        </Row>
       </Card>
       <BackgroundSettings />
     </>

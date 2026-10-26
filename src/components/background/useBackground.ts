@@ -39,6 +39,26 @@ export interface BgState {
   tracks: BgTrack[] | null;
   /** Services with a player window open (each keeps playing on its own). */
   openSources?: BgSource[];
+  /** Every service that reported, with its own state and fader. */
+  players?: PlayerState[];
+  /** Deck A and B (null = empty), and which is on air (0 = A, 1 = B). */
+  decks?: [BgSource | null, BgSource | null];
+  onAir?: number;
+  /** One shared engine for all services: no separate faders, swaps pause/start. */
+  lowSpec?: boolean;
+}
+
+export interface PlayerState {
+  source: BgSource;
+  playing: boolean;
+  title: string | null;
+  artist: string | null;
+  position: number | null;
+  duration: number | null;
+  /** Its own fader (dB, 0 = full, −60 = off). */
+  levelDb: number;
+  /** Faded out (crossfaded away, or paused with a fade). */
+  held: boolean;
 }
 
 export interface BgTrack { title: string; artist: string | null }
@@ -74,7 +94,13 @@ export const bg = {
   /** `link`: a playlist page on that service instead of its start page. */
   open: (source: BgSource, show: boolean, link?: string) => cmd<void>("bg_open", { source, show, link: link ?? null }),
   hide: () => cmd<void>("bg_hide"),
-  command: (c: BgCmd, instant = false) => cmd<void>("bg_command", { cmd: c, instant }),
+  /** `source`: one deck's service; without it, the active player (as in Run). */
+  command: (c: BgCmd, instant = false, source?: BgSource) => cmd<void>("bg_command", { cmd: c, instant, source: source ?? null }),
+  setDeck: (deck: 0 | 1, source: BgSource | null) => cmd<void>("bg_set_deck", { deck, source }),
+  /** The on-air deck fades out, the other fades in; `secs` 0 = cut. */
+  crossfade: (secs: number) => cmd<void>("bg_crossfade", { secs }),
+  setFader: (source: BgSource, db: number) => cmd<void>("bg_set_fader", { source, db }),
+  setLowSpec: (on: boolean) => cmd<void>("bg_set_low_spec", { on }),
   setLevel: (db: number) => cmd<void>("bg_set_level", { db }),
   setConfig: (config: BgConfig) => cmd<void>("bg_set_config", { config }),
   getState: () => cmd<BgState>("bg_get_state"),
@@ -157,6 +183,7 @@ const sim = {
     source: "spotify", open: true, visible: false, playing: true, title: TRACKS[0].title, artist: TRACKS[0].artist,
     position: 42, duration: TRACKS[0].duration, levelDb: 0, ducked: false, sessionFound: true, error: null,
     tracks: TRACKS.map((t) => ({ title: t.title, artist: t.artist })),
+    decks: [null, null], onAir: 0, lowSpec: false, players: [], openSources: [],
   } as BgState,
   config: { ...DEFAULT_CONFIG, offsets: { ...DEFAULT_CONFIG.offsets } } as BgConfig,
   track: 0,
@@ -191,10 +218,40 @@ function mockCmd(name: string, args?: Record<string, unknown>): unknown {
     case "bg_hide":
       s.visible = false;
       return;
+    case "bg_set_deck": {
+      const d = [...(s.decks ?? [null, null])] as [BgSource | null, BgSource | null];
+      d[Number(args?.deck)] = (args?.source as BgSource) ?? null;
+      s.decks = d;
+      const src = args?.source as BgSource | null;
+      if (src && !s.players?.some((p) => p.source === src)) {
+        s.players = [...(s.players ?? []), { source: src, playing: false, title: "Lunch Chill Mix", artist: "StudioRelax", position: 0, duration: 3600, levelDb: 0, held: true }];
+        s.openSources = [...new Set([...(s.openSources ?? []), src])];
+      }
+      return;
+    }
+    case "bg_crossfade": {
+      const [a, b] = s.decks ?? [null, null];
+      const on = s.onAir ?? 0;
+      const out = on === 0 ? a : b, inn = on === 0 ? b : a;
+      s.players = s.players?.map((p) => (p.source === out ? { ...p, playing: false, held: true } : p.source === inn ? { ...p, playing: true, held: false } : p));
+      s.onAir = 1 - on;
+      return;
+    }
+    case "bg_set_fader":
+      s.players = s.players?.map((p) => (p.source === args?.source ? { ...p, levelDb: Number(args?.db) } : p));
+      return;
+    case "bg_set_low_spec":
+      s.lowSpec = Boolean(args?.on);
+      return;
     case "bg_close":
     case "bg_dock":
       return; // a browser has no second window to place
     case "bg_command":
+      // A deck: only that service's player.
+      if (args?.source && (args.cmd === "play" || args.cmd === "pause")) {
+        s.players = s.players?.map((p) => (p.source === args.source ? { ...p, playing: args.cmd === "play", held: args.cmd === "pause" } : p));
+        return;
+      }
       switch (args?.cmd as BgCmd) {
         case "duck": s.ducked = true; break;
         case "restore": s.ducked = false; break;
