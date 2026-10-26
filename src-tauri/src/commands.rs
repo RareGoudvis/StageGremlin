@@ -47,6 +47,8 @@ pub struct AppInfo {
     pub version: String,
     pub portable: bool,
     pub data_dir: String,
+    /// The release tag this build was made as (e.g. "v0.1.0-build.9"); None in dev builds.
+    pub build: Option<String>,
 }
 
 /// Engine errors also go out as an `engine://error` event, so the operator sees

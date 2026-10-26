@@ -7,6 +7,8 @@ import { call } from "../../lib/tauri";
 import { hasTool, TOOL_NAME, useTools } from "../../lib/tools";
 import { Chips, Row } from "../controls";
 import { Card, PageTitle } from "./common";
+import { buildLabel, openReleasePage, useUpdates } from "../../lib/updates";
+import logo from "../../assets/logo.png";
 
 export function ToolsPage() {
   const t = useT();
@@ -57,16 +59,34 @@ export function ToolsPage() {
 }
 
 export function AboutPage() {
-  const [info, setInfo] = useState<{ version: string; portable: boolean; dataDir: string } | null>(null);
+  const t = useT();
+  const [info, setInfo] = useState<{ version: string; portable: boolean; dataDir: string; build?: string | null } | null>(null);
+  const upd = useUpdates();
   useEffect(() => {
     call("app_info").then(setInfo, () => setInfo(null));
   }, []);
   return (
     <>
-      <span className="cond" style={{ fontSize: 40, fontWeight: 800 }}>STAGE<span style={{ color: "var(--acc)" }}>GREMLIN</span></span>
-      <span style={{ fontSize: 15, color: "var(--dim)" }}>A cue player for school shows. Build → Preflight → Run.</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+        <img src={logo} alt="StageGremlin logo" width={112} height={112} style={{ borderRadius: 22 }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span className="cond" style={{ fontSize: 40, fontWeight: 800 }}>STAGE<span style={{ color: "var(--acc)" }}>GREMLIN</span></span>
+          <span style={{ fontSize: 15, color: "var(--dim)" }}>A cue player for school shows. Build → Preflight → Run.</span>
+        </div>
+      </div>
       <Card>
-        <Row label="Version"><span className="mono">{info?.version ?? "…"}</span></Row>
+        <Row label="Version"><span className="mono">{info?.version ?? "…"} · {buildLabel(info?.build ?? null)}</span></Row>
+        <Row label={t("upd.updates")}>
+          <span style={{ flex: 1, fontSize: 13, color: upd.info?.newer ? "var(--cy)" : upd.error ? "var(--redtx)" : "var(--dim)" }}>
+            {upd.checking ? t("upd.checking")
+              : upd.error ? upd.error
+              : upd.info?.newer ? `${t("upd.available")} ${buildLabel(upd.info.latest)}`
+              : upd.info ? (upd.info.current ? t("upd.upToDate") : t("upd.devBuild"))
+              : ""}
+          </span>
+          {upd.info?.newer && upd.info.url && <button className="b btn btn-go" onClick={() => openReleasePage(upd.info!.url!)}>{t("upd.download")}</button>}
+          <button className="b btn" disabled={upd.checking} onClick={() => void upd.check()}>{t("upd.check")}</button>
+        </Row>
         <Row label="Portable"><span>{info ? (info.portable ? "Yes: settings and data live next to the app" : "No: installed version") : "…"}</span></Row>
         <Row label="Data folder">
           <span className="mono" style={{ fontSize: 12.5, wordBreak: "break-all", userSelect: "text", flex: 1 }}>{info?.dataDir ?? "…"}</span>

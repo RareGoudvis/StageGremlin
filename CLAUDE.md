@@ -73,6 +73,7 @@ explorer /select, WebView2 data dir, yt-dlp/ffmpeg) compiles but is untested.
   stands in for the box. Schedule (Settings › Schedule): times per weekday that set zones and start a background
   playlist; runs while the app is open. AUDAC setup + schedule need the admin password (one per build, hash in the
   gitignored .env.local via scripts/make-admin-hash.mjs). Untested on the real MTX.
+- Update check (GitHub releases vs the build's own tag, banner outside Run) and the app icon from docs/brand/.
 - Browser mode (no Tauri): real sound through Web Audio (`src/lib/webAudioEngine.ts`); YouTube/background simulated.
 
 Next: run docs/TESTING.md on Windows, fix what breaks; Run keys (Space/Esc/S/U/V) aren't rebindable yet

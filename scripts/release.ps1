@@ -44,6 +44,17 @@ if ($FreshTools -or -not (Test-Path tools/bin/ffmpeg.exe)) {
   Remove-Item -Recurse -Force $tmp
 }
 
+# Tag v<version>-build.<N>, continuing the numbers the GitHub builds used (build.7 was the last one there).
+# Decided BEFORE building: the app carries its own tag (SG_BUILD_TAG) to compare with newer releases.
+$version = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
+$prefix = "v$version-build."
+$numbers = gh release list --limit 200 --json tagName --jq ".[].tagName" | Where-Object { $_.StartsWith($prefix) } | ForEach-Object { [int]$_.Substring($prefix.Length) }
+$next = 1 + (($numbers | Measure-Object -Maximum).Maximum)
+$tag = "$prefix$next"
+
+$env:SG_BUILD_TAG = $tag
+Write-Host "Building $tag"
+
 # 3. Build: UI + Rust + installer. tauri.release.conf.json adds tools/bin as installer resources.
 npm install
 if ($LASTEXITCODE) { throw "npm install failed" }
@@ -63,12 +74,7 @@ Copy-Item $setup.FullName "$out/StageGremlin-setup.exe"
 Write-Host "Built: $out/StageGremlin-portable.zip and $out/StageGremlin-setup.exe"
 if ($NoPublish) { exit 0 }
 
-# 5. Tag v<version>-build.<N>, continuing the numbers the GitHub builds used (build.7 was the last one there).
-$version = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
-$prefix = "v$version-build."
-$numbers = gh release list --limit 200 --json tagName --jq ".[].tagName" | Where-Object { $_.StartsWith($prefix) } | ForEach-Object { [int]$_.Substring($prefix.Length) }
-$next = 1 + (($numbers | Measure-Object -Maximum).Maximum)
-$tag = "$prefix$next"
+# 5. Publish.
 
 $notes = @"
 Build from ``$sha`` (built locally). Not tested on a real show yet — see docs/TESTING.md.

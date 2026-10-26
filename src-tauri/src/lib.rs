@@ -13,6 +13,7 @@
 //! - `files`: show export zip, file checks, show in Explorer
 //! - `media_watch`: watches the show's media/ folder for changed files
 //! - `audac`: remote for the school's AUDAC MTX88 zone matrix (network, not audio)
+//! - `updates`: "is there a newer build on GitHub?"
 
 mod audac;
 mod background;
@@ -26,6 +27,7 @@ mod portable;
 mod preview;
 mod resume;
 mod settings;
+mod updates;
 mod yt;
 
 use std::sync::Arc;
@@ -60,6 +62,7 @@ pub fn run() {
                 version: app.package_info().version.to_string(),
                 portable: portable_dir.is_some(),
                 data_dir: data_dir.display().to_string(),
+                build: updates::current_tag().map(String::from),
             });
             let machine = settings::load(&settings::path_in(&data_dir));
             let engine = EngineHandle::spawn(app.handle().clone(), machine.output_device);
@@ -129,6 +132,8 @@ pub fn run() {
             audac::audac_step_volume,
             audac::audac_set_input,
             audac::audac_set_mute,
+            updates::app_check_update,
+            updates::open_release_page,
         ])
         .build(tauri::generate_context!())
         .expect("error while starting StageGremlin")
