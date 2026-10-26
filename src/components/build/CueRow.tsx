@@ -89,7 +89,7 @@ export const CueRow = memo(function CueRow({ cue, sectionId, selected, standby, 
         ) : status?.state === "converting" ? (
           <span className="tag pulse">CONVERTING…</span>
         ) : status?.state === "error" ? (
-          <span className="tag tag-red" title={status.message}>{status.unsupported ? "CAN'T PLAY FORMAT" : "MISSING"}</span>
+          <span className="tag tag-red" title={status.message}>{status.unsupported ? "CAN'T PLAY FORMAT" : "CAN'T READ"}</span>
         ) : cue.loudness ? (
           <span className={`tag ${norm.peakLimited ? "tag-amb" : ""}`} title={`${cue.loudness.lufs.toFixed(1)} LUFS measured`}>
             {fmtDb(norm.gainDb)}{norm.peakLimited ? " PEAK-LIMITED" : ""}
