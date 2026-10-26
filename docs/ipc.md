@@ -148,3 +148,14 @@ Try it without the box: `python scripts/fake-mtx.py`, then connect to `127.0.0.1
 The **schedule** (Settings › Schedule, `settings.ui.audac.schedule`) runs in the UI (`src/lib/audacSchedule.ts`), checking
 every 10 s while the app is open: it uses only the commands above plus `bg_open` (with `link`) and `bg_command`.
 The AUDAC setup and the schedule need the admin password (`src/lib/admin.ts`).
+
+## Updates
+
+| Command | Args | Returns | Notes |
+| --- | --- | --- | --- |
+| `app_check_update` | – | `{ current: string \| null, latest: string \| null, url: string \| null, newer: boolean }` | asks GitHub for the repo's releases (tags `v<version>-build.<N>`) and compares with this build's own tag. `current` null = dev build (never `newer`) |
+| `open_release_page` | `{ url: string }` | `void` | opens the URL in the default browser, only if it is one of `github.com/RareGoudvis/StageGremlin/releases…` |
+
+`app_info` also returns `build`: the tag the build was made as (from `SG_BUILD_TAG`, set by `scripts/release.ps1`), or null.
+The UI checks once, ~8 s after start, and shows a banner in Build/Preflight (never Run); Settings › About has "Check for updates".
+Nothing installs by itself.

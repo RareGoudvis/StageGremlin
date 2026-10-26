@@ -68,6 +68,9 @@ This builds `StageGremlin-portable.zip` and `StageGremlin-setup.exe` (in `releas
 pre-release `v<version>-build.<N>` on the repo's Releases page. Add `-NoPublish` to only build, `-FreshTools` to
 download yt-dlp and ffmpeg again. Needs the GitHub CLI logged in (`gh auth login`).
 
+Each build knows its own tag, so the app tells you when a newer build is on GitHub (banner in Build, or Settings ›
+About › Check for updates). Nothing installs by itself.
+
 Portable: download the zip, right-click → Properties → Unblock, unzip, run `StageGremlin.exe`.
 
 Backup: **Actions → Build Windows → Run workflow** on GitHub still builds the same thing in the cloud. Nothing

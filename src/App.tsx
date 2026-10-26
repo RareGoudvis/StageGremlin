@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { effectiveTheme, useDoc, useDirty } from "./store";
 import { TopBar, OutputBanner } from "./components/TopBar";
+import { UpdateBanner } from "./components/UpdateBanner";
+import { checkForUpdatesSoon } from "./lib/updates";
 import { ShowProgress } from "./components/ShowProgress";
 import { ConfirmDialog, Toast } from "./components/Overlays";
 import { CueEditor } from "./components/editor/CueEditor";
@@ -61,6 +63,7 @@ export default function App() {
   useAutosave();
   useAudacAutoConnect();
   useAudacSchedule();
+  useEffect(checkForUpdatesSoon, []);
   const dropping = useFileDrop();
   const buildTab = useDoc((s) => s.buildTab);
   const t = useT();
@@ -80,6 +83,7 @@ export default function App() {
         <>
           <TopBar preflightOk={allOk} />
           <OutputBanner />
+          <UpdateBanner />
           <ShowProgress />
           <main style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
             {mode === "build" && <BuildView />}

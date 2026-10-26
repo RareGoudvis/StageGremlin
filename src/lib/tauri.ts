@@ -30,7 +30,11 @@ export interface Commands {
   show_open: { args: { path: string }; ret: Show };
   show_save: { args: { path: string; show: Show }; ret: Show };
   analyze_file: { args: { baseDir: string | null; file: string }; ret: Analysis };
-  app_info: { args: undefined; ret: { version: string; portable: boolean; dataDir: string } };
+  app_info: { args: undefined; ret: { version: string; portable: boolean; dataDir: string; build?: string | null } };
+  /** Asks GitHub for the newest release (src-tauri/src/updates.rs). */
+  app_check_update: { args: undefined; ret: { current: string | null; latest: string | null; url: string | null; newer: boolean } };
+  /** Opens one of StageGremlin's own release pages in the browser (nothing else is allowed). */
+  open_release_page: { args: { url: string }; ret: void };
   audio_list_outputs: { args: undefined; ret: AudioOutput[] };
   audio_output_status: { args: undefined; ret: OutputStatus };
   /** null = follow the Windows default output. Rebuilds the engine (cuts sound): never offer it in Run. */
