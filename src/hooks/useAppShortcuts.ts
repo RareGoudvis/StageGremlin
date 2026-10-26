@@ -50,10 +50,11 @@ export function useAppShortcuts() {
       if (hit("redMode", () => ui.setBooth({ red: !ui.booth.red }))) return;
       if (hit("bigMode", () => ui.setBooth({ big: !ui.booth.big }))) return;
       if (hit("print", () => ui.openDialog({ kind: "print" }))) return;
+      // Settings too: changing the output mid-show must be possible (show settings are locked there).
+      if (hit("settings", () => ui.openDialog({ kind: "settings" }))) return;
 
       // Everything below edits or replaces the show: not in Run.
       if (mode === "run") return;
-      if (hit("settings", () => ui.openDialog({ kind: "settings" }))) return;
       if (mode === "build" && hit("youtube", () => ui.openDialog({ kind: "add", tab: "yt" }))) return;
       if (mode === "build" && hit("importAudio", () => ui.openDialog({ kind: "add", tab: "files" }))) return;
       if (hit("saveAs", fileSaveAs)) return;
