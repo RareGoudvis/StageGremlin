@@ -55,7 +55,7 @@ pub fn open(app: &AppHandle, source: BgSource, navigate: bool, show: bool) -> Re
     }
 
     let mut builder = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::External(url))
-        .title("RG CuePlay · Background music")
+        .title("StageGremlin · Background music")
         .inner_size(1100.0, 760.0)
         .min_inner_size(600.0, 400.0)
         .visible(show)

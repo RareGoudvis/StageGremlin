@@ -69,14 +69,14 @@ export default function App() {
   );
 }
 
-/** "Schoolfeest 2027 • — RG CuePlay" (the dot means unsaved changes). */
+/** "Schoolfeest 2027 • — StageGremlin" (the dot means unsaved changes). */
 function useWindowTitle() {
   const name = useDoc((s) => s.show.name);
   const path = useDoc((s) => s.path);
   const dirty = useDirty();
   useEffect(() => {
     const shown = name || (path ? basename(path) : "Untitled");
-    void setWindowTitle(`${shown}${dirty ? " •" : ""} — RG CuePlay`);
+    void setWindowTitle(`${shown}${dirty ? " •" : ""} — StageGremlin`);
   }, [name, path, dirty]);
 }
 

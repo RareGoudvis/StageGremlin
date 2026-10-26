@@ -1,4 +1,4 @@
-//! RG CuePlay engine: show model, playback, master DSP and loudness analysis.
+//! StageGremlin engine: show model, playback, master DSP and loudness analysis.
 //! No UI and no Tauri in here, so it can be tested on its own (`cargo test -p cueplay-engine`).
 
 pub mod analysis;

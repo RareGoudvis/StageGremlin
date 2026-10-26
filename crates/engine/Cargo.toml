@@ -2,7 +2,7 @@
 name = "cueplay-engine"
 version = "0.1.0"
 edition = "2021"
-description = "Audio engine for RG CuePlay: show model, playback, DSP and loudness analysis"
+description = "Audio engine for StageGremlin: show model, playback, DSP and loudness analysis"
 license = "AGPL-3.0-or-later"
 
 [features]

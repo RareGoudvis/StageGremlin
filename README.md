@@ -1,4 +1,4 @@
-# RG CuePlay
+# StageGremlin
 
 A QLab-style cue player for Windows, made for school shows: build the show at home, check the rig in
 Preflight, and run it from the booth with the spacebar as GO. One stereo feed to the mixer (Qu-24 over USB).
@@ -36,7 +36,7 @@ UI reloads by itself when you change code.
 npm run tauri build
 ```
 
-This gives you `target\release\rg-cueplay.exe` (and an installer under `target\release\bundle\nsis\`).
+This gives you `target\release\StageGremlin.exe` (and an installer under `target\release\bundle\nsis\`).
 For the portable version, put the exe in a folder together with an empty file called `portable.txt`:
 settings and sign-ins are then stored next to the exe, in `data\`. Copy that folder to the show laptop.
 The show laptop needs no installs and no admin rights.
@@ -61,8 +61,8 @@ The code lives at `RareGoudvis/StageGremlin`. Pushing to `main` builds nothing. 
 - something is pushed to the `release` branch, or
 - you press **Actions → Build Windows → Run workflow** on GitHub.
 
-Download from the finished run's **Artifacts**: `RG-CuePlay-portable` (unzip, right-click the zip → Properties →
-Unblock first, then run `rg-cueplay.exe`) or `RG-CuePlay-installer`. Public repo = free, unlimited builds.
+Download from the finished run's **Artifacts**: `StageGremlin-portable` (unzip, right-click the zip → Properties →
+Unblock first, then run `StageGremlin.exe`) or `StageGremlin-installer`. Public repo = free, unlimited builds.
 
 ## License
 

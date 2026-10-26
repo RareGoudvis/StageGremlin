@@ -70,8 +70,8 @@ const DROPOUT_GRACE: Duration = Duration::from_millis(1500);
 /// A command never waits longer than this for the engine thread to answer.
 const REPLY_TIMEOUT: Duration = Duration::from_secs(2);
 
-const NO_DEVICE: &str = "No audio output available. Check that the sound card or mixer (Qu-24) is connected; RG CuePlay keeps retrying.";
-const STOPPED: &str = "The audio engine has stopped. Please restart RG CuePlay.";
+const NO_DEVICE: &str = "No audio output available. Check that the sound card or mixer (Qu-24) is connected; StageGremlin keeps retrying.";
+const STOPPED: &str = "The audio engine has stopped. Please restart StageGremlin.";
 
 /// What the Tauri commands hold (as managed state) to talk to the engine thread.
 pub struct EngineHandle {

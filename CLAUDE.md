@@ -1,4 +1,4 @@
-# RG CuePlay — notes for Claude Code
+# StageGremlin — notes for Claude Code
 
 QLab-style audio cue player for Windows, built for school shows (schoolfeest). One stereo output to the
 mixer (Allen & Heath Qu-24 over USB). GO is the laptop's spacebar. Portable build is the main build.
@@ -43,7 +43,7 @@ docs/ipc.md         The UI ↔ core contract: every command and event
 ```
 npm install
 npm run tauri dev                         # run the app with hot reload
-npm run tauri build                       # release build → target/release/rg-cueplay.exe (+ NSIS installer)
+npm run tauri build                       # release build → target/release/StageGremlin.exe (+ NSIS installer)
 cargo test -p cueplay-engine              # engine tests (no audio device needed)
 npm run build                             # type-check + build the UI
 ```
