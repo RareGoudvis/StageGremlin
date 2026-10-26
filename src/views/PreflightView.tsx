@@ -9,7 +9,7 @@ import { usePreflight, type Check } from "../lib/preflight";
 import { call, type AudioOutput } from "../lib/tauri";
 import type { ToneKind } from "../types";
 import { fileSave } from "../lib/fileActions";
-import { canEnterRun, locateCue } from "../lib/media";
+import { canEnterRun, locateCue, useMedia } from "../lib/media";
 import { toast } from "../uiStore";
 
 export function PreflightView() {
@@ -18,6 +18,8 @@ export function PreflightView() {
   const setMode = useDoc((s) => s.setMode);
   const pct = (passed / checks.length) * 100;
   const t = useT();
+  const dumboBlocked = useMedia((s) => s.dumboBlocked);
+  const missingCount = useMedia((s) => Object.keys(s.missing).length);
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(0, 1fr) 400px" }}>
@@ -26,6 +28,11 @@ export function PreflightView() {
         <span style={{ fontSize: 15, color: "var(--dim)", marginBottom: 14, maxWidth: 640 }}>
           The app checks what it can by itself; tick the rest yourself. Nothing here blocks you, but it's better to see a problem now than during the show.
         </span>
+        {dumboBlocked && missingCount > 0 && (
+          <div role="alert" style={{ padding: "10px 14px", borderRadius: 10, background: "var(--ambbg)", border: "1px solid var(--amb)", color: "var(--ambtx)", fontSize: 15, fontWeight: 600 }}>
+            {t("dumbo.fixFirst")}
+          </div>
+        )}
         <span className="k" style={{ marginTop: 4 }}>{t("pre.byApp")}</span>
         {checks.filter((c) => c.kind === "auto").map((c) => <CheckRow key={c.key} check={c} />)}
         <span className="k" style={{ marginTop: 14 }}>{t("pre.yours")}</span>
