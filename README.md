@@ -55,17 +55,14 @@ sound card.
 Open this folder in Claude Code and start with something like *"Read CLAUDE.md and docs/brief.md, then
 continue with the next milestone."* `CLAUDE.md` lists what's done and what's next.
 
-## Putting it on GitHub later
+## Builds on GitHub
 
-```
-git init
-git add .
-git commit -m "RG CuePlay: first version"
-```
+The code lives at `RareGoudvis/StageGremlin`. Pushing to `main` builds nothing. A Windows build starts when:
+- something is pushed to the `release` branch, or
+- you press **Actions → Build Windows → Run workflow** on GitHub.
 
-Then create an empty repo (for example `RareGoudvis/rg-cueplay`) and push. The workflow in
-`.github/workflows/` builds the portable zip and the installer on GitHub's Windows machines, so you can
-download a fresh build without compiling it yourself.
+Download from the finished run's **Artifacts**: `RG-CuePlay-portable` (unzip, right-click the zip → Properties →
+Unblock first, then run `rg-cueplay.exe`) or `RG-CuePlay-installer`. Public repo = free, unlimited builds.
 
 ## License
 
