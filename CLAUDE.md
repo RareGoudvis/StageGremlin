@@ -22,7 +22,8 @@ crates/engine/      Rust: show model (.sg JSON; old .cueplay files still open), 
 src-tauri/          Tauri 2 shell: engine thread, commands, events, portable mode, keep-awake
 src/                React + TypeScript UI (Vite, Zustand). src/types.ts mirrors the Rust types
 docs/ipc.md         The UI ↔ core contract: every command and event
-.github/workflows/  Windows build (portable zip + installer) on GitHub Actions
+.github/workflows/  Backup cloud build (manual "Run workflow" only)
+scripts/release.ps1 Local release: build portable zip + installer, publish a GitHub Release with gh
 ```
 
 ## Rules that matter
@@ -44,6 +45,7 @@ docs/ipc.md         The UI ↔ core contract: every command and event
 npm install
 npm run tauri dev                         # run the app with hot reload
 npm run tauri build                       # release build → target/release/StageGremlin.exe (+ NSIS installer)
+scripts/release.ps1                       # only when the owner says "build": push main first; builds + publishes a Release
 cargo test -p cueplay-engine              # engine tests (no audio device needed)
 npm run build                             # type-check + build the UI
 ```

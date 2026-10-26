@@ -1,7 +1,8 @@
 # Builds StageGremlin for Windows and publishes it as a GitHub Release.
 #
-# Starts only when asked: a push to the `release` branch, a version tag (v0.1.0, …),
-# or "Run workflow" on the Actions tab. Work on `main` never starts a build.
+# Backup only: releases are normally built on the laptop with scripts/release.ps1.
+# This runs only from "Run workflow" on the Actions tab. No push or tag starts it, because the local
+# script creates a v… tag on GitHub and that must not start a second build in the cloud.
 #
 # Each build becomes a Release (Releases page of the repo) with two downloads:
 #   - StageGremlin-portable.zip : StageGremlin.exe + portable.txt + data/bin (yt-dlp, ffmpeg).
@@ -14,9 +15,6 @@
 name: Build Windows
 
 on:
-  push:
-    branches: [release]
-    tags: ["v*"]
   workflow_dispatch:
 
 # A newer build request cancels one that's still running.
