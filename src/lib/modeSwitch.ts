@@ -1,4 +1,4 @@
-// Switching between Build / Preflight / Run.
+// Switching between Build / Preflight / Run (and Background).
 // Leaving Run must be deliberate: press the shortcut twice, or hold the button ~1 s.
 
 import { useDoc, type Mode } from "../store";
@@ -8,8 +8,8 @@ import { canEnterRun } from "./media";
 const DOUBLE_PRESS_MS = 1500;
 let armed: { mode: Mode; at: number } | null = null;
 
-const KEY_FOR: Record<Mode, string> = { build: "Ctrl+1", preflight: "Ctrl+2", run: "Ctrl+3" };
-const NAME: Record<Mode, string> = { build: "Build", preflight: "Preflight", run: "Run" };
+const KEY_FOR: Record<Mode, string> = { build: "Ctrl+1", preflight: "Ctrl+2", run: "Ctrl+3", background: "Ctrl+4" };
+const NAME: Record<Mode, string> = { build: "Build", preflight: "Preflight", run: "Run", background: "Background" };
 
 /** From the keyboard (Ctrl+1/2/3). */
 export function requestModeByKey(mode: Mode) {

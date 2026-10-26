@@ -75,6 +75,11 @@ pub fn open(app: &AppHandle, source: BgSource, navigate: bool, show: bool, link:
         .min_inner_size(600.0, 400.0)
         .visible(show)
         .initialization_script(INJECT_JS);
+    // Owned by the main window: it stays above it (never lost behind it), minimises with it, and
+    // can sit exactly on the Background screen's middle area (see `dock`).
+    if let Some(main) = app.get_webview_window("main") {
+        builder = builder.parent(&main).map_err(|e| e.to_string())?;
+    }
     if let Some(ua) = USER_AGENT {
         builder = builder.user_agent(ua);
     }
@@ -95,6 +100,33 @@ pub fn open(app: &AppHandle, source: BgSource, navigate: bool, show: bool, link:
         let _ = win.set_focus();
     }
     Ok(())
+}
+
+/// The Background screen shows the player in its middle area: no frame, placed exactly over that area.
+/// `x`, `y` are physical pixels from the main window's top-left content corner; `w`, `h` the size.
+pub fn dock(app: &AppHandle, x: i32, y: i32, w: u32, h: u32) -> Result<(), String> {
+    let (Some(win), Some(main)) = (get(app), app.get_webview_window("main")) else { return Ok(()) };
+    let origin = main.inner_position().map_err(|e| e.to_string())?;
+    let _ = win.set_decorations(false);
+    let _ = win.set_skip_taskbar(true);
+    let _ = win.set_min_size(None::<tauri::PhysicalSize<u32>>);
+    win.set_size(tauri::PhysicalSize::new(w.max(50), h.max(50))).map_err(|e| e.to_string())?;
+    win.set_position(tauri::PhysicalPosition::new(origin.x + x, origin.y + y)).map_err(|e| e.to_string())?;
+    let _ = win.show();
+    Ok(())
+}
+
+/// Back to a normal window (frame, taskbar, size), hidden: leaving the Background screen,
+/// or while a dialog or menu needs that space.
+pub fn undock(app: &AppHandle) {
+    if let Some(win) = get(app) {
+        let _ = win.hide();
+        let _ = win.set_decorations(true);
+        let _ = win.set_skip_taskbar(false);
+        let _ = win.set_min_size(Some(tauri::LogicalSize::new(600.0, 400.0)));
+        let _ = win.set_size(tauri::LogicalSize::new(1100.0, 760.0));
+        let _ = win.center();
+    }
 }
 
 pub fn hide(app: &AppHandle) {
