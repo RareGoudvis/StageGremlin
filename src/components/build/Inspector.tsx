@@ -1,22 +1,26 @@
 // Right-hand panel in Build: every setting of the selected cue — or of the selected
 // pad's cue (pads use the same sound chain, so the same panel edits them).
+// One cue: tabs Basics · Sound · Timing · Notes (see inspector/). Several cues: the shared settings.
 // Each control calls `set(patch, key)`; the key merges rapid changes (typing, sliders) into one undo step.
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useDoc } from "../../store";
 import type { Cue, Follow, Pad } from "../../types";
-import { allCues, goQueue, trimmedLen } from "../../types";
+import { allCues, goQueue } from "../../types";
 import { findCue, PAD_KEYS, PAD_MODES, removeCues, removePad, updateAnyCue, updatePad } from "../../lib/showOps";
 import { ensureWaveform } from "../../lib/fileActions";
-import { fmtDb, fmtSecs, fmtTime } from "../../lib/format";
+import { fmtDb } from "../../lib/format";
 import { previewToggle, usePreview } from "../../lib/preview";
 import { useWaveform } from "../../hooks/useWaveform";
 import { useUi } from "../../uiStore";
-import { FileStatus } from "./FileStatus";
-import { COMP_PRESETS, CUE_COLORS, EQ_PRESETS, matchCompPreset, matchEqPreset } from "../../lib/presets";
-import { Chips, Group, NumField, Row, Slider, TextField } from "../controls";
-import { Waveform } from "./Waveform";
+import { CUE_COLORS } from "../../lib/presets";
+import { Chips, Group, NumField, Row, Slider } from "../controls";
 import { ask } from "../../uiStore";
+import { useT, type TKey } from "../../i18n";
+import { BasicsTab } from "./inspector/BasicsTab";
+import { SoundTab } from "./inspector/SoundTab";
+import { TimingTab } from "./inspector/TimingTab";
+import { NotesTab } from "./inspector/NotesTab";
 
 export function Inspector() {
   const primary = useDoc((s) => s.primary);
@@ -45,7 +49,7 @@ export function Inspector() {
       <Panel>
         <span className="k">Inspector</span>
         <p style={{ color: "var(--dim)", fontSize: 14, lineHeight: 1.5, margin: 0 }}>
-          Select a cue to edit it. Import audio with <b>Import</b> (Ctrl+I) or drop files on the window.
+          Select a cue to edit it. Add audio with <b>+ Add</b> (Ctrl+I) or drag files from Explorer onto the window.
         </p>
       </Panel>
     );
@@ -53,9 +57,12 @@ export function Inspector() {
   return <CueInspector key={primary} cue={cue} />;
 }
 
+/** The inspector's column: fixed width on the right of Build. */
+const ASIDE = { width: 380, flex: "none", borderLeft: "1px solid var(--line)", background: "var(--p1)", minHeight: 0 } as const;
+
 export function Panel({ children }: { children: ReactNode }) {
   return (
-    <aside aria-label="Inspector" className="scroll" style={{ borderLeft: "1px solid var(--line)", background: "var(--p1)", padding: 16, display: "flex", flexDirection: "column", gap: 12, minHeight: 0 }}>
+    <aside aria-label="Inspector" className="scroll" style={{ ...ASIDE, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
       {children}
     </aside>
   );
@@ -149,7 +156,18 @@ export async function deleteCues(ids: string[]) {
   useDoc.getState().setSelection([]);
 }
 
+/** The inspector tab shown last; kept while you click from cue to cue. */
+let lastTab: InsTab = "basics";
+type InsTab = "basics" | "sound" | "timing" | "notes";
+const TABS: { id: InsTab; label: TKey }[] = [
+  { id: "basics", label: "insp.basics" },
+  { id: "sound", label: "insp.sound" },
+  { id: "timing", label: "insp.timing" },
+  { id: "notes", label: "insp.notes" },
+];
+
 function CueInspector({ cue, pad }: { cue: Cue; pad?: Pad }) {
+  const t = useT();
   const edit = useDoc((s) => s.edit);
   const show = useDoc((s) => s.show);
   const previewing = usePreview((s) => s.state?.playing && s.cueId === cue.id);
@@ -158,191 +176,75 @@ function CueInspector({ cue, pad }: { cue: Cue; pad?: Pad }) {
   const dupNumber = allCues(show).some((c) => c.id !== cue.id && c.number === cue.number);
   const hasChildren = show.sections.some((sec) => sec.cues.some((c) => c.attach?.to === cue.id));
   const waveform = useWaveform(cue.file);
+  const [tabState, setTabState] = useState<InsTab>(lastTab);
+  const setTab = (x: InsTab) => { lastTab = x; setTabState(x); };
+  // Pads have no notes.
+  const tabs = pad ? TABS.filter((x) => x.id !== "notes") : TABS;
+  const tab = tabs.some((x) => x.id === tabState) ? tabState : "basics";
 
   useEffect(() => ensureWaveform(cue.id), [cue.id, cue.file]);
 
   const set = (patch: Partial<Cue>, key?: string) => edit((s) => updateAnyCue(s, cue.id, patch), key ? { coalesce: `${cue.id}:${key}` } : undefined);
-  const settings = show.settings;
-  const len = trimmedLen(cue);
-  const eqPreset = matchEqPreset(cue.eq.map((b) => b.gainDb));
-  const compPreset = matchCompPreset(cue.comp);
 
   return (
-    <Panel>
-      {/* Header: number (automatic) or pad key, and name */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        {pad ? (
-          <select className="select mono" aria-label="Pad hotkey" value={pad.hotkey} title="Key that fires this pad in Run"
-            onChange={(e) => edit((s) => updatePad(s, pad.id, { hotkey: e.target.value }))} style={{ width: 64, height: 38, fontSize: 17, fontWeight: 600, color: "var(--acc)" }}>
-            <option value="">–</option>
-            {PAD_KEYS.map((k) => <option key={k} value={k}>{k}</option>)}
-          </select>
-        ) : (
-          <input className="input mono" aria-label="Cue number" title="Your own number (decimals like 2.5 are fine). Renumber all in the toolbar resets them."
-            value={cue.number} onChange={(e) => set({ number: e.target.value.trim() || cue.number }, "number")}
-            style={{ width: 64, height: 38, fontSize: 18, fontWeight: 600, color: "var(--acc)", textAlign: "center" }} />
-        )}
-        {!pad && dupNumber && <span className="tag tag-amb" title="Another cue has the same number">SAME NUMBER</span>}
-        <input className="input" aria-label="Name" value={cue.name} onChange={(e) => set({ name: e.target.value }, "name")} style={{ flex: 1, fontSize: 17, fontWeight: 700, height: 38 }} />
-      </div>
-      {pad && (
-        <Row label="When pressed">
+    <aside aria-label="Inspector" style={{ ...ASIDE, display: "flex", flexDirection: "column" }}>
+      {/* Header: number (or pad key) and name, then the big editor button. Stays put while the tab scrolls. */}
+      <div style={{ padding: "16px 18px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {pad ? (
+            <select className="select mono" aria-label="Pad hotkey" value={pad.hotkey} title="Key that fires this pad in Run"
+              onChange={(e) => edit((s) => updatePad(s, pad.id, { hotkey: e.target.value }))} style={{ width: 64, height: 38, fontSize: 17, fontWeight: 600, color: "var(--acc)" }}>
+              <option value="">–</option>
+              {PAD_KEYS.map((k) => <option key={k} value={k}>{k}</option>)}
+            </select>
+          ) : (
+            <input className="input mono" aria-label="Cue number" title="Your own number (decimals like 2.5 are fine). View › Renumber all cues resets them."
+              value={cue.number} onChange={(e) => set({ number: e.target.value.trim() || cue.number }, "number")}
+              style={{ width: 60, height: 38, fontSize: 18, fontWeight: 600, color: "var(--acc)", textAlign: "center" }} />
+          )}
+          <input className="input" aria-label="Name" value={cue.name} onChange={(e) => set({ name: e.target.value }, "name")} style={{ flex: 1, minWidth: 0, fontSize: 17, fontWeight: 700, height: 38 }} />
+        </div>
+        {!pad && dupNumber && <span className="tag tag-amb" title="Another cue has the same number" style={{ alignSelf: "flex-start" }}>SAME NUMBER</span>}
+        {pad && (
           <Chips label="Pad mode" value={pad.mode} onChange={(mode) => edit((s) => updatePad(s, pad.id, { mode }))}
             options={PAD_MODES.map((m) => ({ value: m.value, label: m.label, title: m.hint }))} />
-        </Row>
-      )}
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 6 }}>
-        <button className="b btn cond" onClick={() => useUi.getState().openEditor(cue.id)} title={pad ? "Waveform, EQ and compressor in a big editor" : "Double-click the cue or press Enter"}
-          style={{ height: 40, justifyContent: "center", background: "var(--hl)", color: "var(--bg)", fontSize: 14, fontWeight: 800, letterSpacing: ".06em" }}>
-          OPEN EDITOR
-        </button>
-        <button className="b btn" onClick={() => previewToggle(cue)} aria-pressed={!!previewing} title="Listen in the headphones (H)"
-          style={{ height: 40, background: previewing ? "var(--st)" : "var(--stbg)", color: previewing ? "var(--bg)" : "var(--st)", fontWeight: 700 }}>
-          {previewing ? "Stop preview" : "Preview · H"}
-        </button>
-      </div>
-
-      <FileStatus cue={cue} />
-
-      <Waveform cue={cue} waveform={waveform} onChange={(p, key) => set(p, key)} />
-
-      <Group title="Colour">
-        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-          <button className="b chip" aria-pressed={cue.color === null} onClick={() => set({ color: null })}>None</button>
-          {CUE_COLORS.map((c) => (
-            <button
-              key={c.value}
-              className="b"
-              aria-label={c.name}
-              aria-pressed={cue.color?.toUpperCase() === c.value}
-              title={c.name}
-              onClick={() => set({ color: c.value })}
-              style={{ width: 30, height: 30, borderRadius: 15, background: c.value, boxShadow: cue.color?.toUpperCase() === c.value ? "0 0 0 2px var(--bg), 0 0 0 4px var(--hl)" : "none" }}
-            />
-          ))}
-          <CustomColor value={cue.color} onChange={(v) => set({ color: v }, "color")} />
-        </div>
-      </Group>
-
-      {!pad && <Group title="Notes">
-        <span className="k" style={{ color: "var(--amb)" }}>Sound</span>
-        <TextField multiline label="Sound notes" value={cue.notes.sound} onChange={(v) => set({ notes: { ...cue.notes, sound: v } }, "notes.sound")} />
-        <span className="k" style={{ color: "var(--lx)" }}>Light (LX)</span>
-        <TextField multiline label="Light notes" value={cue.notes.lx} onChange={(v) => set({ notes: { ...cue.notes, lx: v } }, "notes.lx")} />
-        <span className="k" style={{ color: "var(--st)" }}>Stage</span>
-        <TextField multiline label="Stage notes" value={cue.notes.stage} onChange={(v) => set({ notes: { ...cue.notes, stage: v } }, "notes.stage")} />
-      </Group>}
-
-      <Group title="Playback" right={<span className="mono" style={{ fontSize: 12, color: "var(--dim)" }}>{len != null ? `plays ${fmtTime(len)}` : ""}</span>}>
-        <Row label="Trim in">
-          <NumField label="Trim in" unit="s" value={cue.trimIn} min={0} onChange={(v) => set({ trimIn: v })} />
-        </Row>
-        <Row label="Trim out" hint="Empty = play to the end of the file">
-          <NumField label="Trim out" unit="s" value={cue.trimOut ?? cue.loudness?.duration ?? 0} min={0} onChange={(v) => set({ trimOut: cue.loudness && v >= cue.loudness.duration ? null : v })} />
-          <button className="b chip" aria-pressed={cue.trimOut === null} onClick={() => set({ trimOut: null })}>To end</button>
-        </Row>
-        <Row label="Gain">
-          <Slider label="Gain" min={-24} max={12} step={0.5} value={cue.gainDb} format={(v) => fmtDb(v)} onChange={(v) => set({ gainDb: v }, "gain")} />
-        </Row>
-        <Row label="Pan">
-          <Slider label="Pan" min={-1} max={1} step={0.05} value={cue.pan} format={(v) => (Math.abs(v) < 0.01 ? "C" : v < 0 ? `L${Math.round(-v * 100)}` : `R${Math.round(v * 100)}`)} onChange={(v) => set({ pan: v }, "pan")} />
-        </Row>
-        <Row label="Fade in"><NumField label="Fade in" unit="s" value={cue.fadeIn} min={0} onChange={(v) => set({ fadeIn: v })} /></Row>
-        <Row label="Fade out"><NumField label="Fade out" unit="s" value={cue.fadeOut} min={0} onChange={(v) => set({ fadeOut: v })} /></Row>
-        <Row label="Stop fade" hint="Fade used when this cue is stopped (S)"><NumField label="Stop fade" unit="s" value={cue.stopFade} min={0} onChange={(v) => set({ stopFade: v })} /></Row>
-        <Row label="Curve">
-          <Chips<Cue["curve"]> label="Fade curve" value={cue.curve} onChange={(curve) => set({ curve })} options={[{ value: "linear", label: "Linear" }, { value: "sCurve", label: "S-curve" }, { value: "exponential", label: "Exponential" }]} />
-        </Row>
-      </Group>
-
-      {!pad && <Group title="Timing">
-        <Row label="Pre-wait" hint="Wait this long after GO before it starts"><NumField label="Pre-wait" unit="s" value={cue.preWait} min={0} onChange={(v) => set({ preWait: v })} /></Row>
-        <Row label="Plays">
-          <Chips label="Play count" value={cue.playCount} onChange={(playCount) => set({ playCount })}
-            options={[1, 2, 3, 4, 5].map((n) => ({ value: n, label: `${n}×` })).concat([{ value: 0, label: "Loop" }])} />
-        </Row>
-        <Row label="Then">
-          <Chips<Follow["kind"]> label="Follow" value={cue.follow.kind}
-            onChange={(kind) => set({ follow: kind === "afterStart" ? { kind, delay: cue.follow.kind === "afterStart" ? cue.follow.delay : 10 } : { kind } })}
-            options={[{ value: "none", label: "Wait for GO" }, { value: "afterEnd", label: "Next at end" }, { value: "afterStart", label: "Next after…" }]} />
-          {cue.follow.kind === "afterStart" && (
-            <NumField label="Follow delay" unit="s after start" value={cue.follow.delay} min={0} onChange={(delay) => set({ follow: { kind: "afterStart", delay } })} />
-          )}
-        </Row>
-        <Row label="Attach to" hint="Starts by itself at a moment inside another cue; skips the GO queue">
-          <select
-            className="select" aria-label="Attach to cue" value={cue.attach?.to ?? ""} disabled={hasChildren}
-            title={hasChildren ? "Other cues are attached to this one" : undefined}
-            onChange={(e) => set({ attach: e.target.value ? { to: e.target.value, at: cue.attach?.at ?? 0 } : null })}
-            style={{ flex: 1 }}
-          >
-            <option value="">— not attached (GO cue) —</option>
-            {parents.map((p) => <option key={p.id} value={p.id}>{p.number} {p.name}</option>)}
-          </select>
-          {cue.attach && <NumField label="Attach time" unit="s in" value={cue.attach.at} min={0} onChange={(at) => set({ attach: { to: cue.attach!.to, at } })} />}
-        </Row>
-      </Group>}
-
-      <Group title="During the show">
-        <Row label="Background">
-          <button className="b chip" aria-pressed={cue.duckBg} onClick={() => set({ duckBg: !cue.duckBg })}>{cue.duckBg ? "Ducks background" : "Leaves background"}</button>
-        </Row>
-        {!pad && <Row label="Fade & GO" hint="GO on this cue fades out everything else">
-          <Chips label="Fade and GO" value={cue.fadeGo ?? 0} onChange={(v) => set({ fadeGo: v === 0 ? null : v })}
-            options={[{ value: 0, label: "Off" }, { value: 2, label: "Fade others 2 s" }, { value: 4, label: "Fade others 4 s" }]} />
-        </Row>}
-        {!pad && <Row label="Under (U)" hint="Level U drops this cue to while someone talks">
-          <button className="b chip" aria-pressed={cue.underDb === null} onClick={() => set({ underDb: null })}>Show default {settings.underDb} dB</button>
-          <button className="b chip" aria-pressed={cue.underDb !== null} onClick={() => set({ underDb: cue.underDb ?? settings.underDb })}>Own</button>
-          {cue.underDb !== null && <NumField label="Under level" unit="dB" value={cue.underDb} max={0} min={-40} step={1} digits={0} onChange={(v) => set({ underDb: v })} />}
-        </Row>}
-      </Group>
-
-      <Group title="Tone">
-        <Row label="High-pass">
-          <Chips label="High-pass" value={cue.hpf ?? 0} onChange={(v) => set({ hpf: v === 0 ? null : v })}
-            options={[{ value: 0, label: "Off" }, { value: 60, label: "60 Hz" }, { value: 80, label: "80 Hz" }, { value: 120, label: "120 Hz" }]} />
-        </Row>
-        <Row label="EQ preset">
-          <select
-            className="select" aria-label="EQ preset" value={eqPreset?.name ?? ""} style={{ flex: 1 }}
-            onChange={(e) => {
-              const p = EQ_PRESETS.find((x) => x.name === e.target.value);
-              if (!p) return;
-              set({ eq: cue.eq.map((b, i) => ({ ...b, gainDb: p.gains[i] })) as Cue["eq"], ...(p.hpf !== undefined ? { hpf: p.hpf } : {}) });
-            }}
-          >
-            {!eqPreset && <option value="">Custom</option>}
-            {EQ_PRESETS.map((p) => <option key={p.name} value={p.name} title={p.tip}>{p.name}</option>)}
-          </select>
-        </Row>
-        {eqPreset && eqPreset.name !== "Flat" && <span style={{ fontSize: 12, color: "var(--mute)" }}>{eqPreset.tip}</span>}
-        {cue.eq.map((band, i) => (
-          <Row key={i} label={band.freq >= 1000 ? `${band.freq / 1000} kHz` : `${band.freq} Hz`}>
-            <Slider label={`EQ ${band.freq} Hz`} min={-12} max={12} step={0.5} value={band.gainDb} format={(v) => fmtDb(v)}
-              onChange={(v) => set({ eq: cue.eq.map((b, j) => (j === i ? { ...b, gainDb: v } : b)) as Cue["eq"] }, `eq${i}`)} />
-          </Row>
-        ))}
-        <Row label="Compressor">
-          <button className="b chip" aria-pressed={cue.comp.on} onClick={() => set({ comp: { ...cue.comp, on: !cue.comp.on } })}>{cue.comp.on ? "On" : "Off"}</button>
-          <Chips label="Compressor preset" value={cue.comp.on ? compPreset : null}
-            onChange={(name) => {
-              const p = COMP_PRESETS.find((x) => x.name === name);
-              if (p) set({ comp: { on: true, ...p.comp } });
-            }}
-            options={COMP_PRESETS.map((p) => ({ value: p.name as string | null, label: p.name, title: `${p.comp.thresholdDb} dB, ${p.comp.ratio}:1` }))} />
-        </Row>
-      </Group>
-
-      <div style={{ paddingTop: 12, borderTop: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span className="mono" style={{ fontSize: 11.5, color: "var(--mute)" }}>{cue.stopFade > 0 ? `stop fade ${fmtSecs(cue.stopFade)}` : ""}</span>
-        {pad ? (
-          <button className="b btn btn-danger" onClick={() => void deletePad(pad)}>Delete pad</button>
-        ) : (
-          <button className="b btn btn-danger" onClick={() => void deleteCues([cue.id])}>Delete cue</button>
         )}
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 6 }}>
+          <button className="b btn cond" onClick={() => useUi.getState().openEditor(cue.id)} title="Waveform, EQ and compressor in a big editor (or double-click the cue)"
+            style={{ height: 44, justifyContent: "center", background: "var(--hl)", color: "var(--bg)", fontSize: 14, fontWeight: 800, letterSpacing: ".06em" }}>
+            {t("insp.openEditor")} · Enter
+          </button>
+          <button className="b btn" onClick={() => previewToggle(cue)} aria-pressed={!!previewing} title="Listen in the headphones (H)"
+            style={{ height: 44, background: previewing ? "var(--st)" : "var(--stbg)", color: previewing ? "var(--bg)" : "var(--st)", fontWeight: 700 }}>
+            {previewing ? t("insp.stopPreview") : `${t("insp.preview")} · H`}
+          </button>
+        </div>
       </div>
-    </Panel>
+
+      <div role="tablist" aria-label="Inspector" style={{ display: "flex", gap: 2, padding: "0 18px", borderBottom: "1px solid var(--line)" }}>
+        {tabs.map((x) => (
+          <button key={x.id} role="tab" aria-selected={tab === x.id} className="b" onClick={() => setTab(x.id)}
+            style={{ height: 40, padding: "0 12px", background: "transparent", fontSize: 14, fontWeight: 700, color: tab === x.id ? "var(--text)" : "var(--mute)", boxShadow: tab === x.id ? "inset 0 -3px 0 var(--acc)" : "none" }}>
+            {t(x.label)}
+          </button>
+        ))}
+      </div>
+
+      <div className="scroll" style={{ flex: 1, minHeight: 0, padding: "14px 18px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
+        {tab === "basics" && <BasicsTab cue={cue} pad={pad} set={set} waveform={waveform} />}
+        {tab === "sound" && <SoundTab cue={cue} pad={pad} set={set} settings={show.settings} />}
+        {tab === "timing" && <TimingTab cue={cue} pad={pad} set={set} parents={parents} hasChildren={hasChildren} />}
+        {tab === "notes" && <NotesTab cue={cue} set={set} />}
+
+        <div style={{ marginTop: "auto", paddingTop: 12, borderTop: "1px solid var(--line)", display: "flex", justifyContent: "flex-end" }}>
+          {pad ? (
+            <button className="b btn btn-danger" onClick={() => void deletePad(pad)}>Delete pad</button>
+          ) : (
+            <button className="b btn btn-danger" onClick={() => void deleteCues([cue.id])}>Delete cue</button>
+          )}
+        </div>
+      </div>
+    </aside>
   );
 }
 
@@ -351,21 +253,4 @@ export async function deletePad(pad: Pad) {
   if (!ok) return;
   useDoc.getState().edit((s) => removePad(s, pad.id));
   useDoc.getState().selectPad(null);
-}
-
-/** Custom colour: a native picker plus a hex box for typing an exact RGB value. */
-function CustomColor({ value, onChange }: { value: string | null; onChange: (v: string) => void }) {
-  const [text, setText] = useState(value ?? "");
-  useEffect(() => setText(value ?? ""), [value]);
-  const commit = () => {
-    const v = text.trim().replace(/^([^#])/, "#$1");
-    if (/^#[0-9a-fA-F]{6}$/.test(v)) onChange(v.toUpperCase());
-    else setText(value ?? "");
-  };
-  return (
-    <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
-      <input type="color" aria-label="Custom colour" value={value ?? "#888888"} onChange={(e) => onChange(e.target.value.toUpperCase())} style={{ width: 34, height: 30, border: 0, padding: 0, background: "transparent" }} />
-      <input className="input mono" aria-label="Colour hex code" value={text} placeholder="#RRGGBB" onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === "Enter" && commit()} style={{ width: 86, height: 30 }} />
-    </span>
-  );
 }

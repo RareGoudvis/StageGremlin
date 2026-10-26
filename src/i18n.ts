@@ -32,6 +32,9 @@ const en = {
   "media.all": "All", "media.used": "Used", "media.unused": "Unused", "media.problems": "Problems",
   "media.add": "Add to show", "media.addPad": "Add as pad", "media.notUsed": "not used yet", "media.nothing": "Nothing here.",
   "media.dropHint": "Drag audio files from Windows Explorer onto this window to add them to the show.",
+  // Inspector
+  "insp.basics": "Basics", "insp.sound": "Sound", "insp.timing": "Timing", "insp.notes": "Notes",
+  "insp.openEditor": "OPEN CUE EDITOR", "insp.preview": "Preview", "insp.stopPreview": "Stop preview",
   // Add window
   "add.title": "Add to the show", "add.files": "Audio files", "add.yt": "YouTube & lists", "add.pad": "Soundboard pad", "add.section": "Section",
   "add.drop": "Drop audio files here", "add.formats": "MP3, M4A, WAV, FLAC, OGG", "add.choose": "Choose files…",
@@ -76,6 +79,8 @@ const nl: Partial<Record<TKey, string>> = {
   "media.all": "Alles", "media.used": "Gebruikt", "media.unused": "Ongebruikt", "media.problems": "Problemen",
   "media.add": "Aan show toevoegen", "media.addPad": "Als pad toevoegen", "media.notUsed": "nog niet gebruikt", "media.nothing": "Niets hier.",
   "media.dropHint": "Sleep audiobestanden vanuit Verkenner naar dit venster om ze aan de show toe te voegen.",
+  "insp.basics": "Basis", "insp.sound": "Geluid", "insp.timing": "Timing", "insp.notes": "Notities",
+  "insp.openEditor": "CUE-EDITOR OPENEN", "insp.preview": "Beluisteren", "insp.stopPreview": "Stop beluisteren",
   "add.title": "Toevoegen aan de show", "add.files": "Audiobestanden", "add.yt": "YouTube & lijsten", "add.pad": "Soundboard-pad", "add.section": "Deel",
   "add.drop": "Sleep audiobestanden hierheen", "add.formats": "MP3, M4A, WAV, FLAC, OGG", "add.choose": "Bestanden kiezen…",
   "add.padHint": "Sleep een kort geluid (applaus, gong, ding) hierheen om er een soundboard-pad van te maken. Het krijgt de volgende vrije toets, 1–9 en dan 0.",
