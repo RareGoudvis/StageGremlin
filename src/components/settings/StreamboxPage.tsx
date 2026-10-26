@@ -29,6 +29,18 @@ export function StreamboxPage() {
   const [found, setFound] = useState<Found[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [manualIp, setManualIp] = useState("");
+  const probe = async () => {
+    setSearching(true);
+    setError(null);
+    try {
+      setFound(isTauri ? [await call("net_probe", { ip: manualIp.trim() })] : DEMO_FOUND.slice(0, 1));
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSearching(false);
+    }
+  };
   const model = STREAMBOX_MODELS.find((m) => m.id === box.model) ?? STREAMBOX_MODELS[0];
 
   const search = async () => {
@@ -66,6 +78,10 @@ export function StreamboxPage() {
         )}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button className="b btn btn-go" disabled={searching} onClick={() => void search()}>{searching ? t("sbx.searching") : t("sbx.search")}</button>
+          {/* When the search finds nothing (some networks block it): ask one address directly. */}
+          <input className="input mono" aria-label={t("sbx.manualIp")} placeholder={t("sbx.manualIp")} value={manualIp}
+            onChange={(e) => setManualIp(e.target.value)} onKeyDown={(e) => e.key === "Enter" && manualIp.trim() && void probe()} style={{ width: 150 }} />
+          <button className="b btn" disabled={searching || !manualIp.trim()} onClick={() => void probe()}>{t("sbx.check")}</button>
           {error && <span style={{ fontSize: 12.5, color: "var(--redtx)" }}>{error}</span>}
         </div>
         {found && (
@@ -95,6 +111,12 @@ export function StreamboxPage() {
             <Chips<StreamboxSetup["via"]> label={t("sbx.via")} value={box.via} onChange={(via) => save({ via })}
               options={[{ value: "dlna", label: "DLNA" }, { value: "cast", label: "Google Cast" }]} />
           </Row>
+          {box.via === "dlna" && (
+            <Row label={t("sbx.format")} hint={t("sbx.formatHint")}>
+              <Chips<StreamboxSetup["format"]> label={t("sbx.format")} value={box.format} onChange={(format) => save({ format })}
+                options={[{ value: "wav", label: "WAV" }, { value: "l16", label: "L16 (PCM)" }]} />
+            </Row>
+          )}
           <StreamboxPanel />
         </Card>
       )}

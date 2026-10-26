@@ -147,6 +147,49 @@ fn ssdp_renderers() -> Vec<(Ipv4Addr, String, Option<String>, String)> {
         .collect()
 }
 
+/// When the search finds nothing (some school Wi-Fi blocks the broadcasts it listens for): ask one
+/// address directly. A DLNA device answers a search sent to it alone; a Cast device listens on 8009.
+#[tauri::command]
+pub async fn net_probe(ip: String) -> Result<Found, String> {
+    tauri::async_runtime::spawn_blocking(move || probe(&ip)).await.map_err(|e| e.to_string())?
+}
+
+fn probe(ip: &str) -> Result<Found, String> {
+    let addr: Ipv4Addr = ip.trim().parse().map_err(|_| format!("Not an IP address: {ip}"))?;
+    let mut f = Found { ip: addr.to_string(), name: addr.to_string(), ..Default::default() };
+    // DLNA: an SSDP search sent to this device only.
+    if let Ok(socket) = UdpSocket::bind("0.0.0.0:0") {
+        let _ = socket.set_read_timeout(Some(Duration::from_millis(1500)));
+        let search = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: \"ssdp:discover\"\r\nMX: 1\r\nST: urn:schemas-upnp-org:device:MediaRenderer:1\r\n\r\n";
+        let _ = socket.send_to(search.as_bytes(), (addr, 1900));
+        let mut buf = [0u8; 2048];
+        if let Ok((n, _)) = socket.recv_from(&mut buf) {
+            if let Some(loc) = header(&String::from_utf8_lossy(&buf[..n]), "location") {
+                if let Some(xml) = fetch(&loc) {
+                    if let Some(name) = tag(&xml, "friendlyName") {
+                        f.name = name;
+                    }
+                    f.model = tag(&xml, "modelName");
+                }
+                f.kinds.push("DLNA".into());
+                f.dlna_url = Some(loc);
+            }
+        }
+    }
+    // Google Cast and AirPlay: is anything listening on their ports?
+    let open = |port: u16| std::net::TcpStream::connect_timeout(&SocketAddr::new(IpAddr::V4(addr), port), Duration::from_millis(800)).is_ok();
+    if open(8009) {
+        f.kinds.push("Google Cast".into());
+    }
+    if open(7000) {
+        f.kinds.push("AirPlay".into());
+    }
+    if f.kinds.is_empty() {
+        return Err(format!("{addr} doesn't answer as DLNA, Google Cast or AirPlay. Is it on and on this network?"));
+    }
+    Ok(f)
+}
+
 // ---------------------------------------------------------------------------------------------
 // Control (docs/ipc.md, "Streambox"): `via` = "dlna" or "cast"
 // ---------------------------------------------------------------------------------------------
@@ -223,15 +266,17 @@ pub async fn streambox_transport(target: Target, action: String) -> Result<(), S
 }
 
 /// Send StageGremlin's show output to the box (see send.rs). Returns the stream address it was given.
+/// `format`: "wav" (default) or "l16" (DLNA's own raw format, when a box refuses WAV).
 #[tauri::command]
 pub async fn streambox_send_start(
     target: Target,
+    format: Option<String>,
     sending: tauri::State<'_, Sending>,
     engine: tauri::State<'_, crate::engine_thread::EngineHandle>,
 ) -> Result<String, String> {
     let device = engine.output_status().map(|o| o.output_name).unwrap_or_default();
     // The work blocks (network, starting the recording) but is short; State can't move to another thread.
-    send::start(&sending, target, &device)
+    send::start(&sending, target, &device, format.as_deref() == Some("l16"))
 }
 
 #[tauri::command]

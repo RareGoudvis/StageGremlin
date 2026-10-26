@@ -87,6 +87,8 @@ export interface StreamboxSetup {
   via: "dlna" | "cast";
   /** DLNA: the box's description address, from the search. */
   dlnaUrl: string;
+  /** Stream format: WAV, or L16 (DLNA only) for boxes that refuse WAV. */
+  format: "wav" | "l16";
 }
 
 /** Names and visibility of the MTX's 8 zones and 8 inputs, plus how to reach it. */
@@ -141,7 +143,7 @@ const AUDAC_DEFAULT: AudacSetup = {
 };
 
 const DEFAULTS: UiSettings = { lang: "en", keys: {}, bgLockDefault: false, zoom: 100, dumbo: false, dumboPads: false, dumboPin: "", ytFormat: "original", recent: [], audac: AUDAC_DEFAULT, adminHash: "",
-  streambox: { model: "s2ultra", ip: "", name: "", kinds: [], audacInput: 0, via: "dlna", dlnaUrl: "" } };
+  streambox: { model: "s2ultra", ip: "", name: "", kinds: [], audacInput: 0, via: "dlna", dlnaUrl: "", format: "wav" } };
 
 /** Put a show file at the top of the recent list (max 8, no doubles). */
 export function rememberRecent(path: string) {

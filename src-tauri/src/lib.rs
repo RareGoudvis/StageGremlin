@@ -142,6 +142,7 @@ pub fn run() {
             updates::app_check_update,
             updates::open_release_page,
             streambox::net_discover,
+            streambox::net_probe,
             streambox::streambox_status,
             streambox::streambox_set_volume,
             streambox::streambox_set_mute,

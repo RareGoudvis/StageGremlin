@@ -19,7 +19,11 @@ use std::time::Duration;
 
 use super::{cast, dlna, Target};
 
-const MIME: &str = "audio/wav";
+/// WAV (header + little-endian PCM) by default; L16 (no header, big-endian PCM, the DLNA standard's own
+/// format) for boxes that refuse WAV.
+fn mime(f: Format) -> String {
+    if f.l16 { format!("audio/L16;rate={};channels={}", f.rate, f.channels) } else { "audio/wav".into() }
+}
 /// Chunks waiting per listener; a listener that falls further behind loses audio rather than memory.
 const QUEUE: usize = 64;
 
@@ -42,16 +46,20 @@ type Listeners = Arc<Mutex<Vec<SyncSender<Vec<u8>>>>>;
 struct Format {
     rate: u32,
     channels: u16,
+    /// Send as L16 (big-endian, no header) instead of WAV.
+    l16: bool,
 }
 
 /// Start sending the show output (`device`: its name, as the engine reports it); returns the address the box was given.
-pub fn start(state: &Sending, target: Target, device: &str) -> Result<String, String> {
+pub fn start(state: &Sending, target: Target, device: &str, l16: bool) -> Result<String, String> {
     stop(state);
     let box_ip: IpAddr = target.ip.parse().map_err(|_| "No streambox chosen.".to_string())?;
     let stop_flag = Arc::new(AtomicBool::new(false));
     let listeners: Listeners = Arc::default();
 
-    let format = start_loopback(listeners.clone(), stop_flag.clone(), device.to_string())?;
+    let mut format = start_loopback(listeners.clone(), stop_flag.clone(), device.to_string())?;
+    // Google Cast plays WAV, not L16.
+    format.l16 = l16 && target.via != "cast";
 
     // The laptop's own address as the box sees it: ask the system which interface would reach the box.
     let probe = UdpSocket::bind("0.0.0.0:0").map_err(|e| e.to_string())?;
@@ -68,13 +76,13 @@ pub fn start(state: &Sending, target: Target, device: &str) -> Result<String, St
             .spawn(move || serve(server, listeners, format, stop_flag))
             .map_err(|e| e.to_string())?;
     }
-    let url = format!("http://{my_ip}:{port}/stream.wav");
+    let url = format!("http://{my_ip}:{port}/stream.{}", if format.l16 { "pcm" } else { "wav" });
 
     let cast_session = match target.via.as_str() {
-        "cast" => Some(cast::play_url(&target.ip, &url, MIME).inspect_err(|_| stop_flag.store(true, Ordering::Relaxed))?),
+        "cast" => Some(cast::play_url(&target.ip, &url, &mime(format)).inspect_err(|_| stop_flag.store(true, Ordering::Relaxed))?),
         _ => {
             let desc = target.dlna_url.as_deref().filter(|u| !u.is_empty()).ok_or("Search the network again: DLNA needs the box's description address.")?;
-            dlna::play_url(desc, &url, MIME).inspect_err(|_| stop_flag.store(true, Ordering::Relaxed))?;
+            dlna::play_url(desc, &url, &mime(format)).inspect_err(|_| stop_flag.store(true, Ordering::Relaxed))?;
             None
         }
     };
@@ -117,20 +125,25 @@ fn client(mut conn: TcpStream, listeners: Listeners, format: Format, stop: Arc<A
     let n = conn.read(&mut req).unwrap_or(0);
     let head_only = req[..n].starts_with(b"HEAD");
     let headers = format!(
-        "HTTP/1.1 200 OK\r\nContent-Type: {MIME}\r\nConnection: close\r\nCache-Control: no-cache\r\n\
-         transferMode.dlna.org: Streaming\r\ncontentFeatures.dlna.org: DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000\r\n\r\n"
+        "HTTP/1.1 200 OK\r\nContent-Type: {}\r\nConnection: close\r\nCache-Control: no-cache\r\n\
+         transferMode.dlna.org: Streaming\r\ncontentFeatures.dlna.org: DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000\r\n\r\n",
+        mime(format)
     );
     if conn.write_all(headers.as_bytes()).is_err() || head_only {
         return;
     }
-    if conn.write_all(&wav_header(format)).is_err() {
+    if !format.l16 && conn.write_all(&wav_header(format)).is_err() {
         return;
     }
     let (tx, rx): (SyncSender<Vec<u8>>, Receiver<Vec<u8>>) = sync_channel(QUEUE);
     listeners.lock().unwrap_or_else(|e| e.into_inner()).push(tx);
     while !stop.load(Ordering::Relaxed) {
         match rx.recv_timeout(Duration::from_millis(500)) {
-            Ok(chunk) => {
+            Ok(mut chunk) => {
+                if format.l16 {
+                    // L16 is big-endian: swap each 16-bit sample.
+                    chunk.chunks_exact_mut(2).for_each(|s| s.swap(0, 1));
+                }
                 if conn.write_all(&chunk).is_err() {
                     return; // the box hung up; its sender gets dropped below
                 }
@@ -196,7 +209,7 @@ fn start_loopback(listeners: Listeners, stop: Arc<AtomicBool>, name: String) -> 
                     return Err(format!("Windows output uses {:?}; only 32-bit float can be recorded for now.", config.sample_format()));
                 }
                 let cfg = config.config();
-                let format = Format { rate: cfg.sample_rate, channels: cfg.channels };
+                let format = Format { rate: cfg.sample_rate, channels: cfg.channels, l16: false };
                 let l = listeners.clone();
                 let stream = device
                     .build_input_stream::<f32, _, _>(cfg, move |data, _| broadcast(&l, to_pcm16(data)), |e| eprintln!("[streambox] loopback: {e}"), None)
@@ -227,7 +240,7 @@ mod tests {
 
     #[test]
     fn wav_header_describes_the_stream() {
-        let h = wav_header(Format { rate: 48_000, channels: 2 });
+        let h = wav_header(Format { rate: 48_000, channels: 2, l16: false });
         assert_eq!(h.len(), 44);
         assert_eq!(&h[0..4], b"RIFF");
         assert_eq!(u32::from_le_bytes(h[24..28].try_into().unwrap()), 48_000);
@@ -253,6 +266,12 @@ mod tests {
         stop.store(true, Ordering::Relaxed);
         println!("{} Hz, {} channels, got {} bytes", format.rate, format.channels, buf.len());
         assert_eq!(&buf[0..4], b"RIFF");
+    }
+
+    #[test]
+    fn l16_names_its_format() {
+        assert_eq!(mime(Format { rate: 48_000, channels: 2, l16: true }), "audio/L16;rate=48000;channels=2");
+        assert_eq!(mime(Format { rate: 48_000, channels: 2, l16: false }), "audio/wav");
     }
 
     #[test]

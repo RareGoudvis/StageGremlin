@@ -36,6 +36,7 @@ export interface Commands {
   /** Opens one of StageGremlin's own release pages in the browser (nothing else is allowed). */
   open_release_page: { args: { url: string }; ret: void };
   /** Search the network for cast targets (src-tauri/src/streambox.rs); takes ~4 s. */
+  net_probe: { args: { ip: string }; ret: { ip: string; name: string; model: string | null; kinds: string[]; dlnaUrl: string | null } };
   net_discover: { args: undefined; ret: { ip: string; name: string; model: string | null; kinds: string[]; dlnaUrl: string | null }[] };
   audio_list_outputs: { args: undefined; ret: AudioOutput[] };
   audio_output_status: { args: undefined; ret: OutputStatus };
