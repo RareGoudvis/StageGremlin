@@ -105,8 +105,9 @@ export interface MeterReading {
   peakR: number;
   grDb: number;
   overs: number;
-  /** Short-term loudness of the output (EBU R128, 3 s), LUFS; −70 = silence. Updates ~10×/s. */
-  lufsS: number;
+  /** Short-term loudness of the output (EBU R128, 3 s), LUFS; −70 = silence. Updates ~10×/s.
+   *  The core always sends it; optional only so the UI's mock/web-audio engines still compile. */
+  lufsS?: number;
 }
 
 export interface LogEntry { clock: number; wallMs: number; kind: string; cueId: string | null; text: string }
