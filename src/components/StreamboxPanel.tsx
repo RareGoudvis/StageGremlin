@@ -24,13 +24,18 @@ export function StreamboxPanel() {
   const [sending, setSending] = useState(false);
   const [sendBusy, setSendBusy] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [streamUrl, setStreamUrl] = useState<string | null>(null);
   useEffect(() => void streambox.sending().then(setSending, () => {}), []);
   const toggleSend = async () => {
     setSendBusy(true);
     setSendError(null);
     try {
-      if (sending) await streambox.sendStop();
-      else await streambox.sendStart();
+      if (sending) {
+        await streambox.sendStop();
+        setStreamUrl(null);
+      } else {
+        setStreamUrl(await streambox.sendStart());
+      }
       setSending(!sending);
     } catch (e) {
       setSendError(String(e));
@@ -75,6 +80,16 @@ export function StreamboxPanel() {
         {sendBusy ? "…" : sending ? t("sbx.sendStop") : t("sbx.send")}
       </button>
       {sendError && <span style={{ fontSize: 12.5, color: "var(--redtx)" }}>{sendError}</span>}
+      {/* The check that splits a problem in two: if a phone plays this address, laptop + firewall are fine. */}
+      {streamUrl && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <span className="mono clamp1" style={{ flex: 1, fontSize: 12, userSelect: "text" }}>{streamUrl}</span>
+            <button className="b btn btn-ghost" tabIndex={-1} onClick={() => void navigator.clipboard?.writeText(streamUrl).catch(() => {})} style={{ height: 26, fontSize: 12 }}>{t("sbx.copy")}</button>
+          </span>
+          <span style={{ fontSize: 12, color: "var(--dim)" }}>{t("sbx.urlHint")}</span>
+        </div>
+      )}
       {status?.canTransport && (
         <div style={{ display: "flex", gap: 6 }}>
           <button className="b btn" tabIndex={-1} onClick={() => run(streambox.transport(status.playing ? "pause" : "play"))} style={{ flex: 1, justifyContent: "center" }}>
