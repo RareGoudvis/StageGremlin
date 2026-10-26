@@ -150,7 +150,9 @@ function Player() {
       frame = requestAnimationFrame(() => {
         const r = el.getBoundingClientRect();
         const k = window.devicePixelRatio || 1;
-        bgDo(bg.dock({ x: Math.round(r.left * k), y: Math.round(r.top * k), w: Math.round(r.width * k), h: Math.round(r.height * k) }));
+        // Round inward (start up, end down) so the player never pokes past the area's edge by a pixel.
+        const x = Math.ceil(r.left * k), y = Math.ceil(r.top * k);
+        bgDo(bg.dock({ x, y, w: Math.floor(r.right * k) - x, h: Math.floor(r.bottom * k) - y }));
       });
     };
     place();

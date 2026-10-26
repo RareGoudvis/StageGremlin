@@ -122,6 +122,10 @@ pub fn dock(app: &AppHandle, x: i32, y: i32, w: u32, h: u32) -> Result<(), Strin
     let (Some(win), Some(main)) = (get(app), app.get_webview_window("main")) else { return Ok(()) };
     let origin = main.inner_position().map_err(|e| e.to_string())?;
     let _ = win.set_decorations(false);
+    // Without a title bar Windows still draws a shadow and keeps an invisible resize border around
+    // the window: both stick out past the area. Off while docked, so it sits exactly in place.
+    let _ = win.set_shadow(false);
+    let _ = win.set_resizable(false);
     let _ = win.set_skip_taskbar(true);
     let _ = win.set_min_size(None::<tauri::PhysicalSize<u32>>);
     win.set_size(tauri::PhysicalSize::new(w.max(50), h.max(50))).map_err(|e| e.to_string())?;
@@ -136,6 +140,8 @@ pub fn undock(app: &AppHandle) {
     if let Some(win) = get(app) {
         let _ = win.hide();
         let _ = win.set_decorations(true);
+        let _ = win.set_shadow(true);
+        let _ = win.set_resizable(true);
         let _ = win.set_skip_taskbar(false);
         let _ = win.set_min_size(Some(tauri::LogicalSize::new(600.0, 400.0)));
         let _ = win.set_size(tauri::LogicalSize::new(1100.0, 760.0));
