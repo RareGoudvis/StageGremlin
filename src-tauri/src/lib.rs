@@ -12,7 +12,9 @@
 //! - `yt`: YouTube import (yt-dlp, ffmpeg) and media conversion
 //! - `files`: show export zip, file checks, show in Explorer
 //! - `media_watch`: watches the show's media/ folder for changed files
+//! - `audac`: remote for the school's AUDAC MTX88 zone matrix (network, not audio)
 
+mod audac;
 mod background;
 mod commands;
 mod engine_thread;
@@ -70,6 +72,7 @@ pub fn run() {
             app.manage(engine);
             app.manage(media_watch::MediaWatch::new(app.handle().clone()));
             app.manage(background::start(app.handle().clone(), data_dir.clone()));
+            app.manage(audac::start(app.handle().clone()));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -119,6 +122,13 @@ pub fn run() {
             background::bg_get_state,
             background::bg_get_config,
             background::bg_play_track,
+            audac::audac_connect,
+            audac::audac_disconnect,
+            audac::audac_get_state,
+            audac::audac_set_volume,
+            audac::audac_step_volume,
+            audac::audac_set_input,
+            audac::audac_set_mute,
         ])
         .build(tauri::generate_context!())
         .expect("error while starting StageGremlin")

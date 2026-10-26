@@ -63,9 +63,30 @@ export interface UiSettings {
   ytFormat: "original" | "mp3" | "wav";
   /** Shows opened or saved on this laptop, newest first (File › Open recent). */
   recent: string[];
+  /** The school's AUDAC MTX88 (Settings › AUDAC). Empty host = not set up. */
+  audac: AudacSetup;
 }
 
-const DEFAULTS: UiSettings = { lang: "en", keys: {}, bgLockDefault: false, zoom: 100, dumbo: false, dumboPads: false, dumboPin: "", ytFormat: "original", recent: [] };
+/** Names and visibility of the MTX's 8 zones and 8 inputs, plus how to reach it. */
+export interface AudacSetup {
+  host: string;
+  port: number;
+  /** Connect (and hold the connection) as soon as the app starts. */
+  autoConnect: boolean;
+  zones: { name: string; show: boolean }[];
+  inputs: { name: string; show: boolean }[];
+}
+
+// Names from AUDAC's MTX input list; each school renames them (aux, streambox, mic…) and hides the unused.
+const AUDAC_DEFAULT: AudacSetup = {
+  host: "",
+  port: 5001,
+  autoConnect: true,
+  zones: Array.from({ length: 8 }, (_, i) => ({ name: `Zone ${i + 1}`, show: true })),
+  inputs: ["Mic 1", "Mic 2", "Line 3", "Line 4", "Line 5", "Line 6", "WLI/MWX65", "WMI"].map((name) => ({ name, show: true })),
+};
+
+const DEFAULTS: UiSettings = { lang: "en", keys: {}, bgLockDefault: false, zoom: 100, dumbo: false, dumboPads: false, dumboPin: "", ytFormat: "original", recent: [], audac: AUDAC_DEFAULT };
 
 /** Put a show file at the top of the recent list (max 8, no doubles). */
 export function rememberRecent(path: string) {
@@ -88,7 +109,7 @@ export const useSettings = create<SettingsStore>((set, get) => ({
     try {
       const all = await call("settings_get");
       const ui = (all.ui ?? {}) as Partial<UiSettings>;
-      set({ ui: { ...DEFAULTS, ...ui, keys: { ...(ui.keys ?? {}) } }, loaded: true });
+      set({ ui: { ...DEFAULTS, ...ui, keys: { ...(ui.keys ?? {}) }, audac: { ...AUDAC_DEFAULT, ...(ui.audac ?? {}) } }, loaded: true });
     } catch (e) {
       console.warn("[cueplay] settings_get", e);
       set({ loaded: true });

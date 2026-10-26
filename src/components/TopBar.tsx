@@ -12,11 +12,14 @@ import { MasterMeter } from "./MasterMeter";
 import { Gear } from "./Icons";
 import { FileMenuButton } from "./FileMenu";
 import { BackgroundButton } from "./background/BackgroundPanel";
+import { AudacButton } from "./audac/AudacPanel";
+import { useAudacConfigured } from "../lib/audac";
 import { useT } from "../i18n";
 
 export function TopBar({ preflightOk }: { preflightOk: boolean }) {
   const mode = useDoc((s) => s.mode);
   const t = useT();
+  const audacOn = useAudacConfigured();
 
   return (
     <header style={{ height: 56, flex: "none", display: "flex", alignItems: "center", gap: 14, padding: "0 16px", borderBottom: "1px solid var(--line)", background: "var(--bg)", position: "relative", zIndex: 30 }}>
@@ -32,6 +35,7 @@ export function TopBar({ preflightOk }: { preflightOk: boolean }) {
       <MasterFader />
       {/* Run has its own background dock and the booth menu; Build and Preflight get the background pill. */}
       {mode === "run" ? <BoothMenu /> : <BackgroundButton />}
+      {mode !== "run" && audacOn && <AudacButton />}
       {/* Settings is reachable everywhere, Run included: if the output disappears mid-show you need it.
           Icon AND word, so nobody has to guess what the gear does. */}
       <button className="b btn" tabIndex={-1} onClick={() => useUi.getState().openDialog({ kind: "settings" })} title={keyFor("settings")} style={{ height: 36, background: "var(--p2)", fontWeight: 700 }}>
