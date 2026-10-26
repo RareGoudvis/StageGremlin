@@ -31,6 +31,10 @@ export const streambox = {
   setVolume: (volume: number) => cmd<void>("streambox_set_volume", { target: target(useSettings.getState().ui.streambox), volume: Math.round(volume) }),
   setMute: (mute: boolean) => cmd<void>("streambox_set_mute", { target: target(useSettings.getState().ui.streambox), mute }),
   transport: (action: "play" | "pause" | "stop") => cmd<void>("streambox_transport", { target: target(useSettings.getState().ui.streambox), action }),
+  /** Send StageGremlin's show output to the box; returns the stream address the box got. */
+  sendStart: () => cmd<string>("streambox_send_start", { target: target(useSettings.getState().ui.streambox) }),
+  sendStop: () => cmd<void>("streambox_send_stop", {}),
+  sending: () => cmd<boolean>("streambox_sending", {}),
 };
 
 /** Live status while mounted (null = not asked yet). `error` says why the box doesn't answer. */
@@ -59,7 +63,11 @@ export function useStreambox(): { status: BoxStatus | null; error: string | null
 
 // ---- browser simulator ----
 const simState: BoxStatus = { volume: 35, muted: false, playing: true, title: "Golden Hour", app: "JVKE", canTransport: true };
+let simSending = false;
 function sim(name: string, a: Record<string, unknown>): unknown {
+  if (name === "streambox_send_start") { simSending = true; return "http://192.168.1.10:51234/stream.wav"; }
+  if (name === "streambox_send_stop") { simSending = false; return; }
+  if (name === "streambox_sending") return simSending;
   if (name === "streambox_set_volume") simState.volume = Number(a.volume);
   if (name === "streambox_set_mute") simState.muted = !!a.mute;
   if (name === "streambox_transport") simState.playing = a.action === "play";

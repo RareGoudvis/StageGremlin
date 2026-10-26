@@ -79,6 +79,7 @@ pub fn run() {
             app.manage(engine);
             app.manage(media_watch::MediaWatch::new(app.handle().clone()));
             app.manage(extensions::Extensions::prepare(app.handle(), &data_dir));
+            app.manage(streambox::Sending::default());
             app.manage(background::start(app.handle().clone(), data_dir.clone()));
             app.manage(audac::start(app.handle().clone()));
             Ok(())
@@ -145,6 +146,9 @@ pub fn run() {
             streambox::streambox_set_volume,
             streambox::streambox_set_mute,
             streambox::streambox_transport,
+            streambox::streambox_send_start,
+            streambox::streambox_send_stop,
+            streambox::streambox_sending,
         ])
         .build(tauri::generate_context!())
         .expect("error while starting StageGremlin")

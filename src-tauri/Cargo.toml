@@ -26,6 +26,7 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 notify = "8"
 mdns-sd = "0.21.6"
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+cpal = "0.18"
 
 [target.'cfg(windows)'.dependencies]
 # Only for SetThreadExecutionState (keep the laptop awake during a show).

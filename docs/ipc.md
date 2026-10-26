@@ -170,6 +170,10 @@ Nothing installs by itself.
 | `streambox_set_mute` | `{ target, mute }` | `void` | |
 | `streambox_transport` | `{ target, action: "play" \| "pause" \| "stop" }` | `void` | DLNA only (Cast can't pause another sender's cast) |
 
+| `streambox_send_start` | `{ target }` | `string` (stream URL) | records the show output (Windows loopback, by the engine's output name) and serves it as an endless 16-bit WAV on a random port; tells the box to play it (DLNA SetAVTransportURI + Play, or Cast: Default Media Receiver LOAD) |
+| `streambox_send_stop` | – | `void` | ends server + recording, tells the box to stop |
+| `streambox_sending` | – | `boolean` | |
+
 `target = { via: "dlna" | "cast", ip: string, dlnaUrl: string | null }`. DLNA: SOAP to the device's RenderingControl / AVTransport
 (from its description). Cast: CASTV2 on TLS port 8009 (device certificate not checked: Cast devices aren't publicly signed).
 Both kept so a school can test which its box answers to; the setup lives in `settings.ui.streambox`.
