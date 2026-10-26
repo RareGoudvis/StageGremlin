@@ -9,7 +9,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { isTauri } from "../../lib/tauri";
 
-export type BgSource = "spotify" | "ytmusic" | "beatport" | "soundtrack";
+export type BgSource = "spotify" | "ytmusic" | "beatport" | "soundtrack" | "soundcloud" | "youtube";
 export type BgCmd = "duck" | "restore" | "play" | "pause" | "next" | "prev";
 
 export interface BgConfig {
@@ -45,11 +45,13 @@ export const SOURCES: { id: BgSource; label: string }[] = [
   { id: "ytmusic", label: "YouTube Music" },
   { id: "beatport", label: "Beatport" },
   { id: "soundtrack", label: "Soundtrack" },
+  { id: "soundcloud", label: "SoundCloud" },
+  { id: "youtube", label: "YouTube" },
 ];
 
 export const DEFAULT_CONFIG: BgConfig = {
   duckDb: -30, duckTime: 1.5, restoreTime: 3, restoreHold: 2, autoDuck: true,
-  offsets: { spotify: 0, ytmusic: 0, beatport: -6, soundtrack: 0 },
+  offsets: { spotify: 0, ytmusic: 0, beatport: -6, soundtrack: 0, soundcloud: 0, youtube: 0 },
 };
 
 // ---- commands (one function per Tauri command) ----

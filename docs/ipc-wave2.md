@@ -62,7 +62,9 @@ YouTube's own audio stream and needs no ffmpeg).
 | `bg_get_config` | – | `BgConfig` | the saved settings, so the Build panel can show them |
 | `bg_play_track` | `{ index: number, title: string }` | `void` | plays row `index` of `BgState.tracks` (title guards against a changed list) |
 
-`BgSource = "spotify" | "ytmusic" | "beatport" | "soundtrack"`
+`BgSource = "spotify" | "ytmusic" | "beatport" | "soundtrack" | "soundcloud" | "youtube"` (youtube = plain YouTube videos)
+
+`bg_dock` `{ rect: { x, y, w, h } | null }`: the Background screen places the player window over its middle area (physical px inside the main window; frameless, owned by the main window); `null` makes it a normal hidden window again.
 `BgConfig = { duckDb: number /* −30 */, duckTime: number /* 1.5 */, restoreTime: number /* 3 */, restoreHold: number /* 2 */, autoDuck: boolean, offsets: Record<BgSource, number> /* beatport −6 */ }`
 `BgState` event `bg://state` (~4 Hz) → `{ source: BgSource \| null, open: boolean, visible: boolean, playing: boolean, title: string \| null, artist: string \| null, position: number \| null, duration: number \| null, levelDb: number, ducked: boolean, sessionFound: boolean, error: string \| null, tracks: { title: string, artist: string \| null }[] \| null }` (tracks: best effort, null = not available for this source)
 

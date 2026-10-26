@@ -1,4 +1,4 @@
-// StageGremlin: injected into the background player window (Spotify, YouTube Music, …) before the
+// StageGremlin: injected into the background player window (Spotify, YouTube (Music), SoundCloud, …) before the
 // page's own scripts run. It does two things and nothing else:
 //
 //  1. Remote control: play / pause / next / previous, called from the app with
@@ -106,6 +106,15 @@
       for (i = 0; i < rows.length && out.length < MAX_TRACKS; i++) {
         var t2 = text(rows[i], ".title");
         if (t2) out.push({ title: t2, artist: text(rows[i], ".secondary-flex-columns"), el: rows[i] });
+      }
+      return out;
+    }
+    if (host === "www.youtube.com" || host === "m.youtube.com") {
+      // The playlist panel beside the video (only when a playlist is playing).
+      rows = document.querySelectorAll("ytd-playlist-panel-video-renderer");
+      for (i = 0; i < rows.length && out.length < MAX_TRACKS; i++) {
+        var t3 = text(rows[i], "#video-title");
+        if (t3) out.push({ title: t3, artist: text(rows[i], "#byline"), el: rows[i] });
       }
       return out;
     }

@@ -4,6 +4,7 @@
 
 import { create } from "zustand";
 import type { Lang } from "./i18n";
+import type { BgSource } from "./components/background/useBackground";
 import { call } from "./lib/tauri";
 
 /** Every rebindable action, with its default key. */
@@ -104,7 +105,7 @@ export interface ScheduleEntry {
   input: number;
   volume: number;
   /** Optional: background music to start ("" = none) and a playlist link on that service. */
-  music: { source: "" | "spotify" | "ytmusic" | "beatport" | "soundtrack"; link: string };
+  music: { source: "" | BgSource; link: string };
 }
 
 // Names from AUDAC's MTX input list; each school renames them (aux, streambox, mic…) and hides the unused.
