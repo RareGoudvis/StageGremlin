@@ -19,6 +19,9 @@ export function MasterMeter() {
   const dbL = linToDb(meter?.peakL ?? 0);
   const dbR = linToDb(meter?.peakR ?? 0);
   const gr = meter?.grDb ?? 0;
+  // Short-term loudness from the engine (newer engines send it; older ones don't).
+  const raw = (meter as { lufsS?: number } | undefined)?.lufsS;
+  const lufsS = typeof raw === "number" && Number.isFinite(raw) ? raw : null;
   const h = hold.current;
   // Peak hold: keep the highest value for 1.5 s, then let it drop to the current level.
   if (dbL >= h.l || now - h.lAt > HOLD_MS) { h.l = dbL; h.lAt = now; }
@@ -50,7 +53,7 @@ export function MasterMeter() {
         {bar(dbL, h.l, "L")}
         {bar(dbR, h.r, "R")}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-start", width: 58 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 1, alignItems: "flex-start", width: 74 }}>
         <span
           className="mono"
           style={{
@@ -59,6 +62,9 @@ export function MasterMeter() {
           }}
         >
           CLIP
+        </span>
+        <span className="mono" title="Short-term loudness (last 3 s), LUFS" style={{ fontSize: 10.5, color: lufsS !== null && lufsS > -10 ? "var(--amb)" : "var(--dim)" }}>
+          {lufsS !== null && lufsS > -70 ? `${lufsS.toFixed(1)} LUFS` : "– LUFS"}
         </span>
         <span className="mono" title="Limiter gain reduction" style={{ fontSize: 10.5, color: gr > 0.5 ? "var(--amb)" : "var(--mute)" }}>
           GR {gr > 0.05 ? "−" + gr.toFixed(1) : "0.0"}

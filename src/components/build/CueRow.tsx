@@ -3,6 +3,7 @@
 import type { MouseEvent, PointerEvent } from "react";
 import { memo } from "react";
 import { useDoc } from "../../store";
+import { useMedia } from "../../lib/media";
 import type { Cue } from "../../types";
 import { normGain, trimmedLen } from "../../types";
 import { basename } from "../../lib/tauri";
@@ -25,6 +26,7 @@ export const CueRow = memo(function CueRow({ cue, sectionId, selected, standby, 
   const settings = useDoc((s) => s.show.settings);
   const fileDisplay = useDoc((s) => s.fileDisplay);
   const status = useDoc((s) => s.analysis[cue.id]);
+  const missing = useMedia((s) => !!s.missing[cue.id]);
   const norm = normGain(cue.loudness, settings);
   const len = trimmedLen(cue);
   const attached = !!cue.attach;
@@ -80,7 +82,9 @@ export const CueRow = memo(function CueRow({ cue, sectionId, selected, standby, 
 
       {/* Loudness state */}
       <span style={{ width: 132, display: "flex", justifyContent: "flex-end", flex: "none" }}>
-        {status?.state === "busy" ? (
+        {missing ? (
+          <span className="tag tag-red" title="The file is not on disk: open the cue to Locate it">FILE MISSING</span>
+        ) : status?.state === "busy" ? (
           <span className="tag pulse">ANALYSING…</span>
         ) : status?.state === "converting" ? (
           <span className="tag pulse">CONVERTING…</span>

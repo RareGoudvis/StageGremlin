@@ -53,6 +53,17 @@ export interface Commands {
   yt_download: { args: { items: { id: string; url: string; title: string }[]; format: YtFormat; destDir: string }; ret: void };
   /** ffmpeg conversion of a file the decoder can't play (opus/webm) to m4a. Returns the new path. */
   media_convert: { args: { path: string; destDir: string }; ret: string };
+
+  // ---- round 3 (names as announced; check docs/ipc.md) ----
+  /** One boolean per (absolute) path: does the file exist. */
+  file_exists: { args: { paths: string[] }; ret: boolean[] };
+  show_in_folder: { args: { path: string }; ret: void };
+  /** Watch a folder; changes arrive as media://changed. */
+  media_watch: { args: { dir: string }; ret: void };
+  show_export_zip: { args: { showPath: string; dest: string }; ret: void };
+  /** Per-machine settings; the UI keeps its own under `ui`. */
+  settings_get: { args: undefined; ret: { ui?: unknown } & Record<string, unknown> };
+  settings_set: { args: { patch: Record<string, unknown> }; ret: void };
 }
 
 export type AudioOutput = OutputDevice;
@@ -73,6 +84,7 @@ export interface Events {
   "preview://state": PreviewState;
   "yt://progress": YtProgress;
   "yt://install": YtInstallProgress;
+  "media://changed": { path: string; kind: string };
 }
 
 export async function on<K extends keyof Events>(event: K, cb: (payload: Events[K]) => void): Promise<UnlistenFn> {
@@ -170,6 +182,15 @@ export function dirname(p: string | null): string | null {
   if (!p) return null;
   const i = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"));
   return i > 0 ? p.slice(0, i) : null;
+}
+
+/** A cue's file as an absolute path: saved shows store "media/x.mp3" relative to the show folder. */
+export function absolutePath(file: string, showPath: string | null): string {
+  if (/^([a-zA-Z]:[\\/]|[\\/]|browser:)/.test(file)) return file;
+  const dir = dirname(showPath);
+  if (!dir) return file;
+  const sep = dir.includes("\\") ? "\\" : "/";
+  return dir + sep + file.replace(/[\\/]/g, sep);
 }
 
 export function basename(p: string): string {

@@ -3,6 +3,7 @@
 
 import { useDoc, type Mode } from "../store";
 import { toast } from "../uiStore";
+import { canEnterRun } from "./media";
 
 const DOUBLE_PRESS_MS = 1500;
 let armed: { mode: Mode; at: number } | null = null;
@@ -14,6 +15,7 @@ const NAME: Record<Mode, string> = { build: "Build", preflight: "Preflight", run
 export function requestModeByKey(mode: Mode) {
   const cur = useDoc.getState().mode;
   if (cur === mode) return;
+  if (mode === "run" && !canEnterRun()) return;
   if (cur !== "run") return useDoc.getState().setMode(mode);
   const now = Date.now();
   if (armed && armed.mode === mode && now - armed.at < DOUBLE_PRESS_MS) {
@@ -30,7 +32,7 @@ export function requestModeByClick(mode: Mode) {
   const cur = useDoc.getState().mode;
   if (cur === mode) return;
   if (cur === "run") toast(`Hold ${NAME[mode]} for a second (or press ${KEY_FOR[mode]} twice) to leave Run`);
-  else useDoc.getState().setMode(mode);
+  else if (mode !== "run" || canEnterRun()) useDoc.getState().setMode(mode);
 }
 
 /** After the button has been held long enough. */

@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { bg, bgDo, SOURCES, useBackground, type BgCmd, type BgSource } from "./useBackground";
+import "./showSync"; // keeps the core's settings in step with show.background
 
 const HOLD_MS = 1000;
 /** Re-lock by itself after this long without a touch, so it is never left open by accident. */
@@ -100,6 +101,32 @@ export function BackgroundDock() {
         />
         <span className="mono" style={{ width: 52, textAlign: "right" }}>{(st?.levelDb ?? 0).toFixed(1)} dB</span>
       </label>
+
+      {/* Track list: rows the web player shows (playlist or queue). Tap = play that row. */}
+      {st?.open && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 2, minHeight: 0 }}>
+          <span className="k" style={{ color: "var(--cydim)" }}>Tracks</span>
+          {st.tracks == null && <span style={{ fontSize: 12, color: "var(--cydim)" }}>Not available for this source.</span>}
+          {st.tracks?.length === 0 && <span style={{ fontSize: 12, color: "var(--cydim)" }}>Open a playlist in the player (Build › Background) to see its tracks here.</span>}
+          {st.tracks?.map((t, i) => {
+            const current = t.title === st.title;
+            return (
+              <button
+                key={i}
+                className="b"
+                tabIndex={-1}
+                disabled={locked}
+                onClick={() => { touch(); bgDo(bg.playTrack(i, t.title), setErr); }}
+                style={{ display: "flex", gap: 8, alignItems: "baseline", textAlign: "left", padding: "4px 6px", borderRadius: 6, background: current ? "var(--cybtn)" : "transparent", color: "var(--cytx)", fontSize: 12.5 }}
+              >
+                <span className="mono" style={{ width: 22, flex: "none", color: "var(--cydim)" }}>{current ? "▶" : i + 1}</span>
+                <span className="clamp1" style={{ flex: 1, fontWeight: current ? 700 : 500 }}>{t.title}</span>
+                {t.artist && <span className="clamp1" style={{ maxWidth: "40%", color: "var(--cydim)" }}>{t.artist}</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {st?.open && !st.sessionFound && (
         <div style={{ fontSize: 12, padding: "6px 8px", borderRadius: 6, background: "var(--ambbg)", color: "var(--ambtx)" }}>

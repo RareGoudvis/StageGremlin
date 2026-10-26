@@ -21,6 +21,8 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::engine_thread::{self, EngineHandle, OutputStatus};
+use crate::files;
+use crate::media_watch::MediaWatch;
 use crate::preview::PreviewHandle;
 use crate::resume::{Mode, ResumeInfo, ResumeItem, ResumeState};
 use crate::settings;
@@ -30,6 +32,13 @@ use crate::yt::{self, DownloadItem, Format, Tool, Yt, YtItem, YtStatus};
 /// Keyed by path; the file's modified time tells us when it changed on disk.
 #[derive(Default)]
 pub struct AnalysisCache(Mutex<HashMap<PathBuf, (SystemTime, Analysis)>>);
+
+impl AnalysisCache {
+    /// Drops a file's cached analysis (the media watcher saw it change).
+    pub fn forget(&self, path: &Path) {
+        self.0.lock().unwrap_or_else(|e| e.into_inner()).remove(path);
+    }
+}
 
 /// Facts about this install, for the About box and the title bar.
 #[derive(Clone, Serialize)]
@@ -136,10 +145,7 @@ pub async fn audio_list_outputs() -> Result<Vec<OutputDevice>, String> {
 #[tauri::command]
 pub async fn audio_set_output(info: State<'_, AppInfo>, engine: State<'_, EngineHandle>, name: Option<String>) -> Result<(), String> {
     let name = name.map(|n| n.trim().to_string()).filter(|n| !n.is_empty());
-    let path = settings::path_in(Path::new(&info.data_dir));
-    let mut machine = settings::load(&path);
-    machine.output_device = name.clone();
-    settings::save(&path, &machine)?;
+    settings::update(Path::new(&info.data_dir), |m| m.output_device = name.clone())?;
     engine.set_output(name)
 }
 
@@ -158,10 +164,7 @@ pub async fn audio_set_preview_output(
     name: Option<String>,
 ) -> Result<(), String> {
     let name = name.map(|n| n.trim().to_string()).filter(|n| !n.is_empty());
-    let path = settings::path_in(Path::new(&info.data_dir));
-    let mut machine = settings::load(&path);
-    machine.preview_device = name.clone();
-    settings::save(&path, &machine)?;
+    settings::update(Path::new(&info.data_dir), |m| m.preview_device = name.clone())?;
     preview.set_output(name);
     Ok(())
 }
@@ -264,6 +267,45 @@ pub async fn show_save(path: String, show: Show) -> Result<Show, String> {
         Ok(show)
     })
     .await
+}
+
+/// Zips the .cueplay file and its media/ folder (not backups/) into `dest`.
+#[tauri::command]
+pub async fn show_export_zip(show_path: String, dest: String) -> Result<(), String> {
+    blocking(move || files::export_zip(Path::new(&show_path), Path::new(&dest))).await
+}
+
+/// Watches `<dir>/media` (dir = the show folder) and sends `media://changed`; null = stop.
+#[tauri::command]
+pub fn media_watch(watch: State<'_, MediaWatch>, dir: Option<String>) -> Result<(), String> {
+    watch.watch(dir.as_deref().map(Path::new))
+}
+
+/// For each path: does the file exist? (The UI marks missing cues.)
+#[tauri::command]
+pub async fn file_exists(paths: Vec<String>) -> Result<Vec<bool>, String> {
+    blocking(move || Ok(paths.iter().map(|p| Path::new(p).is_file()).collect())).await
+}
+
+/// Opens Explorer with this file selected.
+#[tauri::command]
+pub fn show_in_folder(path: String) -> Result<(), String> {
+    files::show_in_folder(Path::new(&path))
+}
+
+// ---- UI settings (per machine) ----
+
+/// The UI's own settings object (`{}` the first time).
+#[tauri::command]
+pub fn settings_get(info: State<'_, AppInfo>) -> serde_json::Value {
+    settings::load(&settings::path_in(Path::new(&info.data_dir))).ui
+}
+
+/// Merges `patch` into the UI settings (top-level keys; null removes a key) and returns the result.
+#[tauri::command]
+pub fn settings_set(info: State<'_, AppInfo>, patch: serde_json::Value) -> Result<serde_json::Value, String> {
+    let saved = settings::update(Path::new(&info.data_dir), |m| settings::merge_ui(&mut m.ui, patch))?;
+    Ok(saved.ui)
 }
 
 // ---- analysis ----

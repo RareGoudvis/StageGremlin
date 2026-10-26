@@ -10,11 +10,15 @@
 //! - `preview`: headphone preview, a second engine on its own output
 //! - `resume`: crash resume file while in Run
 //! - `yt`: YouTube import (yt-dlp, ffmpeg) and media conversion
+//! - `files`: show export zip, file checks, show in Explorer
+//! - `media_watch`: watches the show's media/ folder for changed files
 
 mod background;
 mod commands;
 mod engine_thread;
+mod files;
 mod keep_awake;
+mod media_watch;
 mod outputs;
 mod portable;
 mod preview;
@@ -64,6 +68,7 @@ pub fn run() {
             app.manage(resume);
             app.manage(yt::Yt::new(app.handle().clone(), &data_dir));
             app.manage(engine);
+            app.manage(media_watch::MediaWatch::new(app.handle().clone()));
             app.manage(background::start(app.handle().clone(), data_dir.clone()));
             Ok(())
         })
@@ -98,6 +103,12 @@ pub fn run() {
             commands::yt_resolve,
             commands::yt_download,
             commands::media_convert,
+            commands::show_export_zip,
+            commands::media_watch,
+            commands::file_exists,
+            commands::show_in_folder,
+            commands::settings_get,
+            commands::settings_set,
             background::bg_open,
             background::bg_hide,
             background::bg_command,
@@ -105,6 +116,7 @@ pub fn run() {
             background::bg_set_config,
             background::bg_get_state,
             background::bg_get_config,
+            background::bg_play_track,
         ])
         .build(tauri::generate_context!())
         .expect("error while starting RG CuePlay")

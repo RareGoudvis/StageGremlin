@@ -5,7 +5,9 @@ import { useState } from "react";
 import { useDoc } from "../../store";
 import type { Cue } from "../../types";
 import { normGain } from "../../types";
-import { analyseCue, convertCue } from "../../lib/fileActions";
+import { convertCue } from "../../lib/fileActions";
+import { locateCue, reloadCue, replaceCueFile, showInFolder, useMedia } from "../../lib/media";
+import { isTauri } from "../../lib/tauri";
 import { fmtDb, fmtTime } from "../../lib/format";
 import { ToolInstall } from "../ToolInstall";
 
@@ -14,8 +16,9 @@ export function FileStatus({ cue }: { cue: Cue }) {
   const settings = useDoc((s) => s.show.settings);
   const [needFfmpeg, setNeedFfmpeg] = useState(false);
   const norm = normGain(cue.loudness, settings);
-  const bad = status?.state === "error";
-  const unsupported = bad && status.unsupported;
+  const missing = useMedia((s) => !!s.missing[cue.id]);
+  const bad = status?.state === "error" || missing;
+  const unsupported = status?.state === "error" && status.unsupported;
 
   const convert = async () => {
     const ok = await convertCue(cue.id);
@@ -31,8 +34,9 @@ export function FileStatus({ cue }: { cue: Cue }) {
       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
         {status?.state === "busy" && <span className="tag pulse">ANALYSING…</span>}
         {status?.state === "converting" && <span className="tag pulse">CONVERTING TO M4A…</span>}
+        {missing && <span className="tag tag-red">FILE MISSING</span>}
         {unsupported && <span className="tag tag-red">CAN'T PLAY THIS FORMAT</span>}
-        {bad && !unsupported && <span className="tag tag-red" title={status.message}>CAN'T READ FILE</span>}
+        {!missing && status?.state === "error" && !unsupported && <span className="tag tag-red" title={status.message}>CAN'T READ FILE</span>}
         {cue.loudness && !bad && (
           <>
             <span className="mono" style={{ fontSize: 12, color: "var(--dim)" }}>
@@ -50,10 +54,19 @@ export function FileStatus({ cue }: { cue: Cue }) {
               Convert to M4A
             </button>
           )}
-          {!unsupported && <button className="b btn" style={{ height: 26, fontSize: 12 }} onClick={() => void analyseCue(cue.id)}>Re-analyse</button>}
+          {missing && (
+            <button className="b btn" style={{ height: 26, fontSize: 12, background: "var(--red)", color: "var(--onred)", fontWeight: 700 }} onClick={() => void locateCue(cue.id)}>Locate…</button>
+          )}
         </span>
       </div>
-      {bad && <span style={{ fontSize: 12, color: "var(--redtx)" }}>{status.message}</span>}
+      {/* File actions: reload after editing the file elsewhere, swap in another file (keeps settings), open its folder. */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {!unsupported && !missing && <button className="b btn" style={{ height: 26, fontSize: 12 }} onClick={() => void reloadCue(cue.id)}>Reload from disk</button>}
+        <button className="b btn" style={{ height: 26, fontSize: 12 }} onClick={() => void replaceCueFile(cue.id)}>Replace…</button>
+        {isTauri && !missing && <button className="b btn" style={{ height: 26, fontSize: 12 }} onClick={() => void showInFolder(cue.id)}>Show in folder</button>}
+      </div>
+      {missing && <span style={{ fontSize: 12, color: "var(--redtx)" }}>This file isn't on disk any more. Locate it, or pick a replacement. Run stays blocked until it's fixed.</span>}
+      {!missing && status?.state === "error" && <span style={{ fontSize: 12, color: "var(--redtx)" }}>{status.message}</span>}
       {needFfmpeg && <ToolInstall what="ffmpeg" why="It's needed to convert this file." />}
     </div>
   );

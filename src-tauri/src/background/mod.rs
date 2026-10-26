@@ -114,6 +114,16 @@ pub struct BgState {
     /// True when Windows volume control works (we found the player's audio session).
     pub session_found: bool,
     pub error: Option<String>,
+    /// Rows the page shows (playlist / queue), best effort. null = not available for this source.
+    pub tracks: Option<Vec<BgTrack>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BgTrack {
+    pub title: String,
+    #[serde(default)]
+    pub artist: Option<String>,
 }
 
 /// What `inject.js` sends twice a second.
@@ -127,6 +137,7 @@ pub struct PageReport {
     pub duration: Option<f64>,
     pub has_media_session: bool,
     pub url: Option<String>,
+    pub tracks: Option<Vec<BgTrack>>,
 }
 
 /// Saved per machine in `<dataDir>/background.json` (later per show, under `show.background`).
@@ -210,7 +221,7 @@ struct Inner {
     /// Fade time for the next volume change.
     next_fade: f32,
     /// JavaScript the volume thread should run in the page, after the volume step.
-    evals: Vec<&'static str>,
+    evals: Vec<String>,
 
     session_found: bool,
     error: Option<String>,
@@ -241,6 +252,7 @@ impl Inner {
             ducked: self.ducked,
             session_found: self.session_found,
             error: self.error.clone(),
+            tracks: self.page.tracks.clone(),
         }
     }
 
@@ -469,7 +481,7 @@ fn volume_thread(app: AppHandle, shared: Arc<Mutex<Inner>>) {
             // Faded pause: once silent, pause the page; a moment later restore the volume.
             match s.pause_phase {
                 PausePhase::FadingOut if ramp.is_none() && current_db <= SILENCE_DB => {
-                    s.evals.push(JS_PAUSE);
+                    s.evals.push(JS_PAUSE.into());
                     s.pause_phase = PausePhase::Settling(now + PAUSE_SETTLE);
                 }
                 PausePhase::Settling(at) if now >= at => {
@@ -498,7 +510,7 @@ fn volume_thread(app: AppHandle, shared: Arc<Mutex<Inner>>) {
         }
 
         for js in evals {
-            window::eval(&app, js);
+            window::eval(&app, &js);
         }
 
         if last_emit.is_none_or(|t| now.duration_since(t) >= EMIT_EVERY) {
@@ -615,23 +627,39 @@ pub fn bg_command(app: AppHandle, state: State<'_, BgHandle>, cmd: BgCmd, instan
                 s.jump_to_silence = was_quiet;
                 s.next_fade = s.config.restore_time;
             }
-            s.evals.push(JS_PLAY);
+            s.evals.push(JS_PLAY.into());
         }
         BgCmd::Pause => {
             if instant {
                 s.pause_phase = PausePhase::None;
                 s.silent = false;
                 s.next_fade = 0.0;
-                s.evals.push(JS_PAUSE);
+                s.evals.push(JS_PAUSE.into());
             } else {
                 s.silent = true;
                 s.next_fade = s.config.duck_time;
                 s.pause_phase = PausePhase::FadingOut;
             }
         }
-        BgCmd::Next => s.evals.push(JS_NEXT),
-        BgCmd::Prev => s.evals.push(JS_PREV),
+        BgCmd::Next => s.evals.push(JS_NEXT.into()),
+        BgCmd::Prev => s.evals.push(JS_PREV.into()),
     }
+    Ok(())
+}
+
+/// Plays one row of the track list (from `BgState.tracks`). The title is passed along so the
+/// page can still find the row if the list changed since the last report.
+#[tauri::command]
+pub fn bg_play_track(app: AppHandle, state: State<'_, BgHandle>, index: u32, title: String) -> Result<(), String> {
+    if window::get(&app).is_none() {
+        return Err("The background player is not open. Pick a source first.".into());
+    }
+    // JSON-encoding the title makes it a safe JavaScript string, whatever characters it has.
+    let title_js = serde_json::to_string(&title).map_err(|e| e.to_string())?;
+    let mut s = state.lock();
+    s.pause_phase = PausePhase::None;
+    s.silent = false;
+    s.evals.push(format!("window.__cueplayBg && window.__cueplayBg.playTrack({index}, {title_js})"));
     Ok(())
 }
 

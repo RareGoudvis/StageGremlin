@@ -3,18 +3,19 @@
 //! The limiter is the safety net from the brief: overlapping cues and peak-capped
 //! tracks must never clip the desk. It delays the signal by a few milliseconds and
 //! looks at what is coming, so the gain is already down when a peak arrives.
-//! It also publishes peak levels and gain reduction for the meters.
+//! It also publishes peak levels and gain reduction for the meters, and the
+//! short-term loudness (EBU R128, last 3 s) of what leaves the desk output.
 
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
+use ebur128::{EbuR128, Mode};
 use kira::effect::{Effect, EffectBuilder};
 use kira::info::Info;
 use kira::Frame;
 
 /// Lock-free values the audio thread writes and the UI thread reads.
-#[derive(Default)]
 pub struct MeterShared {
     peak_l: AtomicU32,
     peak_r: AtomicU32,
@@ -24,7 +25,25 @@ pub struct MeterShared {
     overs: AtomicU32,
     /// Requested ceiling (linear, f32 bits); 0 = unchanged. Lets the show change it live.
     new_ceiling: AtomicU32,
+    /// Short-term loudness in LUFS (f32 bits); a level, not a maximum.
+    lufs_s: AtomicU32,
 }
+
+impl Default for MeterShared {
+    fn default() -> Self {
+        Self {
+            peak_l: AtomicU32::new(0),
+            peak_r: AtomicU32::new(0),
+            gr_db: AtomicU32::new(0),
+            overs: AtomicU32::new(0),
+            new_ceiling: AtomicU32::new(0),
+            lufs_s: AtomicU32::new(SILENCE_LUFS.to_bits()),
+        }
+    }
+}
+
+/// What the loudness meter shows for silence (R128 says −∞; JSON can't carry that).
+pub const SILENCE_LUFS: f32 = -70.0;
 
 impl MeterShared {
     /// Changes the limiter ceiling while audio runs.
@@ -53,6 +72,9 @@ pub struct MeterReading {
     pub gr_db: f32,
     /// Number of audio blocks where the limiter had to act.
     pub overs: u32,
+    /// Short-term loudness of the output (EBU R128, 3 s window), LUFS; −70 = silence.
+    #[serde(rename = "lufsS")]
+    pub lufs_s: f32,
 }
 
 impl MeterShared {
@@ -63,6 +85,7 @@ impl MeterShared {
             peak_r: f32::from_bits(self.peak_r.swap(0, Ordering::Relaxed)),
             gr_db: f32::from_bits(self.gr_db.swap(0, Ordering::Relaxed)),
             overs: self.overs.swap(0, Ordering::Relaxed),
+            lufs_s: f32::from_bits(self.lufs_s.load(Ordering::Relaxed)),
         }
     }
 }
@@ -108,6 +131,13 @@ pub struct Limiter {
     attack_coef: f32,
     release_coef: f32,
     meter: Arc<MeterShared>,
+    /// Loudness meter. Created in `init` (allocates once), then only fed.
+    loudness: Option<EbuR128>,
+    /// Reused interleaved L/R buffer for the meter, so `process` never allocates.
+    interleaved: Vec<f32>,
+    /// Frames since the last short-term reading; we read ~10 times a second
+    /// because each reading sums the whole 3 s window.
+    since_reading: usize,
 }
 
 impl Limiter {
@@ -125,6 +155,9 @@ impl Limiter {
             attack_coef: 0.0,
             release_coef: 0.0,
             meter,
+            loudness: None,
+            interleaved: Vec::new(),
+            since_reading: 0,
         };
         l.configure(48_000);
         l
@@ -181,18 +214,45 @@ impl Limiter {
         Frame::new(out.left.clamp(-self.ceiling, self.ceiling), out.right.clamp(-self.ceiling, self.ceiling))
     }
 
+    /// Feeds the output to the loudness meter in chunks that fit the reused buffer.
+    fn measure_loudness(&mut self, frames: &[Frame]) {
+        let Some(meter) = &mut self.loudness else { return };
+        let room = self.interleaved.len() / 2;
+        if room == 0 {
+            return;
+        }
+        for chunk in frames.chunks(room) {
+            for (i, f) in chunk.iter().enumerate() {
+                self.interleaved[2 * i] = f.left;
+                self.interleaved[2 * i + 1] = f.right;
+            }
+            let _ = meter.add_frames_f32(&self.interleaved[..chunk.len() * 2]);
+        }
+        self.since_reading += frames.len();
+        if self.since_reading >= (self.sample_rate / 10) as usize {
+            self.since_reading = 0;
+            let lufs = meter.loudness_shortterm().unwrap_or(f64::NEG_INFINITY) as f32;
+            let lufs = if lufs.is_finite() { lufs.max(SILENCE_LUFS) } else { SILENCE_LUFS };
+            self.meter.lufs_s.store(lufs.to_bits(), Ordering::Relaxed);
+        }
+    }
+
     pub fn latency_frames(&self) -> usize {
         self.lookahead
     }
 }
 
 impl Effect for Limiter {
-    fn init(&mut self, sample_rate: u32, _internal_buffer_size: usize) {
+    fn init(&mut self, sample_rate: u32, internal_buffer_size: usize) {
         self.configure(sample_rate);
+        self.interleaved = vec![0.0; internal_buffer_size.max(64) * 2];
+        self.loudness = EbuR128::new(2, sample_rate, Mode::S).ok();
     }
 
     fn on_change_sample_rate(&mut self, sample_rate: u32) {
         self.configure(sample_rate);
+        // Rare (output device changed): recreating the meter allocates once.
+        self.loudness = EbuR128::new(2, sample_rate, Mode::S).ok();
     }
 
     fn process(&mut self, input: &mut [Frame], _dt: f64, _info: &Info) {
@@ -214,6 +274,7 @@ impl Effect for Limiter {
         if gr > 0.1 {
             self.meter.overs.fetch_add(1, Ordering::Relaxed);
         }
+        self.measure_loudness(input);
     }
 }
 
@@ -235,6 +296,27 @@ mod tests {
             max_out = max_out.max(o.left.abs()).max(o.right.abs());
         }
         assert!(max_out <= ceiling + 1e-6, "peak {max_out} over ceiling {ceiling}");
+    }
+
+    #[test]
+    fn shortterm_loudness_is_reported() {
+        let meter = Arc::new(MeterShared::default());
+        assert_eq!(meter.take().lufs_s, SILENCE_LUFS);
+        let mut l = Limiter::new(LimiterBuilder::default(), meter.clone());
+        l.init(48_000, 128);
+        // 1 s of a 1 kHz sine at −20 dBFS: about −23 LUFS on two channels.
+        let mut block = vec![Frame::ZERO; 128];
+        let mut n = 0usize;
+        for _ in 0..375 {
+            for f in block.iter_mut() {
+                let s = 0.1 * (n as f32 * 2.0 * std::f32::consts::PI * 1000.0 / 48_000.0).sin();
+                *f = Frame::new(s, s);
+                n += 1;
+            }
+            l.measure_loudness(&block);
+        }
+        let lufs = meter.take().lufs_s;
+        assert!((-26.0..-20.0).contains(&lufs), "short-term {lufs} LUFS");
     }
 
     #[test]

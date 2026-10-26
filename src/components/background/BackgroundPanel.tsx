@@ -1,9 +1,12 @@
 // Build → "Background" button and its panel: pick a source, open the full player window to sign in
 // and choose a playlist, and set the duck level, fade times, source offsets and auto-duck.
-// Settings are stored per machine for now (Rust: <dataDir>/background.json).
+// Settings are stored in the show (show.background, see showSync.ts); the per-machine
+// <dataDir>/background.json is what a show without its own settings starts from.
 
 import { useEffect, useState } from "react";
 import { bg, bgDo, DEFAULT_CONFIG, SOURCES, useBackground, type BgConfig, type BgSource } from "./useBackground";
+import { readShowBackground, saveBackgroundToShow } from "./showSync";
+import { useDoc } from "../../store";
 
 /** The toolbar button; renders the panel when open. */
 export function BackgroundButton() {
@@ -31,7 +34,10 @@ export function BackgroundPanel({ onClose }: { onClose: () => void }) {
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    bg.getConfig().then(setConfig).catch(() => setConfig(DEFAULT_CONFIG));
+    // The show's own settings win; otherwise whatever the core has (the machine default).
+    const fromShow = readShowBackground(useDoc.getState().show.background);
+    if (fromShow) setConfig(fromShow.config);
+    else bg.getConfig().then(setConfig).catch(() => setConfig(DEFAULT_CONFIG));
   }, []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -41,9 +47,13 @@ export function BackgroundPanel({ onClose }: { onClose: () => void }) {
 
   const save = (c: BgConfig) => {
     setConfig(c);
+    saveBackgroundToShow({ config: c });
     bgDo(bg.setConfig(c), setErr);
   };
-  const openSource = (s: BgSource) => bgDo(bg.open(s, true), setErr);
+  const openSource = (s: BgSource) => {
+    saveBackgroundToShow({ config: config ?? DEFAULT_CONFIG, source: s });
+    bgDo(bg.open(s, true), setErr);
+  };
 
   return (
     <div className="scrim" style={{ position: "fixed" }} onClick={onClose}>

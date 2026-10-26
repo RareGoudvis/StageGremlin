@@ -234,3 +234,22 @@ export function ensureWaveform(cueId: string) {
   if (doc().analysis[cueId]) return;
   void analyseCue(cueId);
 }
+
+/** File › Export show as zip: the show file plus its media/ folder, for a USB stick or a colleague. */
+export async function exportZip() {
+  if (!isTauri) return toast("Exporting a zip only works in the desktop app");
+  // The zip is made from the saved show, so save first.
+  if (!doc().path || isDirty()) {
+    const ok = await ask({ title: "Save first?", body: "The zip is made from the saved show file. Save now and continue?", confirmLabel: "Save and export" });
+    if (!ok || !(await fileSave())) return;
+  }
+  const { save } = await import("@tauri-apps/plugin-dialog");
+  const dest = await save({ defaultPath: `${doc().show.name || "Show"}.zip`, filters: [{ name: "Zip", extensions: ["zip"] }] });
+  if (!dest) return;
+  try {
+    await call("show_export_zip", { showPath: doc().path!, dest });
+    toast(`Exported ${basename(dest)}`);
+  } catch (e) {
+    toast(`Export failed: ${e}`);
+  }
+}
