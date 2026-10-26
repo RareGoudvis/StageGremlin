@@ -133,7 +133,7 @@ export async function pickShowToOpen(): Promise<string | null> {
     return f ? registerFile(f) : null;
   }
   const { open } = await import("@tauri-apps/plugin-dialog");
-  const res = await open({ multiple: false, directory: false, filters: [{ name: "CuePlay show", extensions: ["cueplay"] }] });
+  const res = await open({ multiple: false, directory: false, filters: [{ name: "StageGremlin show", extensions: ["cueplay"] }] });
   return typeof res === "string" ? res : null;
 }
 
@@ -141,7 +141,7 @@ export async function pickSavePath(suggestedName: string): Promise<string | null
   // Browser: "saving" downloads the show file under this name.
   if (!isTauri) return suggestedName + ".cueplay";
   const { save } = await import("@tauri-apps/plugin-dialog");
-  const res = await save({ defaultPath: suggestedName + ".cueplay", filters: [{ name: "CuePlay show", extensions: ["cueplay"] }] });
+  const res = await save({ defaultPath: suggestedName + ".cueplay", filters: [{ name: "StageGremlin show", extensions: ["cueplay"] }] });
   if (!res) return null;
   return res.toLowerCase().endsWith(".cueplay") ? res : res + ".cueplay";
 }

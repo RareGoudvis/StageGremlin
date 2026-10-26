@@ -1,12 +1,12 @@
-# Builds RG CuePlay for Windows and publishes it as a GitHub Release.
+# Builds StageGremlin for Windows and publishes it as a GitHub Release.
 #
 # Starts only when asked: a push to the `release` branch, a version tag (v0.1.0, …),
 # or "Run workflow" on the Actions tab. Work on `main` never starts a build.
 #
 # Each build becomes a Release (Releases page of the repo) with two downloads:
-#   - RG-CuePlay-portable.zip : rg-cueplay.exe + portable.txt + data/bin (yt-dlp, ffmpeg, ffprobe).
+#   - StageGremlin-portable.zip : StageGremlin.exe + portable.txt + data/bin (yt-dlp, ffmpeg, ffprobe).
 #                               Unzip anywhere; settings and sign-ins stay in that folder.
-#   - RG-CuePlay-setup.exe    : the installer (no admin rights needed; installs per user)
+#   - StageGremlin-setup.exe    : the installer (no admin rights needed; installs per user)
 # Nothing else has to be installed on the show laptop: WebView2 ships with Windows 10/11
 # (the installer fetches it if missing) and the C runtime is linked into the .exe.
 #
@@ -64,12 +64,12 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force portable/data/bin | Out-Null
-          Copy-Item target/release/rg-cueplay.exe portable/
+          Copy-Item target/release/stagegremlin.exe portable/StageGremlin.exe
           New-Item -ItemType File -Force portable/portable.txt | Out-Null
           Copy-Item tools/bin/* portable/data/bin/
-          Compress-Archive -Path portable/* -DestinationPath RG-CuePlay-portable.zip -Force
+          Compress-Archive -Path portable/* -DestinationPath StageGremlin-portable.zip -Force
           $setup = Get-ChildItem target/release/bundle/nsis/*.exe | Select-Object -First 1
-          Copy-Item $setup.FullName RG-CuePlay-setup.exe
+          Copy-Item $setup.FullName StageGremlin-setup.exe
 
       - name: Version label
         id: ver
@@ -84,22 +84,22 @@ jobs:
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          name: RG CuePlay ${{ steps.ver.outputs.tag }}
+          name: StageGremlin ${{ steps.ver.outputs.tag }}
           prerelease: true
           body: |
             Test build from `${{ github.sha }}`. Not tested on a real show yet — see docs/TESTING.md.
 
-            **Portable (recommended):** download RG-CuePlay-portable.zip → right-click → Properties → Unblock → unzip → run rg-cueplay.exe.
-            **Installer:** RG-CuePlay-setup.exe (no admin rights needed).
+            **Portable (recommended):** download StageGremlin-portable.zip → right-click → Properties → Unblock → unzip → run StageGremlin.exe.
+            **Installer:** StageGremlin-setup.exe (no admin rights needed).
           files: |
-            RG-CuePlay-portable.zip
-            RG-CuePlay-setup.exe
+            StageGremlin-portable.zip
+            StageGremlin-setup.exe
 
       # Also keep them on the run page, for 30 days.
       - uses: actions/upload-artifact@v4
         with:
-          name: RG-CuePlay-windows
+          name: StageGremlin-windows
           path: |
-            RG-CuePlay-portable.zip
-            RG-CuePlay-setup.exe
+            StageGremlin-portable.zip
+            StageGremlin-setup.exe
           retention-days: 30

@@ -1,13 +1,13 @@
 [package]
-name = "rg-cueplay"
+name = "stagegremlin"
 version = "0.1.0"
-description = "RG CuePlay: a QLab-style audio cue player for school shows"
+description = "StageGremlin: a QLab-style audio cue player for school shows"
 edition = "2021"
 license = "AGPL-3.0-or-later"
 
 [lib]
 # The `_lib` suffix avoids a name clash with the binary on Windows (cargo issue #8519).
-name = "rg_cueplay_lib"
+name = "stagegremlin_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

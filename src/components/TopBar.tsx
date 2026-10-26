@@ -25,7 +25,7 @@ export function TopBar({ preflightOk }: { preflightOk: boolean }) {
     <header style={{ height: 56, flex: "none", display: "flex", alignItems: "center", gap: 14, padding: "0 16px", borderBottom: "1px solid var(--line)", background: "var(--bg)", position: "relative", zIndex: 30 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 10, minWidth: 0 }}>
         <span className="cond" style={{ fontSize: 22, fontWeight: 800, letterSpacing: ".06em", whiteSpace: "nowrap" }}>
-          <span style={{ color: "var(--acc)" }}>RG</span> CUEPLAY
+          STAGE<span style={{ color: "var(--acc)" }}>GREMLIN</span>
         </span>
         <button
           className="b mono clamp1"

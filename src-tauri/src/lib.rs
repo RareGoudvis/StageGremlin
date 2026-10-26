@@ -1,4 +1,4 @@
-//! RG CuePlay desktop shell: wires the audio engine to the React UI.
+//! StageGremlin desktop shell: wires the audio engine to the React UI.
 //!
 //! - `engine_thread`: the one thread that owns and drives the audio engine
 //! - `commands`: what the UI can call (contract: docs/ipc.md)
@@ -121,7 +121,7 @@ pub fn run() {
             background::bg_play_track,
         ])
         .build(tauri::generate_context!())
-        .expect("error while starting RG CuePlay")
+        .expect("error while starting StageGremlin")
         .run(|app, event| {
             // A clean exit removes the crash-resume file: no "resume?" next start.
             if let RunEvent::Exit = event {

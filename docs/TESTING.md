@@ -1,4 +1,4 @@
-# RG CuePlay: test plan for the first evening on Windows
+# StageGremlin: test plan for the first evening on Windows
 
 Work from top to bottom. The most important things come first, so if you run out of time, stop anywhere.
 Each step says what **good** looks like. If something isn't good, take a screenshot, jot down the step
@@ -22,7 +22,7 @@ headphones, and a USB audio device if you have one at home (a USB headset or USB
    npm run tauri dev
    ```
    **Good:** the first time, Rust compiles ~500 crates. That takes **5–15 minutes**, with lots of
-   `Compiling …` lines. Then a window "RG CuePlay" opens. Later starts take seconds.
+   `Compiling …` lines. Then a window "StageGremlin" opens. Later starts take seconds.
 
 **Common errors**
 
@@ -148,7 +148,7 @@ Use Build mode unless the step says Run.
    **Good:** the music keeps playing.
 8. **Exit the app** while the music is ducked.
    **Good:** the player closes, and the next time the player's volume in the Windows Volume Mixer is back to normal (not stuck low).
-9. **The app's own sound is never ducked**: in the Volume Mixer, only an `msedgewebview2` entry moves on Duck — the RG CuePlay entry stays put.
+9. **The app's own sound is never ducked**: in the Volume Mixer, only an `msedgewebview2` entry moves on Duck — the StageGremlin entry stays put.
 10. **Track list**: open a Spotify playlist / a YouTube Music queue.
     **Good:** the tracks appear in the dock, and tapping one plays it.
 11. **Keys in Run** (also while the dock is locked): D duck · R restore · Shift+D play/pause · Shift+→ next · hold Alt for no fade.
@@ -162,7 +162,7 @@ Use Build mode unless the step says Run.
 ## 8. Crash resume
 
 1. Open a **saved** show, go to **Run** and GO two cues so both are playing.
-2. Open **Task Manager** and end the "RG CuePlay" task (in dev mode, closing the terminal also works).
+2. Open **Task Manager** and end the "StageGremlin" task (in dev mode, closing the terminal also works).
 3. Start the app again.
    **Good:** it offers to resume, naming the show and the cues that were playing. Resume opens the show and restarts those
    cues at about the spot where they were (within a second or two). Dismiss makes the offer go away for good.
@@ -177,9 +177,9 @@ Use Build mode unless the step says Run.
    ```
    npm run tauri build
    ```
-   **Good:** after a few minutes you get `target\release\rg-cueplay.exe` and an installer in `target\release\bundle\nsis\`
+   **Good:** after a few minutes you get `target\release\StageGremlin.exe` and an installer in `target\release\bundle\nsis\`
    (note: `target` is at the **project root**, not inside `src-tauri`).
-2. Make a new folder (e.g. on a USB stick), copy `rg-cueplay.exe` into it and add an **empty** file `portable.txt`.
+2. Make a new folder (e.g. on a USB stick), copy `StageGremlin.exe` into it and add an **empty** file `portable.txt`.
 3. Start the exe from there.
    **Good:** the app runs. A `data` folder appears next to the exe (settings, WebView2 data, `bin` for yt-dlp/ffmpeg),
    and the About/settings screen says *portable*. Nothing new appears in `%APPDATA%`.

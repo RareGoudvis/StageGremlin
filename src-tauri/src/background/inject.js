@@ -1,4 +1,4 @@
-// RG CuePlay: injected into the background player window (Spotify, YouTube Music, …) before the
+// StageGremlin: injected into the background player window (Spotify, YouTube Music, …) before the
 // page's own scripts run. It does two things and nothing else:
 //
 //  1. Remote control: play / pause / next / previous, called from the app with

@@ -2904,23 +2904,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rg-cueplay"
-version = "0.1.0"
-dependencies = [
- "cueplay-engine",
- "notify",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "ureq",
- "windows",
- "windows-sys 0.59.0",
- "zip",
-]
-
-[[package]]
 name = "ring"
 version = "0.17.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3389,6 +3372,23 @@ name = "stable_deref_trait"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
+
+[[package]]
+name = "stagegremlin"
+version = "0.1.0"
+dependencies = [
+ "cueplay-engine",
+ "notify",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "ureq",
+ "windows",
+ "windows-sys 0.59.0",
+ "zip",
+]
 
 [[package]]
 name = "static_vcruntime"
