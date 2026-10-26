@@ -1,5 +1,4 @@
 {
-  "$comment": "Merged on top of tauri.conf.json by the Windows CI build (tauri build --config). Ships yt-dlp, ffmpeg and ffprobe with the installer so YouTube import works offline from the first run.",
   "bundle": {
     "resources": { "../tools/bin/*": "bin/" }
   }
