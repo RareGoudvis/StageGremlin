@@ -53,7 +53,7 @@ YouTube's own audio stream and needs no ffmpeg).
 
 | Command | Args | Returns | Notes |
 | --- | --- | --- | --- |
-| `bg_open` | `{ source: BgSource, show: boolean }` | `void` | creates/navigates the background window; `show` brings it to front (Build) or keeps it hidden (Run) |
+| `bg_open` | `{ source: BgSource, show: boolean, link?: string \| null }` | `void` | creates/navigates the background window; `show` brings it to front (Build) or keeps it hidden (Run). `link`: a playlist page to open instead of the start page; only https on that service's own site (same hosts as capabilities/background.json), else an error |
 | `bg_hide` | – | `void` | hides the window; playback continues |
 | `bg_command` | `{ cmd: "duck" \| "restore" \| "play" \| "pause" \| "next" \| "prev", instant: boolean }` | `void` | play/pause fade through the Windows session volume unless instant |
 | `bg_set_level` | `{ db: number }` | `void` | the "normal" level (0 dB = unity), before the source offset |

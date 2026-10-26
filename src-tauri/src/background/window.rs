@@ -33,14 +33,29 @@ pub fn source_url(source: BgSource) -> &'static str {
     }
 }
 
+/// A playlist (or album, station…) link may be opened instead of the start page, but only on the
+/// service's own site: the same hosts capabilities/background.json lets report back. Anything else
+/// would put a foreign page in a window that can talk to the app.
+pub fn link_allowed(source: BgSource, link: &Url) -> bool {
+    let Some(host) = link.host_str() else { return false };
+    let start = Url::parse(source_url(source)).ok();
+    link.scheme() == "https"
+        && (start.as_ref().and_then(|u| u.host_str()) == Some(host)
+            || (source == BgSource::Soundtrack && host.ends_with(".soundtrack.io")))
+}
+
 pub fn get(app: &AppHandle) -> Option<WebviewWindow> {
     app.get_webview_window(LABEL)
 }
 
 /// Creates the window if needed, or loads `source` in the existing one when `navigate` is true.
 /// `show` brings it to the front (Build); otherwise it stays (or is created) hidden (Run).
-pub fn open(app: &AppHandle, source: BgSource, navigate: bool, show: bool) -> Result<(), String> {
-    let url = Url::parse(source_url(source)).map_err(|e| e.to_string())?;
+/// `link`: a page on that service to open instead of its start page (checked by `link_allowed`).
+pub fn open(app: &AppHandle, source: BgSource, navigate: bool, show: bool, link: Option<Url>) -> Result<(), String> {
+    let url = match link {
+        Some(l) => l,
+        None => Url::parse(source_url(source)).map_err(|e| e.to_string())?,
+    };
 
     if let Some(win) = get(app) {
         if navigate {
@@ -93,5 +108,25 @@ pub fn eval(app: &AppHandle, js: &str) -> bool {
     match get(app) {
         Some(win) => win.eval(js).is_ok(),
         None => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ok(source: BgSource, link: &str) -> bool {
+        link_allowed(source, &Url::parse(link).unwrap())
+    }
+
+    #[test]
+    fn playlist_links_only_on_the_services_own_site() {
+        assert!(ok(BgSource::Spotify, "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"));
+        assert!(ok(BgSource::Soundtrack, "https://play.soundtrackyourbrand.com/playlist/abc"));
+        assert!(ok(BgSource::Soundtrack, "https://app.soundtrack.io/music/abc"));
+        assert!(!ok(BgSource::Spotify, "https://music.youtube.com/playlist?list=x"), "another service");
+        assert!(!ok(BgSource::Spotify, "http://open.spotify.com/playlist/x"), "not https");
+        assert!(!ok(BgSource::Soundtrack, "https://evil.example/soundtrack.io"), "lookalike");
+        assert!(!ok(BgSource::Spotify, "https://open.spotify.com.evil.example/x"), "lookalike host");
     }
 }

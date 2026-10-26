@@ -144,3 +144,7 @@ known: boolean, zones: { volume: number, input: number, mute: boolean }[] }` (8 
 them once). Event `audac://state` carries the same object on every change.
 
 Try it without the box: `python scripts/fake-mtx.py`, then connect to `127.0.0.1`.
+
+The **schedule** (Settings › Schedule, `settings.ui.audac.schedule`) runs in the UI (`src/lib/audacSchedule.ts`), checking
+every 10 s while the app is open: it uses only the commands above plus `bg_open` (with `link`) and `bg_command`.
+The AUDAC setup and the schedule need the admin password (`src/lib/admin.ts`).

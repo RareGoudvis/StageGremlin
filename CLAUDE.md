@@ -70,7 +70,9 @@ explorer /select, WebView2 data dir, yt-dlp/ffmpeg) compiles but is untested.
   resume dialog. v2 layout is untested in the real app.
 - AUDAC MTX88 remote (outside the v1 brief, asked for by the owner): zones' input / volume / mute over TCP 5001,
   holds the MTX's single connection; top-bar AUDAC button, Run dock tab, Settings › AUDAC. `scripts/fake-mtx.py`
-  stands in for the box. Untested on the real MTX.
+  stands in for the box. Schedule (Settings › Schedule): times per weekday that set zones and start a background
+  playlist; runs while the app is open. AUDAC setup + schedule need the admin password (one per build, hash in the
+  gitignored .env.local via scripts/make-admin-hash.mjs). Untested on the real MTX.
 - Browser mode (no Tauri): real sound through Web Audio (`src/lib/webAudioEngine.ts`); YouTube/background simulated.
 
 Next: run docs/TESTING.md on Windows, fix what breaks; Run keys (Space/Esc/S/U/V) aren't rebindable yet

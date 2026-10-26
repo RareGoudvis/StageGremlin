@@ -60,7 +60,8 @@ async function cmd<T>(name: string, args?: Record<string, unknown>): Promise<T> 
 }
 
 export const bg = {
-  open: (source: BgSource, show: boolean) => cmd<void>("bg_open", { source, show }),
+  /** `link`: a playlist page on that service instead of its start page. */
+  open: (source: BgSource, show: boolean, link?: string) => cmd<void>("bg_open", { source, show, link: link ?? null }),
   hide: () => cmd<void>("bg_hide"),
   command: (c: BgCmd, instant = false) => cmd<void>("bg_command", { cmd: c, instant }),
   setLevel: (db: number) => cmd<void>("bg_set_level", { db }),

@@ -553,15 +553,27 @@ pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
 
 /// Creates or navigates the background window. Async on purpose: creating a window from a
 /// synchronous command can deadlock on Windows.
+/// `link` (optional): a playlist page on that service to open (the AUDAC schedule uses it).
 #[tauri::command]
-pub async fn bg_open(app: AppHandle, source: BgSource, show: bool) -> Result<(), String> {
+pub async fn bg_open(app: AppHandle, source: BgSource, show: bool, link: Option<String>) -> Result<(), String> {
+    let link = match link.as_deref().map(str::trim).filter(|l| !l.is_empty()) {
+        Some(l) => {
+            let url = tauri::Url::parse(l).map_err(|_| format!("Not a valid link: {l}"))?;
+            if !window::link_allowed(source, &url) {
+                return Err(format!("That link is not on the {source:?} website."));
+            }
+            Some(url)
+        }
+        None => None,
+    };
     let handle = app.state::<BgHandle>();
     let (navigate, existed) = {
         let s = handle.lock();
         let existed = window::get(&app).is_some();
-        (s.source != Some(source) || !existed, existed)
+        // A link always loads, even when this source is already open.
+        (s.source != Some(source) || !existed || link.is_some(), existed)
     };
-    let result = window::open(&app, source, navigate && existed, show);
+    let result = window::open(&app, source, navigate && existed, show, link);
     let mut s = handle.lock();
     match &result {
         Ok(()) => {
