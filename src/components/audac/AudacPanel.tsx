@@ -22,7 +22,8 @@ export function AudacPanel({ big = false, inRun = false }: { big?: boolean; inRu
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: big ? 10 : 6, minHeight: 0 }}>
       <StatusBar st={st} locked={locked} onUnlock={() => setUnlocked(true)} />
-      {!setup.host.trim() ? (
+      {/* Not set up: no IP and no demo. (The demo needs no address.) */}
+      {!setup.host.trim() && !setup.demo ? (
         <span style={{ fontSize: 13, color: "var(--dim)" }}>{t("audac.notSetUp")}</span>
       ) : (
         <div className="scroll" style={{ display: "flex", flexDirection: "column", gap: big ? 8 : 4, opacity: live ? 1 : 0.5, pointerEvents: live ? "auto" : "none", minHeight: 0 }}>
