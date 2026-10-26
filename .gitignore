@@ -6,3 +6,4 @@ target/
 src-tauri/gen/
 data/
 preview-dist/
+tools/
