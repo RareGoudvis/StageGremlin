@@ -786,13 +786,13 @@ export async function webInvoke(cmd: string, args?: Record<string, unknown>): Pr
       return analyze(String(args?.file));
     case "show_save": {
       const show = args?.show as Show;
-      const name = String(args?.path ?? "show.cueplay").split(/[\\/]/).pop() || "show.cueplay";
+      const name = String(args?.path ?? "show.sg").split(/[\\/]/).pop() || "show.sg";
       downloadText(name, JSON.stringify(show, null, 2));
       return show;
     }
     case "show_open": {
       const f = fileFor(String(args?.path));
-      if (!f) throw new Error("pick the .cueplay file again");
+      if (!f) throw new Error("pick the .sg file again");
       return JSON.parse(await f.text()) as Show;
     }
     case "app_info":

@@ -4,6 +4,8 @@ import type { MouseEvent, PointerEvent } from "react";
 import { memo } from "react";
 import { useDoc } from "../../store";
 import { useMedia } from "../../lib/media";
+import { openMenu } from "../ContextMenu";
+import { cueMenu } from "../../lib/menus";
 import type { Cue } from "../../types";
 import { normGain, trimmedLen } from "../../types";
 import { basename } from "../../lib/tauri";
@@ -39,6 +41,7 @@ export const CueRow = memo(function CueRow({ cue, sectionId, selected, standby, 
       aria-selected={selected}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
+      onContextMenu={(e) => openMenu(e, cueMenu(cue.id))}
       title="Double-click (or Enter) to open the cue editor"
       onPointerDown={onPointerDown}
       style={{

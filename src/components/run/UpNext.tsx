@@ -12,6 +12,8 @@ import { useEngine } from "../../engineStore";
 import { useUi } from "../../uiStore";
 import { previewToggle, usePreview, usePreviewInHall } from "../../lib/preview";
 import { Search } from "../Icons";
+import { openMenu } from "../ContextMenu";
+import { upNextMenu } from "../../lib/menus";
 
 /** The cues the list shows, filtered by the search text. Shared with RunView's ↑/↓ keys. */
 export function upNextCues(queue: Cue[], playhead: string | null, query: string): Cue[] {
@@ -98,6 +100,7 @@ export function UpNext({ playhead, selectedId, onSelect, search, setSearch, sear
               <div
                 data-upnext={c.id}
                 onClick={() => onSelect(c.id)}
+                onContextMenu={(e) => { onSelect(c.id); openMenu(e, upNextMenu(c, playhead)); }}
                 style={{
                   display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10,
                   background: standby ? "var(--p2)" : selected ? "var(--p2)" : "transparent",

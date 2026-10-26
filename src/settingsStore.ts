@@ -9,6 +9,7 @@ import { call } from "./lib/tauri";
 /** Every rebindable action, with its default key. */
 export const ACTIONS = {
   go: { label: "GO", key: "Space", where: "Run" },
+  goAlt: { label: "GO (second key)", key: "Enter", where: "Run" },
   stopAll: { label: "Stop all (twice = Panic)", key: "Escape", where: "Run" },
   stopCue: { label: "Stop the playing cue", key: "S", where: "Run" },
   under: { label: "Under / back up", key: "U", where: "Run" },
@@ -31,6 +32,11 @@ export const ACTIONS = {
   theme: { label: "Cycle theme", key: "Ctrl+T", where: "Everywhere" },
   redMode: { label: "Red night mode", key: "Ctrl+Shift+R", where: "Everywhere" },
   pauseAll: { label: "Pause / resume everything", key: "P", where: "Run" },
+  bgDuck: { label: "Background: duck (Alt = no fade)", key: "D", where: "Run" },
+  bgRestore: { label: "Background: restore (Alt = no fade)", key: "R", where: "Run" },
+  bgPlayPause: { label: "Background: play / pause", key: "Shift+D", where: "Run" },
+  bgNext: { label: "Background: next track", key: "Shift+ArrowRight", where: "Run" },
+  settings: { label: "Open settings", key: "Ctrl+,", where: "Build, Preflight" },
   cut: { label: "Cut cues", key: "Ctrl+X", where: "Build" },
   copy: { label: "Copy cues", key: "Ctrl+C", where: "Build" },
   paste: { label: "Paste cues", key: "Ctrl+V", where: "Build" },
@@ -45,9 +51,19 @@ export interface UiSettings {
   keys: Partial<Record<Action, string>>;
   /** Whether the background player starts locked in Run (read by the background dock). */
   bgLockDefault: boolean;
+  /** UI size in percent (90–130), applied as CSS zoom on the app. */
+  zoom: number;
+  /** Dumbo mode: a super-simple Run screen for an inexperienced operator. */
+  dumbo: boolean;
+  /** Show a row of pad buttons in Dumbo mode. */
+  dumboPads: boolean;
+  /** Optional 4-digit PIN to leave Dumbo mode (empty = hold the corner button 3 s). */
+  dumboPin: string;
+  /** Default YouTube download format. */
+  ytFormat: "original" | "mp3" | "wav";
 }
 
-const DEFAULTS: UiSettings = { lang: "en", keys: {}, bgLockDefault: false };
+const DEFAULTS: UiSettings = { lang: "en", keys: {}, bgLockDefault: false, zoom: 100, dumbo: false, dumboPads: false, dumboPin: "", ytFormat: "original" };
 
 interface SettingsStore {
   ui: UiSettings;
@@ -96,9 +112,14 @@ export function keyFor(action: Action): string {
   return useSettings.getState().ui.keys[action] ?? ACTIONS[action].key;
 }
 
-/** Does this key event trigger `action` (with the operator's own keys)? */
-export function isAction(e: KeyboardEvent, action: Action): boolean {
-  return keyName(e) === keyFor(action);
+/**
+ * Does this key event trigger `action` (with the operator's own keys)?
+ * `ignoreAlt`: Alt is a variant of the same action (background keys: Alt = without fade).
+ */
+export function isAction(e: KeyboardEvent, action: Action, opts: { ignoreAlt?: boolean } = {}): boolean {
+  let name = keyName(e);
+  if (opts.ignoreAlt) name = name.replace("Alt+", "");
+  return name === keyFor(action);
 }
 
 /** Other actions that already use `key` (to warn about conflicts). */

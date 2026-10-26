@@ -208,7 +208,7 @@ fn save_copies_media_and_reopens() {
     let dst = tempfile::tempdir().unwrap();
     let a = cue(src.path(), "song", 0.2);
     let (mut s, _) = show_with(src.path(), vec![a]);
-    let path = dst.path().join("Schoolfeest.cueplay");
+    let path = dst.path().join("Schoolfeest.sg");
     show::save(&path, &mut s).unwrap();
     assert_eq!(s.sections[0].cues[0].file, "media/song.wav");
     assert!(dst.path().join("media/song.wav").exists());

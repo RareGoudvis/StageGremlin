@@ -7,11 +7,27 @@ import { useDoc } from "../store";
 import { useUi } from "../uiStore";
 import { requestModeByKey } from "../lib/modeSwitch";
 import { fileNew, fileOpen, fileSave, fileSaveAs, importDialog } from "../lib/fileActions";
-import { isAction, type Action } from "../settingsStore";
+import { isAction, useSettings, type Action } from "../settingsStore";
+
+/**
+ * WebView2 is a browser, so it has browser shortcuts that make no sense in an app:
+ * the find bar (Ctrl+F, F3), view source (Ctrl+U), downloads (Ctrl+J) and, in the
+ * released app, reload (F5 / Ctrl+R) which would drop the show mid-performance.
+ * During development reload stays available.
+ */
+function blockBrowserKeys(e: KeyboardEvent) {
+  const k = e.key.toLowerCase();
+  const ctrl = e.ctrlKey || e.metaKey;
+  if (e.key === "F3" || (ctrl && !e.shiftKey && (k === "f" || k === "g" || k === "u" || k === "j"))) e.preventDefault();
+  if (import.meta.env.PROD && (e.key === "F5" || (ctrl && !e.shiftKey && k === "r"))) e.preventDefault();
+}
 
 export function useAppShortcuts() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      blockBrowserKeys(e);
+      // Dumbo mode: only GO / Stop all / pads, handled in DumboView. Nothing else.
+      if (useSettings.getState().ui.dumbo) return;
       // Plain letters belong to the screens (and to text fields); app shortcuts use a modifier.
       if (!(e.ctrlKey || e.metaKey || e.altKey)) return;
       const ui = useUi.getState();
@@ -37,6 +53,7 @@ export function useAppShortcuts() {
 
       // Everything below edits or replaces the show: not in Run.
       if (mode === "run") return;
+      if (hit("settings", () => ui.openDialog({ kind: "settings" }))) return;
       if (mode === "build" && hit("youtube", () => ui.openDialog({ kind: "youtube" }))) return;
       if (mode === "build" && hit("importAudio", importDialog)) return;
       if (hit("saveAs", fileSaveAs)) return;

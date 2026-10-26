@@ -8,6 +8,8 @@ import { fmtTime } from "../../lib/format";
 import { pauseAll, releaseVamp, stopCue, toggleUnder } from "../../lib/runActions";
 import { useEngine } from "../../engineStore";
 import { showRunning } from "../../lib/showMath";
+import { openMenu } from "../ContextMenu";
+import { nowPlayingMenu } from "../../lib/menus";
 import { useUi } from "../../uiStore";
 import { undoSwap } from "./SwapDialog";
 
@@ -30,7 +32,7 @@ export function NowPlaying({ run, standbyId, onFocus }: {
   const frac = run && run.length > 0 ? run.position / run.length : 0;
 
   return (
-    <section aria-label="Now playing" style={{ position: "relative",
+    <section aria-label="Now playing" onContextMenu={(e) => run && openMenu(e, nowPlayingMenu(run))} style={{ position: "relative",
       flex: "none", borderRadius: 16, background: "var(--p1)", border: `1px solid ${run ? "var(--acc)" : "var(--line)"}`,
       padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10,
     }}>

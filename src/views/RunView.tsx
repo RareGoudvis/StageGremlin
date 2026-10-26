@@ -3,7 +3,7 @@
 //   middle now-playing card + up next
 //   right  GO with Stop all / Panic, then the dock (Pads / Background / Log)
 //
-// Keys (only here): Space/Enter GO · Esc Stop all · Esc Esc Panic · S stop · U under ·
+// Keys (only here; all rebindable in Settings › Shortcuts): Space/Enter GO · Esc Stop all · Esc Esc Panic · S stop · U under ·
 // V release vamp · ↑/↓ move the up-next selection · Ctrl+K find · H preview the selected row ·
 // D / R duck / restore background · Shift+D play/pause it · Shift+→ next track (Alt: no fade) ·
 // 1–9, 0 pads. Big mode (Ctrl+B) shows only GO, now playing and next.
@@ -18,13 +18,14 @@ import { previewStop, previewToggle, usePreview } from "../lib/preview";
 import { fmtTime } from "../lib/format";
 import { mainRunning } from "../lib/showMath";
 import { firePadByKey, go, panic, pauseAll, releaseVamp, stopAll, stopCue, toggleUnder } from "../lib/runActions";
-import { isAction } from "../settingsStore";
+import { isAction, type Action } from "../settingsStore";
+import { useMenu } from "../components/ContextMenu";
 import { SectionRail } from "../components/run/SectionRail";
 import { NowPlaying } from "../components/run/NowPlaying";
 import { UpNext, upNextCues } from "../components/run/UpNext";
 import { GoBlock } from "../components/run/GoBlock";
 import { Dock } from "../components/run/Dock";
-import { backgroundKey } from "../components/background/useBackground";
+import { bg, bgDo } from "../components/background/useBackground";
 
 const DOUBLE_ESC_MS = 500;
 
@@ -49,10 +50,13 @@ export function RunView() {
 
     const onKeyDown = (e: KeyboardEvent) => {
       const ui = useUi.getState();
-      if (ui.confirm || ui.dialog) return; // a dialog has the keyboard
+      // A dialog or a right-click menu has the keyboard.
+      if (ui.confirm || ui.dialog || useMenu.getState().menu) return;
       const { run, playhead, selectedId, searchOpen, search } = live.current;
+      // Every key below comes from the keymap (Settings › Shortcuts), except ↑/↓ and the pad digits.
+      const hit = (a: Action, opts?: { ignoreAlt?: boolean }) => isAction(e, a, opts);
 
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      if (hit("find")) {
         e.preventDefault();
         setSearchOpen(true);
         return;
@@ -66,18 +70,17 @@ export function RunView() {
         }
         if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
       }
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
 
-      if (e.key === " " || e.key === "Enter") {
+      if (hit("go") || hit("goAlt")) {
         // Never let Space/Enter click a focused button: it must mean GO.
         e.preventDefault();
         (document.activeElement as HTMLElement | null)?.blur?.();
         if (!e.repeat) void go();
         return;
       }
-      if (e.key === "Escape") {
+      if (hit("stopAll")) {
         e.preventDefault();
-        // Esc also stops a headphone preview (it never plays in the hall anyway).
+        // It also stops a headphone preview (that never plays in the hall anyway).
         if (usePreview.getState().state?.playing) void previewStop();
         const now = performance.now();
         if (now - lastEsc < DOUBLE_ESC_MS) {
@@ -89,6 +92,7 @@ export function RunView() {
         }
         return;
       }
+      if (e.ctrlKey || e.metaKey) return; // the rest are plain keys
       if (e.key === "ArrowUp" || e.key === "ArrowDown") {
         e.preventDefault();
         const list = upNextCues(goQueue(useDoc.getState().show), playhead, searchOpen ? search : "");
@@ -99,32 +103,31 @@ export function RunView() {
         return;
       }
       // Pads: keys 1–9 and 0 (also the number pad).
-      if (/^[0-9]$/.test(e.key)) {
+      if (!e.altKey && /^[0-9]$/.test(e.key)) {
         if (firePadByKey(e.key)) e.preventDefault();
         return;
       }
-      // Background music: D duck · R restore · Shift+D play/pause · Shift+→ next · Alt = no fade.
-      // These work even when the dock is locked (the lock only guards against mis-taps).
-      if (backgroundKey(e)) {
+      // Background music (Alt = without fade). They work even when the dock is locked.
+      const instant = e.altKey;
+      if (hit("bgDuck", { ignoreAlt: true })) { e.preventDefault(); bgDo(bg.command("duck", instant)); return; }
+      if (hit("bgRestore", { ignoreAlt: true })) { e.preventDefault(); bgDo(bg.command("restore", instant)); return; }
+      if (hit("bgNext", { ignoreAlt: true })) { e.preventDefault(); bgDo(bg.command("next", instant)); return; }
+      if (hit("bgPlayPause", { ignoreAlt: true })) {
         e.preventDefault();
+        // Play/pause toggles, so ask what it is doing right now (the dock may not be open).
+        bgDo(bg.getState().then((st) => bg.command(st.playing ? "pause" : "play", instant)));
         return;
       }
-      const k = e.key.toLowerCase();
-      // P: pause / resume everything (rebindable in Settings).
-      if (isAction(e, "pauseAll")) {
-        e.preventDefault();
-        pauseAll();
-        return;
-      }
-      if (k === "h") {
+      if (hit("pauseAll")) { e.preventDefault(); pauseAll(); return; }
+      if (hit("preview")) {
         e.preventDefault();
         const c = findCue(useDoc.getState().show, selectedId ?? playhead);
         if (c) previewToggle(c);
         return;
       }
-      if (k === "s" && run) { e.preventDefault(); stopCue(run.cueId); }
-      else if (k === "u") { e.preventDefault(); toggleUnder(run?.cueId ?? null); }
-      else if (k === "v") { e.preventDefault(); releaseVamp(run?.cueId ?? null); }
+      if (hit("stopCue") && run) { e.preventDefault(); stopCue(run.cueId); }
+      else if (hit("under")) { e.preventDefault(); toggleUnder(run?.cueId ?? null); }
+      else if (hit("releaseVamp")) { e.preventDefault(); releaseVamp(run?.cueId ?? null); }
     };
 
     // Space activates buttons on key-up; swallow that too.

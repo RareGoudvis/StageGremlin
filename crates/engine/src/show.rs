@@ -1,4 +1,4 @@
-//! The show document: what a `.cueplay` file contains.
+//! The show document: what a `.sg` file contains (older shows use `.cueplay`; same format).
 //!
 //! A show is a list of sections, each holding an ordered list of cues. File paths
 //! are stored relative to the show file's folder (normally `media/…`), so the whole
@@ -477,7 +477,7 @@ impl Show {
 pub enum ShowFileError {
     #[error("could not read or write the show file: {0}")]
     Io(#[from] std::io::Error),
-    #[error("the show file is damaged or not a .cueplay file: {0}")]
+    #[error("the show file is damaged or not a StageGremlin show (.sg): {0}")]
     Json(#[from] serde_json::Error),
 }
 
@@ -508,7 +508,7 @@ pub fn save(path: &Path, show: &mut Show) -> Result<(), ShowFileError> {
     if path.exists() {
         backup(&dir, path)?;
     }
-    let tmp = path.with_extension("cueplay.tmp");
+    let tmp = path.with_extension("sg.tmp");
     std::fs::write(&tmp, serde_json::to_string_pretty(show)?)?;
     std::fs::rename(&tmp, path)?;
     Ok(())
@@ -561,7 +561,7 @@ fn backup(dir: &Path, path: &Path) -> Result<(), std::io::Error> {
         .map(|d| d.as_secs())
         .unwrap_or(0);
     let stem = path.file_stem().unwrap_or_default().to_string_lossy();
-    std::fs::copy(path, backups.join(format!("{stem}-{stamp}.cueplay")))?;
+    std::fs::copy(path, backups.join(format!("{stem}-{stamp}.sg")))?;
     let mut all: Vec<_> = std::fs::read_dir(&backups)?.filter_map(|e| e.ok()).map(|e| e.path()).collect();
     all.sort();
     while all.len() > 20 {

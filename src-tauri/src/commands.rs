@@ -285,7 +285,7 @@ pub async fn show_save(path: String, show: Show) -> Result<Show, String> {
     .await
 }
 
-/// Zips the .cueplay file and its media/ folder (not backups/) into `dest`.
+/// Zips the show file (.sg, or an older .cueplay) and its media/ folder (not backups/) into `dest`.
 #[tauri::command]
 pub async fn show_export_zip(show_path: String, dest: String) -> Result<(), String> {
     blocking(move || files::export_zip(Path::new(&show_path), Path::new(&dest))).await
