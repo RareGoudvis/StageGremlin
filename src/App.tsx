@@ -12,6 +12,8 @@ import { ResumeDialog, useResumeCheck } from "./components/ResumeDialog";
 import { PrintDialog, PrintSheet } from "./components/PrintSheet";
 import { useUi } from "./uiStore";
 import { SettingsDialog } from "./components/SettingsDialog";
+import { useSettings } from "./settingsStore";
+import { DumboView } from "./views/DumboView";
 import { ContextMenuHost } from "./components/ContextMenu";
 import { BuildView } from "./views/BuildView";
 import { PreflightView } from "./views/PreflightView";
@@ -26,10 +28,17 @@ const AUTOSAVE_MS = 30_000;
 export default function App() {
   const mode = useDoc((s) => s.mode);
   const themePref = useDoc((s) => s.themePref);
-  const theme = effectiveTheme(themePref, mode);
+  const dumboOn = useSettings((s) => s.ui.dumbo);
+  // Dumbo mode is a Run screen: the automatic theme goes black like Run.
+  const theme = effectiveTheme(themePref, dumboOn ? "run" : mode);
+  useEffect(() => {
+    if (dumboOn && useDoc.getState().mode !== "run") useDoc.getState().setMode("run");
+  }, [dumboOn]);
   const { allOk } = usePreflight();
   const dialog = useUi((s) => s.dialog);
   const booth = useUi((s) => s.booth);
+  const zoom = useSettings((s) => s.ui.zoom);
+  const dumbo = useSettings((s) => s.ui.dumbo);
 
   useAppShortcuts();
   useNoBrowserMenu();
@@ -42,15 +51,25 @@ export default function App() {
     <>
     <div className={`app th-${theme}${booth.red ? " red-mode" : ""}`} data-mode={mode}
       // Booth dimmer: darken everything (the overlay below handles values under 100 %).
-      style={{ filter: booth.dim < 100 ? `brightness(${booth.dim / 100})` : undefined }}>
-      <TopBar preflightOk={allOk} />
-      <OutputBanner />
-      <ShowProgress />
-      <main style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-        {mode === "build" && <BuildView />}
-        {mode === "preflight" && <PreflightView />}
-        {mode === "run" && <RunView />}
-      </main>
+      style={{ filter: booth.dim < 100 ? `brightness(${booth.dim / 100})` : undefined, zoom: zoom !== 100 ? zoom / 100 : undefined }}>
+      {dumbo ? (
+        // Dumbo mode replaces everything (no top bar, no mode switch): see DumboView.tsx.
+        <>
+          <OutputBanner />
+          <DumboView />
+        </>
+      ) : (
+        <>
+          <TopBar preflightOk={allOk} />
+          <OutputBanner />
+          <ShowProgress />
+          <main style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+            {mode === "build" && <BuildView />}
+            {mode === "preflight" && <PreflightView />}
+            {mode === "run" && <RunView />}
+          </main>
+        </>
+      )}
       {dropping && (
         <div style={{ position: "absolute", inset: 8, border: "3px dashed var(--acc)", borderRadius: 16, background: "var(--scrim)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
           <span className="cond" style={{ fontSize: 32, fontWeight: 800, color: "#fff" }}>Drop audio files to add cues</span>

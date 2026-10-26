@@ -4,7 +4,8 @@
 
 import { create } from "zustand";
 import { useDoc } from "../store";
-import { ask, toast } from "../uiStore";
+import { ask, toast, useUi } from "../uiStore";
+import { useSettings } from "../settingsStore";
 import type { Cue } from "../types";
 import { allCues } from "../types";
 import { findAnyCue, updateAnyCue } from "./showOps";
@@ -19,6 +20,8 @@ interface MediaStore {
    * command, so files that were already there before the app started only show up once used).
    */
   seen: string[];
+  /** Someone tried to turn on Dumbo mode while files were missing (Preflight explains). */
+  dumboBlocked: boolean;
   set: (missing: Record<string, boolean>) => void;
   onChanged: (path: string, kind: string) => void;
 }
@@ -26,6 +29,7 @@ interface MediaStore {
 export const useMedia = create<MediaStore>((set) => ({
   missing: {},
   seen: [],
+  dumboBlocked: false,
   set: (missing) => set({ missing }),
   onChanged: (path, kind) =>
     set((s) => {
@@ -136,6 +140,25 @@ export function canEnterRun(): boolean {
   toast(`${n} cue file${n > 1 ? "s are" : " is"} missing. Fix ${n > 1 ? "them" : "it"} first (see Preflight).`);
   useDoc.getState().setMode("preflight");
   return false;
+}
+
+/**
+ * Dumbo mode follows the same rule as Run: not while a cue file is missing.
+ * Instead it opens Preflight, which lists the missing files with a "fix these first" line.
+ */
+export function enableDumbo(): boolean {
+  const ui = useSettings.getState();
+  if (missingCues().length) {
+    useMedia.setState({ dumboBlocked: true });
+    useUi.getState().closeDialog();
+    useDoc.getState().setMode("preflight");
+    toast(ui.ui.lang === "nl" ? "Los eerst de ontbrekende bestanden op, dan Dumbo-modus" : "Fix the missing files first, then Dumbo mode");
+    return false;
+  }
+  useMedia.setState({ dumboBlocked: false });
+  ui.update({ dumbo: true });
+  useUi.getState().closeDialog();
+  return true;
 }
 
 /** Started once: re-check after the file list changes, the show is opened/saved, or the folder changes. */

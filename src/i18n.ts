@@ -24,6 +24,11 @@ const en = {
   "pre.byApp": "Checked by the app", "pre.yours": "Your checks",
   // dialogs
   cancel: "Cancel", close: "Close", done: "Done",
+  // Dumbo mode
+  "dumbo.hint": "Press SPACE when the stage is ready", "dumbo.now": "Playing now", "dumbo.nothing": "Nothing is playing",
+  "dumbo.next": "Next", "dumbo.end": "That was the last cue", "dumbo.leave": "Hold 3 s to leave Dumbo mode",
+  "dumbo.pin": "Enter the PIN to leave Dumbo mode", "dumbo.wrong": "Wrong PIN",
+  "dumbo.fixFirst": "Fix these first, then Dumbo mode.",
 } as const;
 
 export type TKey = keyof typeof en;
@@ -42,6 +47,10 @@ const nl: Partial<Record<TKey, string>> = {
   "pre.title": "Check", "pre.goRun": "NAAR DE SHOW", "pre.ready": "Klaar voor de show", "pre.open": "open",
   "pre.byApp": "Gecontroleerd door de app", "pre.yours": "Jouw controles",
   cancel: "Annuleren", close: "Sluiten", done: "Klaar",
+  "dumbo.hint": "Druk op SPATIE als het podium klaar is", "dumbo.now": "Speelt nu", "dumbo.nothing": "Er speelt niets",
+  "dumbo.next": "Hierna", "dumbo.end": "Dat was de laatste cue", "dumbo.leave": "3 s ingedrukt houden om Dumbo-modus te verlaten",
+  "dumbo.pin": "Geef de pincode om Dumbo-modus te verlaten", "dumbo.wrong": "Verkeerde pincode",
+  "dumbo.fixFirst": "Los deze eerst op, dan Dumbo-modus.",
 };
 
 const dict: Record<Lang, Partial<Record<TKey, string>>> = { en, nl };

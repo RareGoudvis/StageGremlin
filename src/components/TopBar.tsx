@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useDoc, useDirty } from "../store";
 import { useEngine } from "../engineStore";
 import { useUi } from "../uiStore";
+import { useSettings } from "../settingsStore";
+import { enableDumbo } from "../lib/media";
 import { basename } from "../lib/tauri";
 import { ModeSwitch } from "./ModeSwitch";
 import { MasterMeter } from "./MasterMeter";
@@ -134,6 +136,9 @@ function BoothMenu() {
           </label>
           <button className="b chip" aria-pressed={booth.red} onClick={() => setBooth({ red: !booth.red })} style={{ height: 36 }}>Red night mode {booth.red ? "on" : "off"} · Ctrl+Shift+R</button>
           <button className="b chip" aria-pressed={booth.big} onClick={() => setBooth({ big: !booth.big })} style={{ height: 36 }}>Big mode {booth.big ? "on" : "off"} · Ctrl+B</button>
+          <button className="b chip" onClick={() => { setOpen(false); enableDumbo(); }} style={{ height: 36 }}>
+            {useSettings.getState().ui.lang === "nl" ? "Dumbo-modus aanzetten" : "Turn on Dumbo mode"}
+          </button>
           <span style={{ fontSize: 12, color: "var(--mute)" }}>Big mode shows only GO, what's playing and what's next (in Run). Ctrl+T cycles the theme.</span>
         </div>
       )}

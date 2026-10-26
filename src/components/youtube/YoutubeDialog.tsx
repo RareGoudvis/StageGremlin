@@ -14,6 +14,7 @@ import { hasTool, useTools } from "../../lib/tools";
 import { useYt, ytDownload } from "../../lib/youtube";
 import { fmtTime } from "../../lib/format";
 import { ToolInstall } from "../ToolInstall";
+import { useSettings } from "../../settingsStore";
 
 interface Row extends YtItem { checked: boolean; replace: string; busy?: boolean }
 
@@ -23,7 +24,7 @@ export function YoutubeDialog() {
   const progress = useYt((s) => s.progress);
   const [text, setText] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
-  const [format, setFormat] = useState<YtFormat>("original");
+  const [format, setFormat] = useState<YtFormat>(() => useSettings.getState().ui.ytFormat);
   const [resolving, setResolving] = useState(false);
   const [downloading, setDownloading] = useState<string[] | null>(null);
   const [added, setAdded] = useState(false);
