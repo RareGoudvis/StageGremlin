@@ -7,10 +7,11 @@ import { useSettings, type StreamboxSetup } from "../../settingsStore";
 import { useT } from "../../i18n";
 import { call, isTauri } from "../../lib/tauri";
 import { visible } from "../../lib/audac";
-import { Row } from "../controls";
+import { Chips, Row } from "../controls";
+import { StreamboxPanel } from "../StreamboxPanel";
 import { Card, PageTitle } from "./common";
 
-interface Found { ip: string; name: string; model: string | null; kinds: string[] }
+interface Found { ip: string; name: string; model: string | null; kinds: string[]; dlnaUrl: string | null }
 
 /** What we know about each model. Only the S2 Ultra is checked against its spec sheets. */
 export const STREAMBOX_MODELS: { id: string; label: string; kinds: string; checked: boolean }[] = [
@@ -58,7 +59,7 @@ export function StreamboxPage() {
               <b>{box.name}</b> <span className="mono" style={{ color: "var(--dim)" }}>{box.ip}</span>
               {box.kinds.length > 0 && <span style={{ color: "var(--dim)" }}> · {box.kinds.join(", ")}</span>}
             </span>
-            <button className="b btn btn-ghost" onClick={() => save({ ip: "", name: "", kinds: [] })}>{t("sbx.forget")}</button>
+            <button className="b btn btn-ghost" onClick={() => save({ ip: "", name: "", kinds: [], dlnaUrl: "" })}>{t("sbx.forget")}</button>
           </Row>
         ) : (
           <span style={{ fontSize: 13, color: "var(--dim)" }}>{t("sbx.noneYet")}</span>
@@ -77,12 +78,26 @@ export function StreamboxPage() {
                   <span className="mono" style={{ fontSize: 11.5, color: "var(--mute)" }}>{f.ip}{f.model ? ` · ${f.model}` : ""}</span>
                 </span>
                 {f.kinds.map((k) => <span key={k} className="tag">{k}</span>)}
-                <button className="b btn" disabled={f.ip === box.ip} onClick={() => save({ ip: f.ip, name: f.name || f.ip, kinds: f.kinds })}>{t("sbx.thisOne")}</button>
+                <button className="b btn" disabled={f.ip === box.ip} onClick={() => save({
+                  ip: f.ip, name: f.name || f.ip, kinds: f.kinds, dlnaUrl: f.dlnaUrl ?? "",
+                  // Prefer DLNA (more control: play/pause too); Cast when that's all it speaks.
+                  via: f.kinds.includes("DLNA") ? "dlna" : f.kinds.includes("Google Cast") ? "cast" : box.via,
+                })}>{t("sbx.thisOne")}</button>
               </div>
             ))}
           </div>
         )}
       </Card>
+
+      {box.ip && (
+        <Card title={t("sbx.control")} note={t("sbx.controlNote")}>
+          <Row label={t("sbx.via")}>
+            <Chips<StreamboxSetup["via"]> label={t("sbx.via")} value={box.via} onChange={(via) => save({ via })}
+              options={[{ value: "dlna", label: "DLNA" }, { value: "cast", label: "Google Cast" }]} />
+          </Row>
+          <StreamboxPanel />
+        </Card>
+      )}
 
       <Card title={t("sbx.onAudac")} note={t("sbx.onAudacNote")}>
         <select className="select" aria-label={t("sbx.onAudac")} value={box.audacInput} onChange={(e) => save({ audacInput: Number(e.target.value) })} style={{ maxWidth: 260 }}>
@@ -96,6 +111,6 @@ export function StreamboxPage() {
 
 // The browser preview can't search a network; it shows what a school network might look like.
 const DEMO_FOUND: Found[] = [
-  { ip: "10.0.0.41", name: "Stream Box S2 Ultra", model: "Pro-Ject Stream Box S2 Ultra", kinds: ["Google Cast", "DLNA"] },
-  { ip: "10.0.0.17", name: "Lerarenkamer TV", model: null, kinds: ["AirPlay"] },
+  { ip: "10.0.0.41", name: "Stream Box S2 Ultra", model: "Pro-Ject Stream Box S2 Ultra", kinds: ["Google Cast", "DLNA"], dlnaUrl: "http://10.0.0.41:49152/description.xml" },
+  { ip: "10.0.0.17", name: "Lerarenkamer TV", model: null, kinds: ["AirPlay"], dlnaUrl: null },
 ];

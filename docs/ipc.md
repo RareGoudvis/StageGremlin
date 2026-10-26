@@ -159,3 +159,17 @@ The AUDAC setup and the schedule need the admin password (`src/lib/admin.ts`).
 `app_info` also returns `build`: the tag the build was made as (from `SG_BUILD_TAG`, set by `scripts/release.ps1`), or null.
 The UI checks once, ~8 s after start, and shows a banner in Build/Preflight (never Run); Settings › About has "Check for updates".
 Nothing installs by itself.
+
+## Streambox
+
+| Command | Args | Returns | Notes |
+| --- | --- | --- | --- |
+| `net_discover` | – | `{ ip, name, model: string \| null, kinds: string[], dlnaUrl: string \| null }[]` | ~4 s: Google Cast / AirPlay / Spotify Connect (mDNS) and DLNA renderers (SSDP). Only looks |
+| `streambox_status` | `{ target }` | `{ volume: 0-100, muted, playing: boolean \| null, title, app, canTransport }` | |
+| `streambox_set_volume` | `{ target, volume: 0-100 }` | `void` | |
+| `streambox_set_mute` | `{ target, mute }` | `void` | |
+| `streambox_transport` | `{ target, action: "play" \| "pause" \| "stop" }` | `void` | DLNA only (Cast can't pause another sender's cast) |
+
+`target = { via: "dlna" | "cast", ip: string, dlnaUrl: string | null }`. DLNA: SOAP to the device's RenderingControl / AVTransport
+(from its description). Cast: CASTV2 on TLS port 8009 (device certificate not checked: Cast devices aren't publicly signed).
+Both kept so a school can test which its box answers to; the setup lives in `settings.ui.streambox`.

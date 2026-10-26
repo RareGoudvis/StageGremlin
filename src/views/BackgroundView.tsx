@@ -13,6 +13,8 @@ import { useMenu } from "../components/ContextMenu";
 import { backgroundKey, bg, bgDo, SOURCES, useBackground, type BgSource } from "../components/background/useBackground";
 import { AudacPanel } from "../components/audac/AudacPanel";
 import { useAudacConfigured } from "../lib/audac";
+import { useSettings } from "../settingsStore";
+import { StreamboxPanel } from "../components/StreamboxPanel";
 import { MasterFader, OutputChip } from "../components/TopBar";
 import { MasterMeter } from "../components/MasterMeter";
 import { isTauri } from "../lib/tauri";
@@ -22,6 +24,7 @@ import { useT } from "../i18n";
 export function BackgroundView() {
   const t = useT();
   const audacOn = useAudacConfigured();
+  const hasBox = useSettings((s) => !!s.ui.streambox.ip);
   useBackgroundKeys();
   const panel = { minHeight: 0, borderRadius: 14, background: "var(--p1)", border: "1px solid var(--line)" } as const;
   return (
@@ -35,6 +38,12 @@ export function BackgroundView() {
       <section aria-label={audacOn ? "AUDAC" : t("bgv.output")} className="scroll" style={{ ...panel, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
         <span className="k">{audacOn ? t("bgv.zones") : t("bgv.output")}</span>
         {audacOn ? <AudacPanel big /> : <MainOutput />}
+        {hasBox && (
+          <>
+            <span className="k" style={{ marginTop: 8 }}>{t("set.streambox").toUpperCase()}</span>
+            <StreamboxPanel />
+          </>
+        )}
       </section>
     </div>
   );

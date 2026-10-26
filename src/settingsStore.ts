@@ -83,6 +83,10 @@ export interface StreamboxSetup {
   kinds: string[];
   /** The AUDAC input (1-8) it is plugged into; 0 = not set. */
   audacInput: number;
+  /** How StageGremlin controls it: DLNA or Google Cast (whichever the box answers to). */
+  via: "dlna" | "cast";
+  /** DLNA: the box's description address, from the search. */
+  dlnaUrl: string;
 }
 
 /** Names and visibility of the MTX's 8 zones and 8 inputs, plus how to reach it. */
@@ -137,7 +141,7 @@ const AUDAC_DEFAULT: AudacSetup = {
 };
 
 const DEFAULTS: UiSettings = { lang: "en", keys: {}, bgLockDefault: false, zoom: 100, dumbo: false, dumboPads: false, dumboPin: "", ytFormat: "original", recent: [], audac: AUDAC_DEFAULT, adminHash: "",
-  streambox: { model: "s2ultra", ip: "", name: "", kinds: [], audacInput: 0 } };
+  streambox: { model: "s2ultra", ip: "", name: "", kinds: [], audacInput: 0, via: "dlna", dlnaUrl: "" } };
 
 /** Put a show file at the top of the recent list (max 8, no doubles). */
 export function rememberRecent(path: string) {

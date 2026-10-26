@@ -3436,6 +3436,7 @@ dependencies = [
  "cueplay-engine",
  "mdns-sd",
  "notify",
+ "rustls",
  "serde",
  "serde_json",
  "tauri",
