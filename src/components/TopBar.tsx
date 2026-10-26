@@ -137,11 +137,20 @@ function BoothMenu() {
 
 /** Red banner under the top bar when the chosen output (the Qu-24) disappeared. */
 export function OutputBanner() {
+  const t = useT();
   const output = useEngine((s) => s.output);
+  const mode = useDoc((s) => s.mode);
   if (!output || output.outputFound) return null;
   return (
-    <div role="alert" style={{ flex: "none", padding: "8px 18px", background: "var(--red)", color: "var(--onred)", fontSize: 14, fontWeight: 700 }}>
-      {output.preferred ?? "The chosen output"} not found — playing on {output.outputName}
+    <div role="alert" style={{ flex: "none", display: "flex", alignItems: "center", gap: 12, padding: "6px 18px", background: "var(--red)", color: "var(--onred)", fontSize: 14, fontWeight: 700 }}>
+      <span style={{ flex: 1 }}>{output.preferred ?? "The chosen output"} not found — playing on {output.outputName}</span>
+      {/* Switching restarts the audio engine, so it's not offered in Run (Settings isn't either). */}
+      {mode !== "run" && (
+        <button className="b btn" onClick={() => useUi.getState().openDialog({ kind: "settings", tab: "audio" })}
+          style={{ height: 30, background: "var(--onred)", color: "var(--red)", fontWeight: 800 }}>
+          {t("out.choose")}
+        </button>
+      )}
     </div>
   );
 }
