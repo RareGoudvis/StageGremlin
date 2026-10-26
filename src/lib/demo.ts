@@ -1,5 +1,7 @@
 // A demo show for design work in the browser (no Tauri). Only offered when not running in the app.
 
+import { useSettings } from "../settingsStore";
+import { setAudacDemo } from "./audac";
 import type { Pad, PadMode, Show } from "../types";
 import { defaultSettings, newCue, newId, newSection, FORMAT_VERSION } from "../types";
 import { useDoc } from "../store";
@@ -76,6 +78,7 @@ function demoPads(): Pad[] {
 
 export function loadDemoShow() {
   useDoc.getState().loadShow(demoShow(), null);
+  if (!useSettings.getState().ui.audac.demo) void setAudacDemo(true);
   const s = useDoc.getState().show;
   for (const c of [...allCues(s), ...s.pads.map((p) => p.cue)]) void analyseCue(c.id);
 }

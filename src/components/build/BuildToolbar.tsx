@@ -1,4 +1,4 @@
-// Build's one toolbar: + Add · search · Undo · Redo · View ▾.
+// Build's one toolbar: (+ Add when the media sidebar is folded) · + Section · search · Undo · Redo · View ▾.
 // When two or more cues are selected, the selection bar takes its place (see SelectionBar.tsx).
 // Everything that used to be a button here now lives in the File menu, the View menu or right-click.
 
@@ -28,6 +28,7 @@ export function BuildToolbar() {
   const canRedo = useDoc((s) => s.future.length > 0);
   const tab = useDoc((s) => s.buildTab);
   const find = useUi((s) => s.find);
+  const binOpen = useUi((s) => s.binOpen);
   const { undo, redo } = useDoc.getState();
 
   const onFindKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -48,9 +49,15 @@ export function BuildToolbar() {
 
   return (
     <div style={{ height: 64, flex: "none", display: "flex", alignItems: "center", gap: 10, padding: "0 16px", borderBottom: "1px solid var(--line)" }}>
-      <button className="b btn btn-go" onClick={() => useUi.getState().openDialog({ kind: "add" })} title={keyFor("importAudio")} style={{ height: 40, padding: "0 16px", borderRadius: 10, fontSize: 14 }}>
-        <Plus /> {t("build.add")}
-      </button>
+      {/* + Add lives in the media sidebar; when it's folded, the toolbar offers it so it is never out of reach. */}
+      {!binOpen && (
+        <button className="b btn btn-go" onClick={() => useUi.getState().openDialog({ kind: "add" })} title={keyFor("importAudio")} style={{ height: 40, padding: "0 16px", borderRadius: 10, fontSize: 14 }}>
+          <Plus /> {t("build.add")}
+        </button>
+      )}
+      {tab === "cues" && (
+        <button className="b btn" onClick={addSectionHere} style={{ height: 40 }}>{t("build.addSection")}</button>
+      )}
       {tab === "cues" && (
         <label style={{ flex: 1, maxWidth: 420, display: "flex", alignItems: "center", gap: 8, height: 40, padding: "0 12px", border: "1px solid var(--line)", borderRadius: 10, background: "var(--p1)", color: "var(--mute)" }}>
           <Search size={16} />
@@ -82,8 +89,6 @@ function viewMenu(t: ReturnType<typeof useT>): MenuItem[] {
     { label: anyOpen ? t("view.collapseAll") : t("view.expandAll"), onClick: () => s.setAllCollapsed(anyOpen) },
     { label: t("view.fullPaths"), checked: s.fileDisplay === "path", onClick: s.toggleFileDisplay },
     { label: t("view.renumber"), onClick: () => void renumberAll() },
-    "sep",
-    { label: t("view.newSection"), onClick: addSectionHere },
     // The browser preview has no files to open, so it gets a demo show to click around in.
     ...(!isTauri ? ["sep" as const, { label: t("view.demo"), onClick: loadDemoShow }] : []),
   ];
