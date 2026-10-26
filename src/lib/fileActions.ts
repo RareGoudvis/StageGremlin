@@ -84,9 +84,10 @@ export async function autoSave() {
 
 // ---- import and analysis ----
 
-export async function importDialog() {
+/** `sectionId`: import at the end of that section (from its right-click menu). */
+export async function importDialog(sectionId?: string) {
   const files = await pickAudioFiles();
-  if (files.length) importFiles(files);
+  if (files.length) importFiles(files, sectionId);
 }
 
 /** Import audio as soundboard pads (each file becomes one pad with the next free hotkey). */
@@ -119,7 +120,7 @@ export function addCuesForFiles(files: { file: string; name: string }[], afterId
 }
 
 /** New cues land after the selected cue (or at the end of the last section). */
-export function importFiles(paths: string[]) {
+export function importFiles(paths: string[], sectionId?: string) {
   const audio = paths.filter(isAudioPath);
   const skipped = paths.length - audio.length;
   if (!audio.length) {
@@ -130,8 +131,8 @@ export function importFiles(paths: string[]) {
   const { selection, show } = doc();
   // "After the selection" = after the selected cue that comes last in the show.
   const order = allCues(show).map((c) => c.id);
-  const after = [...selection].sort((a, b) => order.indexOf(a) - order.indexOf(b)).pop() ?? null;
-  doc().edit((s) => insertCues(s, cues, after && locate(s, after) ? after : null));
+  const after = sectionId ? null : [...selection].sort((a, b) => order.indexOf(a) - order.indexOf(b)).pop() ?? null;
+  doc().edit((s) => insertCues(s, cues, after && locate(s, after) ? after : null, sectionId));
   doc().setSelection(cues.map((c) => c.id));
   toast(`Imported ${cues.length} file${cues.length > 1 ? "s" : ""}` + (skipped ? ` (${skipped} skipped: not audio)` : ""));
   for (const c of cues) void analyseCue(c.id);

@@ -29,6 +29,26 @@ export function BackgroundButton() {
 }
 
 export function BackgroundPanel({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div className="scrim" style={{ position: "fixed" }} onClick={onClose}>
+      <div className="dialog" role="dialog" aria-label="Background music" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560, borderColor: "var(--cyline)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 18, fontWeight: 800, flex: 1 }}>Background music</span>
+          <button className="b btn btn-ghost" onClick={onClose}>Close · Esc</button>
+        </div>
+        <BackgroundSettings />
+      </div>
+    </div>
+  );
+}
+
+/** The settings themselves, without the dialog around them (also shown in Settings › Background). */
+export function BackgroundSettings() {
   const st = useBackground();
   const [config, setConfig] = useState<BgConfig | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -39,11 +59,6 @@ export function BackgroundPanel({ onClose }: { onClose: () => void }) {
     if (fromShow) setConfig(fromShow.config);
     else bg.getConfig().then(setConfig).catch(() => setConfig(DEFAULT_CONFIG));
   }, []);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   const save = (c: BgConfig) => {
     setConfig(c);
@@ -56,13 +71,7 @@ export function BackgroundPanel({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="scrim" style={{ position: "fixed" }} onClick={onClose}>
-      <div className="dialog" role="dialog" aria-label="Background music" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560, borderColor: "var(--cyline)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 18, fontWeight: 800, flex: 1 }}>Background music</span>
-          <button className="b btn btn-ghost" onClick={onClose}>Close · Esc</button>
-        </div>
-
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <span className="k">Source · opens the player window to sign in and pick a playlist</span>
           <div className="chips">
@@ -111,7 +120,6 @@ export function BackgroundPanel({ onClose }: { onClose: () => void }) {
             ))}
           </section>
         )}
-      </div>
     </div>
   );
 }

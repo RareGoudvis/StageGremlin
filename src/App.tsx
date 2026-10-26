@@ -12,6 +12,7 @@ import { ResumeDialog, useResumeCheck } from "./components/ResumeDialog";
 import { PrintDialog, PrintSheet } from "./components/PrintSheet";
 import { useUi } from "./uiStore";
 import { SettingsDialog } from "./components/SettingsDialog";
+import { ContextMenuHost } from "./components/ContextMenu";
 import { BuildView } from "./views/BuildView";
 import { PreflightView } from "./views/PreflightView";
 import { RunView } from "./views/RunView";
@@ -31,6 +32,7 @@ export default function App() {
   const booth = useUi((s) => s.booth);
 
   useAppShortcuts();
+  useNoBrowserMenu();
   useResumeCheck();
   useWindowTitle();
   useAutosave();
@@ -60,6 +62,7 @@ export default function App() {
       {dialog?.kind === "resume" && <ResumeDialog />}
       {dialog?.kind === "print" && <PrintDialog />}
       {dialog?.kind === "settings" && <SettingsDialog />}
+      <ContextMenuHost />
       <ConfirmDialog />
       <Toast />
     </div>
@@ -106,4 +109,18 @@ function useFileDrop(): boolean {
     };
   }, []);
   return over;
+}
+
+/**
+ * WebView2 would show the browser's own menu (Back, Reload, Inspect…) on right-click.
+ * Our own menus replace it; text fields keep it so copy/paste still works there.
+ */
+function useNoBrowserMenu() {
+  useEffect(() => {
+    const onMenu = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest("input, textarea, [contenteditable=true]")) e.preventDefault();
+    };
+    window.addEventListener("contextmenu", onMenu);
+    return () => window.removeEventListener("contextmenu", onMenu);
+  }, []);
 }

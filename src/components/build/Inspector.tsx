@@ -346,7 +346,7 @@ function CueInspector({ cue, pad }: { cue: Cue; pad?: Pad }) {
   );
 }
 
-async function deletePad(pad: Pad) {
+export async function deletePad(pad: Pad) {
   const ok = await ask({ title: "Delete pad?", body: `Pad ${pad.hotkey || ""} “${pad.cue.name}” will be removed. Undo (Ctrl+Z) brings it back.`, confirmLabel: "Delete", danger: true });
   if (!ok) return;
   useDoc.getState().edit((s) => removePad(s, pad.id));

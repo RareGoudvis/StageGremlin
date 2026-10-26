@@ -9,11 +9,13 @@ import { useDoc } from "../../store";
 import { useEngine } from "../../engineStore";
 import type { Section } from "../../types";
 import { allCues } from "../../types";
-import { addSection, deleteSection, moveCues, renameSection } from "../../lib/showOps";
+import { addSection, moveCues, renameSection } from "../../lib/showOps";
 import { call } from "../../lib/tauri";
 import { fmtTime } from "../../lib/format";
 import { cueRunLen } from "../../lib/showMath";
-import { ask, useUi } from "../../uiStore";
+import { useUi } from "../../uiStore";
+import { openMenu } from "../ContextMenu";
+import { deleteSectionAsk, listMenu, sectionMenu } from "../../lib/menus";
 import { Chevron } from "../Icons";
 import { CueRow } from "./CueRow";
 
@@ -120,6 +122,8 @@ export function CueList() {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={() => { pending.current = null; setDrag(null); }}
+      // Right-click on empty space (rows and headers have their own menus).
+      onContextMenu={(e) => openMenu(e, listMenu())}
     >
       {show.sections.map((sec) => {
         const open = !collapsed[sec.id];
@@ -172,19 +176,9 @@ function SectionHeader({ section, open }: { section: Section; open: boolean }) {
     const clean = name.trim();
     if (clean && clean !== section.name) useDoc.getState().edit((s) => renameSection(s, section.id, clean));
   };
-  const remove = async () => {
-    const n = section.cues.length;
-    const ok = n === 0 || (await ask({
-      title: "Delete section?",
-      body: `“${section.name}” and its ${n} cue${n > 1 ? "s" : ""} will be removed. Undo (Ctrl+Z) brings them back.`,
-      confirmLabel: "Delete section",
-      danger: true,
-    }));
-    if (ok) useDoc.getState().edit((s) => deleteSection(s, section.id));
-  };
 
   return (
-    <div data-section-header style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 6px 6px" }}>
+    <div data-section-header onContextMenu={(e) => openMenu(e, sectionMenu(section.id, () => setEditing(true)))} style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 6px 6px" }}>
       <button
         className="b"
         aria-expanded={open}
@@ -194,6 +188,7 @@ function SectionHeader({ section, open }: { section: Section; open: boolean }) {
         title="Click to fold, double-click to rename"
       >
         <Chevron open={open} />
+        {section.color && <span style={{ width: 10, height: 10, borderRadius: 5, background: section.color, flex: "none" }} />}
         {!editing && <span className="cond clamp1" style={{ fontSize: 15, fontWeight: 800, letterSpacing: ".1em", textTransform: "uppercase" }}>{section.name}</span>}
         {!editing && <span style={{ flex: 1, height: 1, background: "var(--line)", minWidth: 20 }} />}
       </button>
@@ -209,7 +204,7 @@ function SectionHeader({ section, open }: { section: Section; open: boolean }) {
         {count} cue{count === 1 ? "" : "s"} · {fmtTime(total)}
       </span>
       <button className="b btn btn-ghost" style={{ height: 26, fontSize: 12, padding: "0 6px" }} onClick={() => setEditing(true)}>Rename</button>
-      <button className="b btn btn-ghost" style={{ height: 26, fontSize: 12, padding: "0 6px" }} onClick={() => void remove()}>Delete</button>
+      <button className="b btn btn-ghost" style={{ height: 26, fontSize: 12, padding: "0 6px" }} onClick={() => void deleteSectionAsk(section.id)}>Delete</button>
     </div>
   );
 }

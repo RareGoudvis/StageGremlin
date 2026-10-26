@@ -11,7 +11,7 @@ and `crates/engine/src/player.rs`).
 
 | Command | Args | Returns | Notes |
 | --- | --- | --- | --- |
-| `engine_set_show` | `{ show: Show, baseDir: string \| null }` | `void` | baseDir = folder of the .cueplay file, null for an unsaved show |
+| `engine_set_show` | `{ show: Show, baseDir: string \| null }` | `void` | baseDir = folder of the show file (.sg), null for an unsaved show |
 | `engine_go` | – | `"fired" \| "ignored" \| "endOfShow"` | Space / Enter in Run |
 | `engine_stop_all` | – | `void` | Esc |
 | `engine_panic` | – | `void` | Esc Esc |
@@ -28,7 +28,7 @@ and `crates/engine/src/player.rs`).
 | `app_info` | – | `{ version: string, portable: boolean, dataDir: string }` | |
 
 File pickers use `@tauri-apps/plugin-dialog` (`open`, `save`) from the UI.
-Audio file filter: mp3, wav, flac, m4a, aac, ogg, opus. Show filter: cueplay.
+Audio file filter: mp3, wav, flac, m4a, aac, ogg, opus. Show filter: sg (and cueplay, so older shows still open). New shows are saved as `.sg`; backups are `backups/<name>-<time>.sg`.
 
 ## Events (`listen(name, cb)`)
 
@@ -88,16 +88,18 @@ and nothing plays (no cue, no tone), it switches back (log kind `output`).
 
 ## YouTube import (yt-dlp, ffmpeg) and conversion
 
-Binaries live in `<dataDir>/bin/`. Nothing is bundled: Settings › Install / Update downloads them from GitHub.
-ffmpeg (ffmpeg.exe + ffprobe.exe from the BtbN build) is needed for MP3/WAV, for "Original" when a video has no
-M4A stream, and for `media_convert`.
+Binaries live in `<dataDir>/bin/`. The installer and the portable zip ship yt-dlp.exe and ffmpeg.exe (copied into
+`<dataDir>/bin` on first start); Settings › Install / Update downloads fresh copies from GitHub.
+ffmpeg (only `ffmpeg.exe` from the BtbN build; no ffprobe) is needed for MP3/WAV, for "Original" when a video has no
+M4A stream, and for `media_convert`. yt-dlp only downloads the audio stream (M4A preferred, no post-processing); every
+conversion is done by the core's own ffmpeg call, and the downloaded stream is deleted afterwards.
 
 | Command | Args | Returns | Notes |
 | --- | --- | --- | --- |
 | `yt_status` | – | `{ ytDlp: string \| null, ffmpeg: boolean, binDir: string }` | ytDlp = version or null when missing |
 | `yt_install` | `{ what: "ytDlp" \| "ffmpeg" }` | `void` (resolves when finished) | progress via `yt://install` `{ what, percent, done, error? }`; `done: true` once, with `error` on failure |
 | `yt_resolve` | `{ lines: string[] }` | `YtItem[]` | each line: a video link, a playlist link (expands to all videos) or plain "artist – title" text (top search result). A failed line gives one item with `error` set (id `error:<line>`). Duplicate videos get ids `<id>#2`, … |
-| `yt_download` | `{ items: { id: string, url: string, title: string }[], format: "original" \| "mp3" \| "wav", destDir: string }` | `void` | queue, 2 at a time; progress via `yt://progress`. Original = YouTube's M4A stream as is; Opus-only videos are converted to M4A (AAC 256k) with ffmpeg, or fail with "needs ffmpeg — install it in Settings" |
+| `yt_download` | `{ items: { id: string, url: string, title: string }[], format: "original" \| "mp3" \| "wav", destDir: string }` | `void` | queue, 2 at a time; progress via `yt://progress`. Original = YouTube's M4A stream as is; Opus/WebM-only videos are converted to M4A (AAC 256k). MP3 = 320k, WAV = 16-bit PCM. Without ffmpeg, MP3/WAV fail at once and Opus-only videos fail after download, with "… needs ffmpeg — install it in Settings". Status `converting` is sent while our ffmpeg runs |
 | `media_convert` | `{ path: string, destDir: string }` | `string` (new path) | converts a file the engine can't decode (.opus, .webm, …) to `<destDir>/<name>.m4a` (AAC 256k, no video); never overwrites (`name (2).m4a`). Error if ffmpeg is missing |
 
 `YtItem = { id: string, input: string, url: string, title: string, channel: string, duration: number, playlist: string | null, error: string | null }`
@@ -110,7 +112,7 @@ Note: the engine (symphonia) does not decode Opus/WebM. When the user adds such 
 
 | Command | Args | Returns | Notes |
 | --- | --- | --- | --- |
-| `show_export_zip` | `{ showPath: string, dest: string }` | `void` | zips the .cueplay and its `media/` folder (not `backups/`) into `dest`. Media is stored uncompressed (already compressed audio), so it's quick |
+| `show_export_zip` | `{ showPath: string, dest: string }` | `void` | zips the show file (`.sg`, or an older `.cueplay`) and its `media/` folder (not `backups/`) into `dest`. Media is stored uncompressed (already compressed audio), so it's quick |
 | `media_watch` | `{ dir: string \| null }` | `void` | `dir` = the show folder (same as `baseDir`); watches `<dir>/media` recursively (created if missing). null = stop. Replaces any earlier watch |
 | `file_exists` | `{ paths: string[] }` | `boolean[]` | same order as `paths`; true only for existing files |
 | `show_in_folder` | `{ path: string }` | `void` | Explorer opens with the file selected (macOS: Finder; Linux: the folder) |

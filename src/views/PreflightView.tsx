@@ -101,7 +101,7 @@ function CheckRow({ check, onToggle }: { check: Check; onToggle?: () => void }) 
 }
 
 /** Calibration tones through the show output: pink noise at the target loudness, or a 1 kHz line-up tone. */
-function CalibrationCard() {
+export function CalibrationCard() {
   const [tone, setTone] = useState<ToneKind | null>(null);
   const target = useDoc((s) => s.show.settings.targetLufs);
   const play = async (kind: ToneKind | null) => {
@@ -133,7 +133,7 @@ function CalibrationCard() {
  * Choose the show output (the Qu-24 USB), or with `preview`, the headphone output.
  * Empty = follow the Windows default.
  */
-function OutputPicker({ preview = false }: { preview?: boolean }) {
+export function OutputPicker({ preview = false }: { preview?: boolean }) {
   const [previewChoice, setPreviewChoice] = useState<string>("");
   const output = useEngine((s) => s.output);
   const [list, setList] = useState<AudioOutput[]>([]);

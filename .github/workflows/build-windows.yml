@@ -4,7 +4,7 @@
 # or "Run workflow" on the Actions tab. Work on `main` never starts a build.
 #
 # Each build becomes a Release (Releases page of the repo) with two downloads:
-#   - StageGremlin-portable.zip : StageGremlin.exe + portable.txt + data/bin (yt-dlp, ffmpeg, ffprobe).
+#   - StageGremlin-portable.zip : StageGremlin.exe + portable.txt + data/bin (yt-dlp, ffmpeg).
 #                               Unzip anywhere; settings and sign-ins stay in that folder.
 #   - StageGremlin-setup.exe    : the installer (no admin rights needed; installs per user)
 # Nothing else has to be installed on the show laptop: WebView2 ships with Windows 10/11
@@ -46,18 +46,18 @@ jobs:
       - name: Install npm packages
         run: npm ci
 
-      - name: Download yt-dlp, ffmpeg and ffprobe to bundle
+      - name: Download yt-dlp and ffmpeg to bundle
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force tools/bin | Out-Null
           Invoke-WebRequest https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe -OutFile tools/bin/yt-dlp.exe
           Invoke-WebRequest https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip -OutFile ffmpeg.zip
           Expand-Archive ffmpeg.zip -DestinationPath ffmpeg-x
-          Get-ChildItem ffmpeg-x -Recurse -Include ffmpeg.exe,ffprobe.exe | Copy-Item -Destination tools/bin/
+          Get-ChildItem ffmpeg-x -Recurse -Include ffmpeg.exe | Copy-Item -Destination tools/bin/
           Get-ChildItem tools/bin
 
       - name: Build app (UI + Rust + installer)
-        # tauri.release.conf.json adds tools/bin (yt-dlp, ffmpeg, ffprobe) as installer resources.
+        # tauri.release.conf.json adds tools/bin (yt-dlp, ffmpeg) as installer resources.
         run: npm run tauri build -- --config src-tauri/tauri.release.conf.json
 
       - name: Make portable zip

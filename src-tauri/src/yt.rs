@@ -1,13 +1,16 @@
-//! YouTube import through yt-dlp (and ffmpeg for MP3/WAV).
+//! YouTube import through yt-dlp, plus our own conversions with ffmpeg.
 //!
-//! Nothing is bundled: Settings › Install downloads the tools into `<dataDir>/bin`.
-//! We only ever run those two programs with fixed arguments, never a shell, and
-//! always with a `--` before the user's text so it can't be read as an option.
+//! The tools live in `<dataDir>/bin` (seeded from the installer / portable zip, or
+//! downloaded by Settings › Install). We only ever run those two programs with fixed
+//! arguments, never a shell, and always with a `--` before the user's text so it
+//! can't be read as an option.
 //!
-//! Format choice, and why: the engine's decoder (symphonia) plays AAC/M4A but not
-//! Opus/WebM. So "Original" asks YouTube for its M4A audio stream (no re-encode,
-//! no ffmpeg needed). Only when a video has no M4A stream do we convert, which
-//! needs ffmpeg. MP3 and WAV always go through ffmpeg.
+//! How a download works, and why:
+//! 1. yt-dlp only downloads the best audio stream, preferring M4A. No yt-dlp
+//!    post-processing, so we don't need ffprobe (smaller bundle).
+//! 2. The engine's decoder (symphonia) plays AAC/M4A and MP3, but not Opus/WebM.
+//!    If the stream is Opus/WebM, or MP3/WAV was asked for, we convert it ourselves
+//!    with ffmpeg (same code as `media_convert`) and delete the downloaded stream.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
@@ -163,9 +166,9 @@ fn yt_dlp(bin: &Path) -> PathBuf {
     bin.join(exe("yt-dlp"))
 }
 
-/// yt-dlp needs both ffmpeg and ffprobe to convert audio.
+/// We do all conversions ourselves with ffmpeg alone (no ffprobe needed).
 fn has_ffmpeg(bin: &Path) -> bool {
-    bin.join(exe("ffmpeg")).is_file() && bin.join(exe("ffprobe")).is_file()
+    bin.join(exe("ffmpeg")).is_file()
 }
 
 /// A command for one of our tools: UTF-8 output, and on Windows no console
@@ -241,54 +244,83 @@ fn download(url: &str, dest: &Path, progress: impl Fn(f64)) -> Result<(), String
     file.flush().map_err(|e| e.to_string())
 }
 
-/// The release zip has `<folder>/bin/ffmpeg.exe` and `ffprobe.exe`; we take just those two.
+/// The release zip has `<folder>/bin/ffmpeg.exe` (and more we don't need); we take only ffmpeg.exe.
 fn unpack_ffmpeg(zip_path: &Path, bin: &Path) -> Result<(), String> {
     let file = std::fs::File::open(zip_path).map_err(|e| e.to_string())?;
     let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("The ffmpeg download is damaged: {e}"))?;
-    let mut found = 0;
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
-        let name = entry.name().rsplit('/').next().unwrap_or_default().to_string();
-        if name != "ffmpeg.exe" && name != "ffprobe.exe" {
+        if entry.name().rsplit('/').next() != Some("ffmpeg.exe") {
             continue;
         }
-        let part = bin.join(format!("{name}.part"));
+        let part = bin.join("ffmpeg.exe.part");
         let mut out = std::fs::File::create(&part).map_err(|e| e.to_string())?;
-        std::io::copy(&mut entry, &mut out).map_err(|e| format!("Cannot unpack {name}: {e}"))?;
+        std::io::copy(&mut entry, &mut out).map_err(|e| format!("Cannot unpack ffmpeg.exe: {e}"))?;
         drop(out);
-        std::fs::rename(&part, bin.join(&name)).map_err(|e| format!("Cannot install {name}: {e}"))?;
-        found += 1;
+        return std::fs::rename(&part, bin.join("ffmpeg.exe")).map_err(|e| format!("Cannot install ffmpeg.exe: {e}"));
     }
-    if found < 2 {
-        return Err("ffmpeg.exe / ffprobe.exe not found in the download.".to_string());
-    }
-    Ok(())
+    Err("ffmpeg.exe not found in the download.".to_string())
 }
 
 // ---- convert ----
 
-/// Converts a file the engine cannot decode (Opus, WebM, …) to M4A (AAC 256k,
-/// audio only) in `dest_dir`, and returns the new path. Blocking.
+/// What our own ffmpeg conversions produce.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Target {
+    /// AAC 256k: for files the engine can't decode (Opus, WebM, …).
+    M4a,
+    /// MP3 320k.
+    Mp3,
+    /// 16-bit PCM WAV.
+    Wav,
+}
+
+impl Target {
+    fn ext(self) -> &'static str {
+        match self {
+            Target::M4a => "m4a",
+            Target::Mp3 => "mp3",
+            Target::Wav => "wav",
+        }
+    }
+
+    fn codec_args(self) -> &'static [&'static str] {
+        match self {
+            Target::M4a => &["-c:a", "aac", "-b:a", "256k"],
+            Target::Mp3 => &["-c:a", "libmp3lame", "-b:a", "320k"],
+            Target::Wav => &["-c:a", "pcm_s16le"],
+        }
+    }
+}
+
+/// `media_convert`: a file the engine can't decode → M4A in `dest_dir`. Blocking.
 pub fn convert(bin: &Path, path: &Path, dest_dir: &Path) -> Result<String, String> {
+    convert_to(bin, path, dest_dir, Target::M4a).map(|p| p.display().to_string())
+}
+
+/// Converts `path` to `target` (audio only) in `dest_dir` and returns the new path.
+/// Never overwrites: "song.mp3", then "song (2).mp3", … Blocking.
+fn convert_to(bin: &Path, path: &Path, dest_dir: &Path, target: Target) -> Result<PathBuf, String> {
     let ffmpeg = bin.join(exe("ffmpeg"));
     if !ffmpeg.is_file() {
         return Err("Converting this file needs ffmpeg — install it in Settings.".to_string());
     }
     std::fs::create_dir_all(dest_dir).map_err(|e| format!("Cannot create {}: {e}", dest_dir.display()))?;
     let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("audio");
-    // Never overwrite: "song.m4a", then "song (2).m4a", …
-    let mut out = dest_dir.join(format!("{stem}.m4a"));
+    let ext = target.ext();
+    let mut out = dest_dir.join(format!("{stem}.{ext}"));
     let mut n = 2;
     while out.exists() {
-        out = dest_dir.join(format!("{stem} ({n}).m4a"));
+        out = dest_dir.join(format!("{stem} ({n}).{ext}"));
         n += 1;
     }
     // Write under a temporary name so a half-converted file never looks finished.
-    let tmp = out.with_extension("converting.m4a");
+    let tmp = out.with_extension(format!("converting.{ext}"));
     let result = command(&ffmpeg)
         .args(["-hide_banner", "-nostdin", "-y", "-i"])
         .arg(path)
-        .args(["-vn", "-c:a", "aac", "-b:a", "256k"])
+        .arg("-vn")
+        .args(target.codec_args())
         .arg(&tmp)
         .output()
         .map_err(|e| format!("Could not run ffmpeg: {e}"))?;
@@ -299,7 +331,7 @@ pub fn convert(bin: &Path, path: &Path, dest_dir: &Path) -> Result<String, Strin
         return Err(format!("ffmpeg could not convert {}: {last}", path.display()));
     }
     std::fs::rename(&tmp, &out).map_err(|e| e.to_string())?;
-    Ok(out.display().to_string())
+    Ok(out)
 }
 
 // ---- resolve ----
@@ -407,46 +439,60 @@ fn worker(app: AppHandle, rx: Arc<Mutex<Receiver<Job>>>, bin: PathBuf) {
         let job = rx.lock().unwrap_or_else(|e| e.into_inner()).recv();
         let Ok(job) = job else { return };
         let id = job.item.id.clone();
-        match run_download(&app, &bin, &job) {
+        match download_and_convert(&app, &bin, &job) {
             Ok(file) => emit(&app, &id, 100.0, "done", Some(file), None),
             Err(e) => emit(&app, &id, 0.0, "error", None, Some(e)),
         }
     }
 }
 
-/// The yt-dlp arguments for each output format (see the top of this file for why).
-fn format_args(format: Format, ffmpeg: bool) -> Result<Vec<&'static str>, String> {
-    let need = |what: &str| format!("{what} needs ffmpeg — install it in Settings.");
-    Ok(match format {
-        // M4A stream: kept as is. Opus/WebM only: converted to AAC 256k (same as media_convert).
-        Format::Original if ffmpeg => {
-            vec!["-f", "bestaudio[ext=m4a]/bestaudio", "-x", "--audio-format", "m4a", "--audio-quality", "256K"]
-        }
-        Format::Original => vec!["-f", "bestaudio[ext=m4a]"],
-        Format::Mp3 if ffmpeg => vec!["-f", "bestaudio/best", "-x", "--audio-format", "mp3", "--audio-quality", "0"],
-        Format::Wav if ffmpeg => vec!["-f", "bestaudio/best", "-x", "--audio-format", "wav"],
-        Format::Mp3 => return Err(need("MP3")),
-        Format::Wav => return Err(need("WAV")),
-    })
+/// Downloads, then converts when needed (see the top of this file). Returns the final file.
+fn download_and_convert(app: &AppHandle, bin: &Path, job: &Job) -> Result<String, String> {
+    let ffmpeg = has_ffmpeg(bin);
+    // Fail before downloading when the conversion can't happen anyway.
+    match job.format {
+        Format::Mp3 if !ffmpeg => return Err("MP3 needs ffmpeg — install it in Settings.".to_string()),
+        Format::Wav if !ffmpeg => return Err("WAV needs ffmpeg — install it in Settings.".to_string()),
+        _ => {}
+    }
+    let downloaded = PathBuf::from(run_download(app, bin, job)?);
+    let ext = downloaded.extension().and_then(|e| e.to_str()).unwrap_or_default().to_lowercase();
+    let target = match job.format {
+        Format::Mp3 => Some(Target::Mp3),
+        Format::Wav => Some(Target::Wav),
+        // Original: keep what the engine can play; Opus/WebM etc. become M4A.
+        Format::Original if matches!(ext.as_str(), "m4a" | "mp4" | "aac" | "mp3") => None,
+        Format::Original => Some(Target::M4a),
+    };
+    let Some(target) = target else { return Ok(downloaded.display().to_string()) };
+    if !ffmpeg {
+        let _ = std::fs::remove_file(&downloaded);
+        return Err("This video only has Opus/WebM audio, which needs ffmpeg — install it in Settings.".to_string());
+    }
+    emit(app, &job.item.id, 100.0, "converting", None, None);
+    let result = convert_to(bin, &downloaded, &job.dest_dir, target);
+    // The downloaded stream was only a step on the way.
+    let _ = std::fs::remove_file(&downloaded);
+    result.map(|p| p.display().to_string())
 }
 
-/// Runs one download and returns the final file path.
+/// Runs yt-dlp for one video (best audio, M4A preferred, no post-processing)
+/// and returns the downloaded file's path.
 fn run_download(app: &AppHandle, bin: &Path, job: &Job) -> Result<String, String> {
     let yt = yt_dlp(bin);
     if !yt.is_file() {
         return Err("yt-dlp is not installed yet (Settings › Install yt-dlp).".to_string());
     }
-    let ffmpeg = has_ffmpeg(bin);
     let template = job.dest_dir.join("%(title)s.%(ext)s");
     let mut cmd = command(&yt);
-    cmd.args(format_args(job.format, ffmpeg)?)
+    cmd.args(["-f", "bestaudio[ext=m4a]/bestaudio"])
         .args(["--no-playlist", "--no-warnings", "--newline", "--windows-filenames", "--encoding", "utf-8"])
         // --print makes yt-dlp quiet; --progress brings the progress lines back.
-        // Our own prefixes (CPDL, CPPP, CPFILE) make the lines easy to recognise.
+        // Our own prefixes (CPDL, CPFILE) make the lines easy to recognise.
         .args(["--progress", "--progress-template"])
         .arg("download:CPDL %(progress.downloaded_bytes)s %(progress.total_bytes)s %(progress.total_bytes_estimate)s")
-        .args(["--progress-template", "postprocess:CPPP %(progress.status)s"])
         .args(["--print", "after_move:CPFILE %(filepath)s"])
+        // Only for yt-dlp's own container fix-ups (no audio conversion happens there).
         .arg("--ffmpeg-location")
         .arg(bin)
         .arg("-o")
@@ -491,8 +537,6 @@ fn run_download(app: &AppHandle, bin: &Path, job: &Job) -> Result<String, String
                     emit(app, id, pct, "downloading", None, None);
                 }
             }
-        } else if line.starts_with("CPPP started") {
-            emit(app, id, 100.0, "converting", None, None);
         } else if let Some(path) = line.strip_prefix("CPFILE ") {
             file = Some(path.to_string());
         } else if let Some(msg) = line.strip_prefix("ERROR:") {
@@ -506,17 +550,11 @@ fn run_download(app: &AppHandle, bin: &Path, job: &Job) -> Result<String, String
 
     match (status.success(), file) {
         (true, Some(f)) => Ok(f),
-        _ => {
-            let mut msg = error.unwrap_or_else(|| "yt-dlp stopped without a file.".to_string());
-            if job.format == Format::Original && !ffmpeg && msg.contains("Requested format is not available") {
-                msg = "This video only has Opus/WebM audio, which needs ffmpeg — install it in Settings.".to_string();
-            }
-            Err(msg)
-        }
+        _ => Err(error.unwrap_or_else(|| "yt-dlp stopped without a file.".to_string())),
     }
 }
 
-/// The installer ships yt-dlp, ffmpeg and ffprobe in its `bin` resource folder (the portable
+/// The installer ships yt-dlp and ffmpeg in its `bin` resource folder (the portable
 /// zip puts them straight into `data/bin`). On start, copy any that are missing into the
 /// data folder, so they work offline from the first run. Later updates (Settings › Update)
 /// overwrite the copies in the data folder, never the bundled originals.
@@ -528,7 +566,7 @@ fn seed_bundled_tools(app: &AppHandle, bin_dir: &Path) {
         return;
     }
     let _ = std::fs::create_dir_all(bin_dir);
-    for name in ["yt-dlp.exe", "ffmpeg.exe", "ffprobe.exe"] {
+    for name in ["yt-dlp.exe", "ffmpeg.exe"] {
         let (from, to) = (bundled.join(name), bin_dir.join(name));
         if from.is_file() && !to.is_file() {
             let _ = std::fs::copy(&from, &to);

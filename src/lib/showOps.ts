@@ -218,3 +218,17 @@ export const PAD_MODES: { value: PadMode; label: string; hint: string }[] = [
   { value: "toggle", label: "Toggle", hint: "First press plays, second press stops" },
   { value: "loop", label: "Loop", hint: "Loops until pressed again" },
 ];
+
+/** Move a section one place up (-1) or down (+1). */
+export function moveSection(show: Show, id: string, dir: -1 | 1): Show {
+  const i = show.sections.findIndex((s) => s.id === id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= show.sections.length) return show;
+  const sections = [...show.sections];
+  [sections[i], sections[j]] = [sections[j], sections[i]];
+  return { ...show, sections };
+}
+
+export function setSectionColor(show: Show, id: string, color: string | null): Show {
+  return { ...show, sections: show.sections.map((s) => (s.id === id ? { ...s, color } : s)) };
+}

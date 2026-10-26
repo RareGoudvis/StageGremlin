@@ -8,7 +8,7 @@ use std::process::Command;
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
 
-/// Zips the .cueplay file and its `media/` folder (not `backups/`) into `dest`.
+/// Zips the show file (.sg, or an older .cueplay: whichever `show_path` is) and its `media/` folder (not `backups/`) into `dest`.
 /// Audio is already compressed, so media is stored as is (fast); the show file
 /// itself is deflated. Blocking.
 pub fn export_zip(show_path: &Path, dest: &Path) -> Result<(), String> {
@@ -97,17 +97,17 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("cueplay-zip-{}", std::process::id()));
         std::fs::create_dir_all(dir.join("media/sub")).unwrap();
         std::fs::create_dir_all(dir.join("backups")).unwrap();
-        std::fs::write(dir.join("show.cueplay"), "{}").unwrap();
+        std::fs::write(dir.join("show.sg"), "{}").unwrap();
         std::fs::write(dir.join("media/a.mp3"), "aaa").unwrap();
         std::fs::write(dir.join("media/sub/b.wav"), "bbb").unwrap();
-        std::fs::write(dir.join("backups/old.cueplay"), "{}").unwrap();
+        std::fs::write(dir.join("backups/old.sg"), "{}").unwrap();
         let dest = dir.join("out.zip");
-        export_zip(&dir.join("show.cueplay"), &dest).unwrap();
+        export_zip(&dir.join("show.sg"), &dest).unwrap();
 
         let mut names: Vec<String> =
             zip::ZipArchive::new(std::fs::File::open(&dest).unwrap()).unwrap().file_names().map(str::to_string).collect();
         names.sort();
-        assert_eq!(names, ["media/a.mp3", "media/sub/b.wav", "show.cueplay"]);
+        assert_eq!(names, ["media/a.mp3", "media/sub/b.wav", "show.sg"]);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

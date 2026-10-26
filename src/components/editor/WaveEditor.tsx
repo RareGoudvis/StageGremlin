@@ -4,7 +4,7 @@
 // Click the waveform to put the preview cursor there; double-click to add a marker.
 // All values are seconds in the file; pixels only appear when reading the pointer.
 
-import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent } from "react";
 import type { Cue } from "../../types";
 import { fadeShape } from "../../lib/dspMath";
 import { fmtSecs, fmtTime } from "../../lib/format";
@@ -21,7 +21,7 @@ type DragKind =
 
 export interface AttachedChild { id: string; number: string; name: string; at: number }
 
-export function WaveEditor({ cue, waveform, set, attached, setAttachedAt, cursor, setCursor, previewPos, onRenameMarker }: {
+export function WaveEditor({ cue, waveform, set, attached, setAttachedAt, cursor, setCursor, previewPos, onRenameMarker, onMenu }: {
   cue: Cue;
   waveform: number[] | undefined;
   set: (patch: Partial<Cue>, key?: string) => void;
@@ -31,6 +31,8 @@ export function WaveEditor({ cue, waveform, set, attached, setAttachedAt, cursor
   setCursor: (t: number) => void;
   previewPos: number | null;
   onRenameMarker: (i: number) => void;
+  /** Right-click at time t (seconds in the file). */
+  onMenu: (e: MouseEvent, t: number) => void;
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -193,6 +195,7 @@ export function WaveEditor({ cue, waveform, set, attached, setAttachedAt, cursor
       onPointerUp={endDrag}
       onPointerCancel={() => setDrag(null)}
       onClick={(e) => { if (!drag && !justDragged.current) setCursor(r1(tAt(e.clientX))); }}
+      onContextMenu={(e) => onMenu(e, r1(tAt(e.clientX)))}
       onDoubleClick={(e) => {
         const t = r1(tAt(e.clientX));
         const markers = [...cue.markers, { t, label: `marker ${cue.markers.length + 1}` }].sort((a, b) => a.t - b.t);

@@ -5,6 +5,8 @@ import { trimmedLen } from "../../types";
 import { PAD_MODES } from "../../lib/showOps";
 import { importPadsDialog } from "../../lib/fileActions";
 import { fmtTime } from "../../lib/format";
+import { openMenu } from "../ContextMenu";
+import { padMenu } from "../../lib/menus";
 
 export function PadGrid() {
   const pads = useDoc((s) => s.show.pads);
@@ -30,6 +32,7 @@ export function PadGrid() {
               key={p.id}
               className="b"
               onClick={() => selectPad(p.id)}
+              onContextMenu={(e) => openMenu(e, padMenu(p))}
               aria-pressed={isSel}
               style={{
                 position: "relative", overflow: "hidden", minHeight: 110, borderRadius: 14, padding: 12, textAlign: "left",

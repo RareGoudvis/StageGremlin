@@ -66,8 +66,8 @@ Use Build mode unless the step says Run.
     **Good:** the cue drops ~12 dB with a fade, then comes back up.
 12. **Fade & GO**: give a cue "Fade & GO" and fire it while another plays.
     **Good:** the running cue fades out while the new one starts.
-13. **Save / reopen**: save the show as `test.cueplay` in a new folder, close the app, start it again and open it.
-    **Good:** everything is back as it was. Next to the `.cueplay` there is a `media/` folder with copies of all
+13. **Save / reopen**: save the show as `test.sg` in a new folder, close the app, start it again and open it.
+    **Good:** everything is back as it was. Next to the `.sg` there is a `media/` folder with copies of all
     audio files, and a `backups/` folder after the second save.
 14. **Log**: look at the show log.
     **Good:** every GO, stop, panic, etc. is listed with a time.
@@ -117,7 +117,7 @@ Use Build mode unless the step says Run.
 
 1. Settings › YouTube › **Install yt-dlp**.
    **Good:** a progress bar, then a version number is shown.
-2. **Install ffmpeg** (about 100–200 MB).
+2. **Install ffmpeg** (downloads ~150–200 MB; only `ffmpeg.exe` is kept).
    **Good:** progress up to 100 %, and ffmpeg is shown as installed.
 3. Paste three lines: one video link, one **playlist** link and one plain line like `Queen – Don't Stop Me Now`.
    **Good:** the video gives 1 item, the playlist gives all its videos, and the text line gives the top search result,

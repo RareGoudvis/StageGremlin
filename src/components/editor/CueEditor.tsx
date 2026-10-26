@@ -17,6 +17,8 @@ import { FileStatus } from "../build/FileStatus";
 import { WaveEditor, type AttachedChild } from "./WaveEditor";
 import { EqPanel } from "./EqPanel";
 import { CompPanel } from "./CompPanel";
+import { openMenu } from "../ContextMenu";
+import { waveMenu } from "../../lib/menus";
 
 export function CueEditor() {
   const id = useUi((s) => s.editorCueId);
@@ -106,6 +108,7 @@ function Editor({ cue }: { cue: Cue }) {
             cursor={cursor} setCursor={setCursor}
             previewPos={preview ? preview.position : null}
             onRenameMarker={renameMarker}
+            onMenu={(e, t) => openMenu(e, waveMenu(cue, t, { setCursor, preview: (at) => void previewPlay(cue, at) }))}
           />
           <div className="mono" style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--mute)" }}>
             <span>0:00</span>

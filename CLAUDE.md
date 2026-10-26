@@ -13,7 +13,7 @@ Keep code plain, comment the *why*, prefer small files, explain trade-offs in pl
 ## Layout
 
 ```
-crates/engine/      Rust: show model (.cueplay JSON), playback (kira), master limiter + meters, loudness analysis
+crates/engine/      Rust: show model (.sg JSON; old .cueplay files still open), playback (kira), master limiter + meters, loudness analysis
   src/show.rs       Show / Section / Cue, normalisation maths, load/save (copies media into media/, backups/)
   src/player.rs     Engine: playhead, GO, pre-wait, follow triggers, attached cues, passes, vamp, under, stop/panic
   src/dsp.rs        Lookahead brickwall limiter on the master bus; publishes peak + gain reduction

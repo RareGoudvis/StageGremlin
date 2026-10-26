@@ -225,7 +225,7 @@ export async function mockInvoke(cmd: string, args?: Record<string, unknown>): P
     case "analyze_file":
       return fakeAnalysis(String(args?.file ?? ""));
     case "app_info":
-      return { version: "dev", portable: false, dataDir: "C:/CuePlay/data" };
+      return { version: "dev", portable: false, dataDir: "C:/StageGremlin/data" };
     case "audio_list_outputs":
       return [
         { name: "Speakers (Realtek(R) Audio)", isDefault: true },
@@ -242,10 +242,10 @@ export async function mockInvoke(cmd: string, args?: Record<string, unknown>): P
     case "app_resume_info":
       // Add ?resume to the URL to see the crash-resume dialog in the browser.
       return location.search.includes("resume")
-        ? { showPath: "C:/Schoolfeest/Schoolfeest 2027.cueplay", playhead: null, running: [{ cueId: "x", name: "Dans 3B — Medley", position: 83 }], savedAtMs: Date.now() - 40_000 }
+        ? { showPath: "C:/Schoolfeest/Schoolfeest 2027.sg", playhead: null, running: [{ cueId: "x", name: "Dans 3B — Medley", position: 83 }], savedAtMs: Date.now() - 40_000 }
         : null;
     case "yt_status":
-      return { ytDlp: sim.ytDlp, ffmpeg: sim.ffmpeg, binDir: "C:/CuePlay/data/bin" };
+      return { ytDlp: sim.ytDlp, ffmpeg: sim.ffmpeg, binDir: "C:/StageGremlin/data/bin" };
     case "yt_install":
       fakeInstall(String(args?.what));
       return;

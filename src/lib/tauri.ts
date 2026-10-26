@@ -129,21 +129,22 @@ export async function pickAudioFiles(): Promise<string[]> {
 
 export async function pickShowToOpen(): Promise<string | null> {
   if (!isTauri) {
-    const [f] = await pickFiles(".cueplay,application/json", false);
+    const [f] = await pickFiles(".sg,.cueplay,application/json", false);
     return f ? registerFile(f) : null;
   }
   const { open } = await import("@tauri-apps/plugin-dialog");
-  const res = await open({ multiple: false, directory: false, filters: [{ name: "StageGremlin show", extensions: ["cueplay"] }] });
+  // Old .cueplay files still open; new shows are saved as .sg.
+  const res = await open({ multiple: false, directory: false, filters: [{ name: "StageGremlin show", extensions: ["sg", "cueplay"] }] });
   return typeof res === "string" ? res : null;
 }
 
 export async function pickSavePath(suggestedName: string): Promise<string | null> {
   // Browser: "saving" downloads the show file under this name.
-  if (!isTauri) return suggestedName + ".cueplay";
+  if (!isTauri) return suggestedName + ".sg";
   const { save } = await import("@tauri-apps/plugin-dialog");
-  const res = await save({ defaultPath: suggestedName + ".cueplay", filters: [{ name: "StageGremlin show", extensions: ["cueplay"] }] });
+  const res = await save({ defaultPath: suggestedName + ".sg", filters: [{ name: "StageGremlin show", extensions: ["sg"] }] });
   if (!res) return null;
-  return res.toLowerCase().endsWith(".cueplay") ? res : res + ".cueplay";
+  return res.toLowerCase().endsWith(".sg") ? res : res + ".sg";
 }
 
 export async function setWindowTitle(title: string): Promise<void> {
