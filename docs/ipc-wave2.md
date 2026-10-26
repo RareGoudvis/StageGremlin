@@ -8,7 +8,7 @@ Same rules as `ipc.md`: camelCase payloads, every action is one command, UI owns
 | --- | --- | --- | --- |
 | `engine_pad` | `{ padId: string }` | `void` | Pad press (keys 1–9, 0 in Run). Toggle/loop pads stop on a second press |
 | `engine_go_from` | `{ cueId: string, at: number }` | `void` | Rehearsal: start a cue at `at` seconds into its file (a marker). Moves the playhead past it |
-| `engine_tone` | `{ kind: "pink" \| "line" \| null }` | `void` | Preflight calibration: pink noise at the show's target LUFS, or 1 kHz at −20 dBFS. null = stop. Stop all also stops it |
+| `engine_tone` | `{ kind: "pink" \| "line" \| null, hz?: number }` | `void` | Preflight calibration: pink noise at the show's target LUFS, or a sine at −20 dBFS (`hz`, default 1000; 20–20 000, rounded to 0.1 Hz so the 10 s loop has no click). null = stop. Stop all also stops it |
 
 ## Headphone preview (second output, never through the show master)
 

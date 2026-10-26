@@ -2,7 +2,7 @@
 //!
 //! - Pink noise at the show's loudness target (−14 LUFS), so the Qu-24 USB gain is
 //!   set once and every show starts at the same level.
-//! - A 1 kHz sine at −20 dBFS for a plain line check.
+//! - A sine at −20 dBFS for a plain line check, 1 kHz or any frequency (to balance speakers and rooms).
 
 use std::sync::Arc;
 
@@ -15,22 +15,31 @@ use kira::{Decibels, Frame};
 pub enum ToneKind {
     /// Pink noise at the loudness target.
     Pink,
-    /// 1 kHz sine at −20 dBFS.
+    /// Sine at −20 dBFS (1 kHz unless another frequency is asked for).
     Line,
 }
 
 const RATE: u32 = 48_000;
 const SECONDS: usize = 10;
 
-/// Builds a looping tone. Pink noise is measured and scaled so it reads `target_lufs`.
-pub fn make(kind: ToneKind, target_lufs: f64) -> StaticSoundData {
+/// The sine's frequency, kept to what a 10 s loop can hold in whole waves (0.1 Hz steps),
+/// so the loop joins without a click; 20 Hz to 20 kHz.
+pub fn loop_safe_hz(hz: f32) -> f32 {
+    (hz.clamp(20.0, 20_000.0) * SECONDS as f32).round() / SECONDS as f32
+}
+
+/// Builds a looping tone. Pink noise is measured and scaled so it reads `target_lufs`;
+/// `hz` is the sine's frequency (see `loop_safe_hz`).
+pub fn make(kind: ToneKind, target_lufs: f64, hz: f32) -> StaticSoundData {
     let n = RATE as usize * SECONDS;
     let mut frames: Vec<Frame> = match kind {
         ToneKind::Line => {
             let amp = 10f32.powf(-20.0 / 20.0);
+            let hz = f64::from(loop_safe_hz(hz));
             (0..n)
                 .map(|i| {
-                    let s = amp * (i as f32 * 2.0 * std::f32::consts::PI * 1000.0 / RATE as f32).sin();
+                    // f64 for the phase: at high frequencies over 480 000 samples f32 would drift.
+                    let s = amp * (i as f64 * 2.0 * std::f64::consts::PI * hz / f64::from(RATE)).sin() as f32;
                     Frame::new(s, s)
                 })
                 .collect()
@@ -94,7 +103,7 @@ mod tests {
 
     #[test]
     fn pink_tone_hits_the_target_and_stays_under_the_ceiling() {
-        let d = make(ToneKind::Pink, -14.0);
+        let d = make(ToneKind::Pink, -14.0, 1000.0);
         let lufs = measure(&d.frames);
         assert!((lufs - -14.0).abs() < 0.2, "lufs {lufs}");
         let peak = d.frames.iter().fold(0f32, |m, f| m.max(f.left.abs()).max(f.right.abs()));

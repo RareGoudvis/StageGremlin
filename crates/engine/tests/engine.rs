@@ -289,9 +289,18 @@ fn rehearsal_starts_inside_a_cue() {
 }
 
 #[test]
+fn sine_frequency_loops_without_a_click() {
+    use cueplay_engine::tone::loop_safe_hz;
+    assert_eq!(loop_safe_hz(1000.0), 1000.0);
+    assert_eq!(loop_safe_hz(63.04), 63.0);
+    assert_eq!(loop_safe_hz(5.0), 20.0, "below hearing: clamped");
+    assert_eq!(loop_safe_hz(30_000.0), 20_000.0);
+}
+
+#[test]
 fn tone_plays_and_stop_all_stops_it() {
     let mut e = engine();
-    e.start_tone(cueplay_engine::tone::ToneKind::Pink, -14.0);
+    e.start_tone(cueplay_engine::tone::ToneKind::Pink, -14.0, 1000.0);
     run(&mut e, 0.1);
     assert!(e.tone_playing());
     e.stop_all();

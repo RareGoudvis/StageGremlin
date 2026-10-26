@@ -108,12 +108,16 @@ function CheckRow({ check, onToggle }: { check: Check; onToggle?: () => void }) 
 }
 
 /** Calibration tones through the show output: pink noise at the target loudness, or a 1 kHz line-up tone. */
+/** Sine presets: the octave bands a desk or room EQ is usually set by. */
+const SINE_PRESETS = [63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+
 export function CalibrationCard() {
   const [tone, setTone] = useState<ToneKind | null>(null);
+  const [hz, setHz] = useState(1000);
   const target = useDoc((s) => s.show.settings.targetLufs);
-  const play = async (kind: ToneKind | null) => {
+  const play = async (kind: ToneKind | null, freq = hz) => {
     try {
-      await call("engine_tone", { kind });
+      await call("engine_tone", { kind, hz: freq });
       setTone(kind);
     } catch (e) {
       toast(`Tone failed: ${e}`);
@@ -129,11 +133,27 @@ export function CalibrationCard() {
       </span>
       <div style={{ display: "flex", gap: 6 }}>
         <button className="b chip" aria-pressed={tone === "pink"} onClick={() => void play("pink")} style={{ height: 36, flex: 1 }}>Pink noise</button>
-        <button className="b chip" aria-pressed={tone === "line"} onClick={() => void play("line")} style={{ height: 36, flex: 1 }}>1 kHz −20 dBFS</button>
+        <button className="b chip" aria-pressed={tone === "line"} onClick={() => void play("line")} style={{ height: 36, flex: 1 }}>Sine {fmtHz(hz)} −20 dBFS</button>
         <button className="b btn" disabled={!tone} onClick={() => void play(null)} style={{ height: 36 }}>Stop</button>
+      </div>
+      {/* Sine frequency: a preset, or type one. A playing sine follows straight away. */}
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+        {SINE_PRESETS.map((f) => (
+          <button key={f} className="b chip" aria-pressed={hz === f} onClick={() => { setHz(f); if (tone === "line") void play("line", f); }}
+            style={{ height: 28, fontSize: 12, padding: "0 8px" }}>{fmtHz(f)}</button>
+        ))}
+        <input className="input mono" aria-label="Sine frequency in Hz" type="number" min={20} max={20000} step={1} value={hz}
+          onChange={(e) => setHz(Math.max(20, Math.min(20000, Number(e.target.value) || 1000)))}
+          onBlur={() => tone === "line" && void play("line")} onKeyDown={(e) => e.key === "Enter" && void play("line")}
+          style={{ width: 90, height: 28 }} />
+        <span style={{ fontSize: 12, color: "var(--dim)" }}>Hz</span>
       </div>
     </div>
   );
+}
+
+function fmtHz(f: number): string {
+  return f >= 1000 ? `${+(f / 1000).toFixed(2)} kHz` : `${f} Hz`;
 }
 
 /**
