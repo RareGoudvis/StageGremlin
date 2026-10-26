@@ -14,19 +14,37 @@ export function BackgroundButton() {
   const t = useT();
   const [open, setOpen] = useState(false);
   const st = useBackground();
+  // Once a player is open, the button shows what plays and gets a play/pause button next to it:
+  // quick control while you're still adjusting things in Build.
+  const nowPlaying = st?.open && st.title ? `${st.title}${st.artist ? ` · ${st.artist}` : ""}` : null;
   return (
-    <>
+    <span style={{ display: "flex", alignItems: "center", gap: 2 }}>
       <button
         className="b btn"
         onClick={() => setOpen(true)}
-        title="Background music player"
-        style={{ background: "var(--cybg)", color: "var(--cy)", border: "1px solid var(--cyline)", fontWeight: 700 }}
+        title={nowPlaying ?? "Background music player"}
+        style={{ background: "var(--cybg)", color: "var(--cy)", border: "1px solid var(--cyline)", fontWeight: 700, maxWidth: 260, borderRadius: st?.open ? "8px 0 0 8px" : undefined }}
       >
-        <span style={{ width: 8, height: 8, borderRadius: 4, background: st?.playing ? "var(--cy)" : "var(--mute)" }} />
-        {t("top.background")}
+        <span style={{ width: 8, height: 8, borderRadius: 4, flex: "none", background: st?.playing ? "var(--cy)" : "var(--mute)" }} />
+        <span className="clamp1">{nowPlaying ?? t("top.background")}</span>
       </button>
+      {st?.open && (
+        <button
+          className="b btn btn-icon"
+          onClick={() => bgDo(bg.command(st.playing ? "pause" : "play"))}
+          aria-label={st.playing ? t("bg.pause") : t("bg.play")}
+          title={st.playing ? t("bg.pause") : t("bg.play")}
+          style={{ width: 36, background: "var(--cybg)", color: "var(--cy)", border: "1px solid var(--cyline)", borderRadius: "0 8px 8px 0" }}
+        >
+          {st.playing ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z" /></svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z" /></svg>
+          )}
+        </button>
+      )}
       {open && <BackgroundPanel onClose={() => setOpen(false)} />}
-    </>
+    </span>
   );
 }
 

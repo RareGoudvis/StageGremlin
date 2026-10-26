@@ -10,7 +10,7 @@ const en = {
   "mode.build": "BUILD", "mode.preflight": "PREFLIGHT", "mode.run": "RUN",
   "top.time": "Time", "top.show": "Show", "top.notSaved": "not saved yet", "top.booth": "BOOTH", "top.settings": "Settings",
   "top.left": "left",
-  "top.saved": "saved", "top.unsaved": "not saved", "top.fileMenu": "Show menu: file actions", "top.background": "Background", "out.choose": "Choose output…",
+  "top.saved": "saved", "top.unsaved": "not saved", "top.fileMenu": "Show menu: file actions", "top.background": "Background", "bg.play": "Play the background music", "bg.pause": "Pause the background music", "out.choose": "Choose output…",
   // File menu (click the show name)
   "file.new": "New show", "file.open": "Open…", "file.recent": "Open recent", "file.noRecent": "No recent shows",
   "file.save": "Save", "file.saveAs": "Save as…", "file.exportZip": "Export show as zip…", "file.print": "Print cue sheet…",
@@ -109,7 +109,7 @@ const nl: Partial<Record<TKey, string>> = {
   "mode.build": "BOUWEN", "mode.preflight": "CHECK", "mode.run": "SHOW",
   "top.time": "Uur", "top.show": "Show", "top.notSaved": "nog niet bewaard", "top.booth": "REGIE", "top.settings": "Instellingen",
   "top.left": "te gaan",
-  "top.saved": "bewaard", "top.unsaved": "niet bewaard", "top.fileMenu": "Showmenu: bestandsacties", "top.background": "Achtergrond", "out.choose": "Uitgang kiezen…",
+  "top.saved": "bewaard", "top.unsaved": "niet bewaard", "top.fileMenu": "Showmenu: bestandsacties", "top.background": "Achtergrond", "bg.play": "Achtergrondmuziek afspelen", "bg.pause": "Achtergrondmuziek pauzeren", "out.choose": "Uitgang kiezen…",
   "file.new": "Nieuwe show", "file.open": "Openen…", "file.recent": "Recent geopend", "file.noRecent": "Geen recente shows",
   "file.save": "Bewaren", "file.saveAs": "Bewaren als…", "file.exportZip": "Show als zip exporteren…", "file.print": "Cueblad afdrukken…",
   "file.settings": "Instellingen…", "file.rename": "Show hernoemen…",
