@@ -8,7 +8,7 @@ import { useT } from "../../i18n";
 import { call, isTauri } from "../../lib/tauri";
 import { visible } from "../../lib/audac";
 import { Chips, Row } from "../controls";
-import { StreamboxPanel } from "../StreamboxPanel";
+import { SourcePicker, StreamboxPanel } from "../StreamboxPanel";
 import { Card, PageTitle } from "./common";
 
 interface Found { ip: string; name: string; model: string | null; kinds: string[]; dlnaUrl: string | null }
@@ -117,8 +117,7 @@ export function StreamboxPage() {
                 ...(box.via === "dlna" ? [{ value: "l16" as const, label: "L16 (PCM)" }] : [])]} />
           </Row>
           <Row label={t("sbx.source")} hint={t("sbx.sourceHint")}>
-            <Chips<NonNullable<StreamboxSetup["source"]>> label={t("sbx.source")} value={box.source ?? "background"} onChange={(source) => save({ source })}
-              options={[{ value: "background", label: t("sbx.srcBg") }, { value: "show", label: t("sbx.srcShow") }]} />
+            <SourcePicker />
           </Row>
           <StreamboxPanel />
         </Card>

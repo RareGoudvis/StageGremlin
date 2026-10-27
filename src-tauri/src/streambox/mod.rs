@@ -272,7 +272,8 @@ pub async fn streambox_send_start(
     target: Target,
     format: Option<String>,
     // "background" (default): the Windows default output, where the background player plays.
-    // "show": StageGremlin's show output (cues and pads).
+    // "show": StageGremlin's show output (cues and pads). "device:<name>": that output device
+    // (e.g. one the background player was moved to in Windows, so the laptop stays quiet).
     source: Option<String>,
     sending: tauri::State<'_, Sending>,
     engine: tauri::State<'_, crate::engine_thread::EngineHandle>,
@@ -281,6 +282,7 @@ pub async fn streambox_send_start(
     // An empty name records the Windows default output (send.rs, start_loopback).
     let device = match source.as_deref() {
         Some("show") => engine.output_status().map(|o| o.output_name).unwrap_or_default(),
+        Some(s) if s.starts_with("device:") => s["device:".len()..].to_string(),
         _ => String::new(),
     };
     // The work blocks (network, starting the recording) but is short; State can't move to another thread.

@@ -6,11 +6,44 @@
 import { useEffect, useRef, useState } from "react";
 import { useSettings } from "../settingsStore";
 import { streambox, useStreambox, type SendReport } from "../lib/streambox";
+import { call } from "../lib/tauri";
 import { useT } from "../i18n";
 
 /** A box that reports only an ID (e.g. "FF310009A9F7…") gets a readable name. */
 export function boxLabel(name: string, ip: string): string {
   return !name.trim() || /^[0-9a-f-]{16,}$/i.test(name.trim()) ? `Streambox · ${ip}` : name;
+}
+
+/**
+ * What to send to the box: the background music (Windows default output), the show output, or any
+ * output device. Changing it while sending restarts the stream with the new source.
+ */
+export function SourcePicker({ compact = false }: { compact?: boolean }) {
+  const t = useT();
+  const source = useSettings((s) => s.ui.streambox.source) ?? "background";
+  const [devices, setDevices] = useState<string[]>([]);
+  useEffect(() => void call("audio_list_outputs").then((l) => setDevices(l.map((d) => d.name)), () => {}), []);
+  // A device chosen earlier but not plugged in now still shows, so the choice isn't lost silently.
+  const named = source.startsWith("device:") ? source.slice(7) : null;
+  const list = named && !devices.includes(named) ? [...devices, named] : devices;
+  const choose = async (value: string) => {
+    const s = useSettings.getState();
+    s.update({ streambox: { ...s.ui.streambox, source: value } });
+    if ((await streambox.report().catch(() => null))?.on) {
+      await streambox.sendStop().catch(() => {});
+      await streambox.sendStart().catch(() => {});
+    }
+  };
+  return (
+    <select className="select" tabIndex={-1} aria-label={t("sbx.source")} title={t("sbx.sourceHint")} value={source}
+      onChange={(e) => void choose(e.target.value)} style={{ flex: 1, minWidth: 0, height: compact ? 30 : 34, fontSize: compact ? 12.5 : undefined }}>
+      <option value="background">{t("sbx.srcBg")}</option>
+      <option value="show">{t("sbx.srcShow")}</option>
+      <optgroup label={t("sbx.srcDevices")}>
+        {list.map((n) => <option key={n} value={`device:${n}`}>{n}</option>)}
+      </optgroup>
+    </select>
+  );
 }
 
 export function StreamboxPanel() {
@@ -101,10 +134,14 @@ export function StreamboxPanel() {
         </button>
       </div>
 
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontSize: 12, color: "var(--dim)", flex: "none" }}>{t("sbx.sendWhat")}</span>
+        <SourcePicker compact />
+      </div>
       <div style={{ display: "flex", gap: 6 }}>
         <button className="b btn" tabIndex={-1} disabled={sendBusy} onClick={() => void toggleSend()} title={t("sbx.sendHint")}
           style={{ flex: 2, height: 32, justifyContent: "center", fontWeight: 700, background: sending ? "var(--hl)" : "var(--gobg)", color: sending ? "var(--bg)" : "var(--ongo)" }}>
-          {sendBusy ? "…" : sending ? t("sbx.sendStop") : (box.source ?? "background") === "show" ? t("sbx.sendShort") : t("sbx.sendBg")}
+          {sendBusy ? "…" : sending ? t("sbx.sendStop") : t("sbx.sendToBox")}
         </button>
         {status?.canTransport && (
           <>
@@ -129,7 +166,7 @@ export function StreamboxPanel() {
             <span className="mono clamp1" style={{ flex: 1, fontSize: 11.5, userSelect: "text" }}>{report.url}</span>
             <button className="b btn btn-ghost" tabIndex={-1} onClick={() => void navigator.clipboard?.writeText(report.url!).catch(() => {})} style={{ height: 24, fontSize: 12 }}>{t("sbx.copy")}</button>
           </span>
-          <span style={{ fontSize: 11.5, color: "var(--dim)" }}>{t("sbx.urlHint")} {(box.source ?? "background") === "show" ? t("sbx.onlyShow") : t("sbx.onlyBg")}</span>
+          <span style={{ fontSize: 11.5, color: "var(--dim)" }}>{t("sbx.urlHint")} {(box.source ?? "background") === "show" ? t("sbx.onlyShow") : (box.source ?? "background") === "background" ? t("sbx.onlyBg") : ""}</span>
         </div>
       )}
     </div>

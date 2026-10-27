@@ -91,8 +91,11 @@ export interface StreamboxSetup {
   dlnaUrl: string;
   /** Stream format: WAV, L16 (DLNA only) or MP3 (via ffmpeg; plays almost anywhere). */
   format: "wav" | "l16" | "mp3";
-  /** What to send: the background music (Windows default output) or the show output (cues, pads). */
-  source?: "background" | "show";
+  /**
+   * What to send: "background" (the Windows default output, where the background player plays),
+   * "show" (StageGremlin's show output: cues, pads) or "device:<name>" (that output device).
+   */
+  source?: string;
 }
 
 /** Names and visibility of the MTX's 8 zones and 8 inputs, plus how to reach it. */
