@@ -6,7 +6,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useSettings } from "../settingsStore";
 import { streambox, useStreambox, type SendReport } from "../lib/streambox";
-import { call } from "../lib/tauri";
+import { call, isTauri } from "../lib/tauri";
+import { invoke } from "@tauri-apps/api/core";
+import { create } from "zustand";
+import { toast } from "../uiStore";
 import { useT } from "../i18n";
 
 /** A box that reports only an ID (e.g. "FF310009A9F7…") gets a readable name. */
@@ -43,6 +46,34 @@ export function SourcePicker({ compact = false }: { compact?: boolean }) {
         {list.map((n) => <option key={n} value={`device:${n}`}>{n}</option>)}
       </optgroup>
     </select>
+  );
+}
+
+// Whether we last asked Spotify to play on the box (Spotify itself doesn't tell us).
+const useConnect = create<{ onBox: boolean }>(() => ({ onBox: false }));
+
+/** Spotify Connect: play straight on the box (the laptop plays nothing), or back in the player. */
+function SpotifyConnect() {
+  const t = useT();
+  const box = useSettings((s) => s.ui.streambox);
+  const onBox = useConnect((s) => s.onBox);
+  const name = box.connectName?.trim() || (box.name && !/^[0-9a-f-]{16,}$/i.test(box.name) ? box.name : "Stream_Box");
+  const go = async (toBox: boolean) => {
+    try {
+      if (isTauri) await invoke("bg_spotify_connect", { name: toBox ? name : "" });
+      useConnect.setState({ onBox: toBox });
+      toast(toBox ? t("sbx.connectAsked") : t("sbx.connectBack"));
+    } catch (e) {
+      toast(String(e));
+    }
+  };
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <span style={{ fontSize: 12, color: "var(--dim)", flex: 1 }} title={t("sbx.connectHint")}>{t("sbx.connect")}</span>
+      <button className="b chip" tabIndex={-1} aria-pressed={onBox} onClick={() => void go(!onBox)} title={t("sbx.connectHint")} style={{ height: 28, fontSize: 12 }}>
+        {onBox ? t("sbx.connectOn") : t("sbx.connectOff")}
+      </button>
+    </div>
   );
 }
 
@@ -158,6 +189,7 @@ export function StreamboxPanel() {
         )}
       </div>
       {sendError && <span style={{ fontSize: 12, color: "var(--redtx)" }}>{sendError}</span>}
+      <SpotifyConnect />
 
       {/* The check that splits a problem in two: if a phone plays this address, laptop + firewall are fine. */}
       {sending && details && report?.url && (

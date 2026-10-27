@@ -96,6 +96,8 @@ export interface StreamboxSetup {
    * "show" (StageGremlin's show output: cues, pads) or "device:<name>" (that output device).
    */
   source?: string;
+  /** The box's name in Spotify's device list (Spotify Connect), e.g. "Stream_Box". */
+  connectName?: string;
 }
 
 /** Names and visibility of the MTX's 8 zones and 8 inputs, plus how to reach it. */

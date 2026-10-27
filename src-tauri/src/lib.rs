@@ -154,6 +154,7 @@ pub fn run() {
             background::bg_open,
             background::bg_hide,
             background::bg_command,
+            background::bg_spotify_connect,
             background::bg_set_level,
             background::bg_set_config,
             background::bg_get_state,

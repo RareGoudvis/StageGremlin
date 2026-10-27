@@ -194,6 +194,40 @@
       setTimeout(report, 100);
     },
     next: function () { callHandler("nexttrack"); setTimeout(report, 300); },
+    // Spotify only: play on another Spotify Connect device (e.g. the streambox) by clicking through
+    // the player's own device list, like a person would. `name`: part of the device's name; empty =
+    // back to this window ("This web browser"). Best effort: Spotify changes its page now and then.
+    connect: function (name) {
+      if (location.hostname.indexOf("spotify.com") < 0) return;
+      var want = (name || "").toLowerCase();
+      var self = /this (web )?browser|deze (web)?browser|web ?player|webspeler/i;
+      var buttons = Array.prototype.slice.call(document.querySelectorAll("button[aria-label], [data-testid*='device'] button, button[data-testid*='device']"));
+      var open = buttons.filter(function (b) {
+        return /connect|verbind|apparaat|device/i.test((b.getAttribute("aria-label") || "") + " " + (b.getAttribute("data-testid") || ""));
+      })[0];
+      if (!open) { window.__cueplayConnect = "no-button"; return; }
+      open.click();
+      var tries = 0;
+      (function pick() {
+        tries++;
+        var items = Array.prototype.slice.call(document.querySelectorAll("[role='menuitem'], [role='option'], li button, li[role], [data-testid*='device'] li, [data-testid*='device'] button"));
+        var hit = items.filter(function (el) {
+          if (el === open || open.contains(el)) return false;
+          var t = (el.textContent || "").trim();
+          return want ? t.toLowerCase().indexOf(want) >= 0 : self.test(t);
+        })[0];
+        if (hit) {
+          (hit.querySelector("button") || hit).click();
+          window.__cueplayConnect = "ok";
+          // Close the list again.
+          setTimeout(function () { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); }, 400);
+        } else if (tries < 12) {
+          setTimeout(pick, 250); // the list fills in after a moment
+        } else {
+          window.__cueplayConnect = "no-device";
+        }
+      })();
+    },
     prev: function () { callHandler("previoustrack"); setTimeout(report, 300); },
     // Plays row `index` of the list we last reported; `title` guards against the list having
     // changed in between (then we look the title up instead).
