@@ -20,6 +20,7 @@ import { DumboView } from "./views/DumboView";
 import { useMedia } from "./lib/media";
 import { useT } from "./i18n";
 import { useAudacAutoConnect, useAudacNameFill } from "./lib/audac";
+import { useAudacChangeToasts, useAudacGuardSync } from "./lib/audacWatch";
 import { useAudacSchedule } from "./lib/audacSchedule";
 import { BackgroundView } from "./views/BackgroundView";
 import { ContextMenuHost } from "./components/ContextMenu";
@@ -65,6 +66,8 @@ export default function App() {
   useAutosave();
   useAudacAutoConnect();
   useAudacNameFill();
+  useAudacGuardSync();
+  useAudacChangeToasts();
   useAudacSchedule();
   useEffect(checkForUpdatesSoon, []);
   const dropping = useFileDrop();

@@ -10,7 +10,9 @@
 //! Protocol details: protocol.rs.
 
 mod protocol;
+mod watch;
 
+use std::collections::VecDeque;
 use std::io::{ErrorKind, Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
@@ -21,15 +23,20 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
 use protocol::{Update, MIN_VOLUME, NAMES, ZONES};
+use watch::{Field, Verdict, Watch};
 
 const RETRY_EVERY: Duration = Duration::from_secs(3);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
 /// Ask for the state now and then: keeps the link alive and notices a dead one.
-const POLL_EVERY: Duration = Duration::from_secs(15);
+/// (Also catches changes by someone else if the MTX didn't announce them.)
+const POLL_EVERY: Duration = Duration::from_secs(10);
 /// No answer for this long after a poll = the link is gone (cable out, box off).
 const DEAD_AFTER: Duration = Duration::from_secs(40);
-/// Gap between our own questions: the MTX may drop a command that arrives right on top of another.
-const ASK_GAP: Duration = Duration::from_millis(250);
+/// Gap between two lines we send: the MTX may drop a command that arrives right on top of another.
+/// (A group of 8 zones then takes ~1 s; fine for a remote.)
+const SEND_GAP: Duration = Duration::from_millis(120);
+/// How many changes by someone else the panel keeps listing.
+const KEEP_CHANGES: usize = 12;
 /// Until the MTX has answered all three "everything" questions, ask the missing ones again this often.
 const REASK_EVERY: Duration = Duration::from_secs(3);
 
@@ -67,6 +74,24 @@ pub struct AudacState {
     pub zones: Vec<Zone>,
     /// The names stored on the MTX (see protocol::NAMES); empty until it has told us.
     pub names: Vec<String>,
+    /// Recent changes made by someone else (Touch 2, a wall panel…), newest last.
+    pub changes: Vec<Change>,
+}
+
+/// A zone setting changed by someone other than StageGremlin.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Change {
+    /// Counts up, so the UI can tell new ones apart.
+    pub id: u64,
+    /// Milliseconds since 1970 (the UI shows the time).
+    pub at: u64,
+    pub zone: u8,
+    pub what: Field,
+    pub from: u8,
+    pub to: u8,
+    /// True when StageGremlin put it back (guarded zone).
+    pub restored: bool,
 }
 
 enum Msg {
@@ -76,6 +101,8 @@ enum Msg {
     Step { zone: u8, up: bool },
     Input { zone: u8, input: u8 },
     Mute { zone: u8, mute: bool },
+    /// Zones to put back when someone else changes them (empty = guard off).
+    Guard(Vec<u8>),
 }
 
 /// Managed by Tauri; the commands below talk to the thread through it.
@@ -93,12 +120,14 @@ pub fn start(app: AppHandle) -> Audac {
         known: false,
         zones: vec![Zone { volume: MIN_VOLUME, input: 0, mute: false }; ZONES],
         names: vec![String::new(); NAMES],
+        changes: Vec::new(),
     }));
     let (tx, rx) = mpsc::channel();
     let shared = state.clone();
     std::thread::Builder::new()
         .name("audac".into())
-        .spawn(move || Link { app, state: shared, rx, stream: None, buf: Vec::new(), heard: false, got: [false; 3], got_names: [false; NAMES] }.run())
+        .spawn(move || Link { app, state: shared, rx, stream: None, buf: Vec::new(), heard: false, got: [false; 3], got_names: [false; NAMES],
+            watch: Watch::default(), out: Default::default(), next_change: 1 }.run())
         .expect("could not start the AUDAC thread");
     Audac { tx: Mutex::new(tx), state }
 }
@@ -116,6 +145,11 @@ struct Link {
     got: [bool; 3],
     /// Which of the MTX's names have arrived since connecting.
     got_names: [bool; NAMES],
+    /// What we expect each zone to be (to spot changes by someone else).
+    watch: Watch,
+    /// Commands waiting to go out, one every SEND_GAP (before any questions).
+    out: VecDeque<String>,
+    next_change: u64,
 }
 
 impl Link {
@@ -125,7 +159,7 @@ impl Link {
         let mut last_poll = Instant::now();
         let mut last_heard = Instant::now();
         // Questions waiting to go out, one every ASK_GAP (see get_all).
-        let mut asks: std::collections::VecDeque<String> = Default::default();
+        let mut asks: VecDeque<String> = Default::default();
         let mut next_ask = Instant::now();
         let mut last_reask = Instant::now();
         // Names are asked again at most this many times (older firmware may not know GN).
@@ -167,23 +201,25 @@ impl Link {
                     }
                     Msg::Volume { zone, db } => {
                         pending_volume[zone as usize - 1] = Some(db);
+                        self.watch.ours(zone, Field::Volume, Some(db), Instant::now());
                         // Show it right away; the MTX's own update confirms it a moment later.
                         self.update(|s| s.zones[zone as usize - 1].volume = db);
                     }
-                    Msg::Step { zone, up } => self.send(&if up { protocol::volume_up(zone) } else { protocol::volume_down(zone) }),
+                    Msg::Step { zone, up } => {
+                        self.watch.ours(zone, Field::Volume, None, Instant::now());
+                        self.out.push_back(if up { protocol::volume_up(zone) } else { protocol::volume_down(zone) });
+                    }
                     Msg::Input { zone, input } => {
-                        self.send(&protocol::set_input(zone, input));
+                        self.watch.ours(zone, Field::Input, Some(input), Instant::now());
+                        self.out.push_back(protocol::set_input(zone, input));
                         self.update(|s| s.zones[zone as usize - 1].input = input);
                     }
                     Msg::Mute { zone, mute } => {
-                        self.send(&protocol::set_mute(zone, mute));
+                        self.watch.ours(zone, Field::Mute, Some(mute as u8), Instant::now());
+                        self.out.push_back(protocol::set_mute(zone, mute));
                         self.update(|s| s.zones[zone as usize - 1].mute = mute);
                     }
-                }
-            }
-            for (i, v) in pending_volume.iter_mut().enumerate() {
-                if let Some(db) = v.take() {
-                    self.send(&protocol::set_volume(i as u8 + 1, db));
+                    Msg::Guard(zones) => self.watch.set_guarded(&zones),
                 }
             }
 
@@ -199,6 +235,9 @@ impl Link {
                             last_heard = Instant::now();
                             self.got = [false; 3];
                             self.got_names = [false; NAMES];
+                            self.watch.reset();
+                            self.out.clear();
+                            pending_volume = [None; ZONES];
                             name_rounds = 0;
                             asks = protocol::get_all().into_iter().collect();
                             asks.extend((1..=NAMES as u8).map(protocol::get_name));
@@ -232,15 +271,17 @@ impl Link {
                         asks.extend((0..NAMES).filter(|&i| !self.got_names[i]).map(|i| protocol::get_name(i as u8 + 1)));
                     }
                 }
+                // One line per SEND_GAP: newest slider volumes first, then commands, then questions.
                 if Instant::now() >= next_ask {
-                    if let Some(l) = asks.pop_front() {
+                    let volume = pending_volume.iter_mut().enumerate().find_map(|(i, v)| v.take().map(|db| protocol::set_volume(i as u8 + 1, db)));
+                    if let Some(l) = volume.or_else(|| self.out.pop_front()).or_else(|| asks.pop_front()) {
                         self.send(&l);
-                        next_ask = Instant::now() + ASK_GAP;
+                        next_ask = Instant::now() + SEND_GAP;
                     }
                 }
                 if last_poll.elapsed() >= POLL_EVERY {
                     last_poll = Instant::now();
-                    self.send(&protocol::line("GMALL", "0"));
+                    asks.extend(protocol::get_all());
                 }
                 if self.heard_something() {
                     last_heard = Instant::now();
@@ -292,11 +333,48 @@ impl Link {
             Update::Name(i, _) if (1..=NAMES as u8).contains(&i) => self.got_names[i as usize - 1] = true,
             _ => {}
         }
+        // Who made this change? (Our own, expected, or someone else's.)
+        let now = Instant::now();
+        let mut seen: Vec<(u8, Field, u8)> = Vec::new();
+        let each = |list: &[u8], f: Field, out: &mut Vec<(u8, Field, u8)>| {
+            list.iter().enumerate().take(ZONES).for_each(|(i, v)| out.push((i as u8 + 1, f, *v)));
+        };
+        match &u {
+            Update::Volume(z, v) => seen.push((*z, Field::Volume, *v)),
+            Update::Input(z, v) => seen.push((*z, Field::Input, *v)),
+            Update::Mute(z, m) => seen.push((*z, Field::Mute, *m as u8)),
+            Update::Zone(z, v, i, m) => seen.extend([(*z, Field::Volume, *v), (*z, Field::Input, *i), (*z, Field::Mute, *m as u8)]),
+            Update::AllVolumes(v) => each(v, Field::Volume, &mut seen),
+            Update::AllInputs(v) => each(v, Field::Input, &mut seen),
+            Update::AllMutes(v) => each(&v.iter().map(|m| *m as u8).collect::<Vec<_>>(), Field::Mute, &mut seen),
+            _ => {}
+        }
+        let mut changes = Vec::new();
+        for (zone, what, to) in seen {
+            if let Verdict::Foreign { from, restore } = self.watch.verdict(zone, what, to, now) {
+                if restore {
+                    self.out.push_back(match what {
+                        Field::Volume => protocol::set_volume(zone, from),
+                        Field::Input => protocol::set_input(zone, from),
+                        Field::Mute => protocol::set_mute(zone, from == 1),
+                    });
+                }
+                eprintln!("[audac] zone {zone} {what:?} changed by someone else: {from} -> {to}{}", if restore { " (put back)" } else { "" });
+                let at = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
+                changes.push(Change { id: self.next_change, at, zone, what, from, to, restored: restore });
+                self.next_change += 1;
+            }
+        }
         // The panel opens as soon as we know the volumes: inputs and mutes follow (re-asked if dropped).
         let known = self.got[0];
         self.update(|s| {
             if known {
                 s.known = true;
+            }
+            if !changes.is_empty() {
+                s.changes.extend(changes);
+                let extra = s.changes.len().saturating_sub(KEEP_CHANGES);
+                s.changes.drain(..extra);
             }
             match u {
                 Update::Volume(z, v) => { if let Some(i) = zone(z) { s.zones[i].volume = v } }
@@ -426,6 +504,12 @@ pub fn audac_set_input(audac: State<'_, Audac>, zone: u8, input: u8) -> Result<(
         return Err(format!("Input {input} doesn't exist (1–8)."));
     }
     post(&audac, Msg::Input { zone, input })
+}
+
+/// Zones to put back when someone else changes them; empty = guard off.
+#[tauri::command]
+pub fn audac_set_guard(audac: State<'_, Audac>, zones: Vec<u8>) -> Result<(), String> {
+    post(&audac, Msg::Guard(zones))
 }
 
 #[tauri::command]

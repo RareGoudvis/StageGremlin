@@ -109,8 +109,19 @@ export interface AudacSetup {
   schedule: ScheduleEntry[];
   /** Don't start scheduled times while a show is running (Run). */
   schedulePauseInRun: boolean;
-  /** When a scheduled time ends: let the MTX go (Touch 2 can connect) or keep holding it. */
+  /** When a scheduled time ends: close StageGremlin's connection to the MTX or keep it. */
   scheduleAfter: "release" | "keep";
+  /** Named sets of zones controlled together, e.g. "All playgrounds" = zones 3, 4 and 6. */
+  groups: AudacGroup[];
+  /** Zones StageGremlin puts back when someone else (Touch 2, a wall panel) changes them, and when. */
+  guard: { zones: number[]; when: "off" | "run" | "always" };
+}
+
+export interface AudacGroup {
+  id: string;
+  name: string;
+  /** Zones 1–8. */
+  zones: number[];
 }
 
 export interface ScheduleEntry {
@@ -142,6 +153,8 @@ const AUDAC_DEFAULT: AudacSetup = {
   schedule: [],
   schedulePauseInRun: true,
   scheduleAfter: "release",
+  groups: [],
+  guard: { zones: [], when: "off" },
 };
 
 const DEFAULTS: UiSettings = { lang: "en", keys: {}, bgLockDefault: false, zoom: 100, dumbo: false, dumboPads: false, dumboPin: "", ytFormat: "original", recent: [], audac: AUDAC_DEFAULT, adminHash: "",

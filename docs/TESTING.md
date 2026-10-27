@@ -216,3 +216,18 @@ These can't be tested automatically; please check them on the real laptop:
    **Good:** no stutter, timers (pre-waits, follows) on time.
 6. **Rehearsal from a marker**: a cue with an attached cue later in the song → start from a marker before it.
    **Good:** the attached cue fires at its moment; one before the marker doesn't.
+
+## AUDAC + settings (27 Oct 2026, later) — needs the real MTX
+
+1. **Panel usable:** connect → the zones stop being grey within a few seconds and each zone's current input lights up.
+2. **Names:** Settings › AUDAC › "Names on the MTX" shows the box's own zone/input names (Gym, Podium…).
+   Factory names here are replaced by them; a name you typed stays.
+3. **Someone else:** with StageGremlin connected, change a zone in Touch 2. **Good:** an amber "Changed by someone else"
+   line in the panel and a toast. If Touch 2 can't connect while StageGremlin is connected, write that down.
+4. **Guard:** guard that zone (Always), change it again in Touch 2. **Good:** it jumps back within a second or two,
+   at most 3 times a minute.
+5. **Find:** with music on, press Find on a zone → that room drops out three times, briefly.
+6. **Groups / Select:** a group row and "Select…" set input, volume and mute on all their zones.
+7. **No Qu-24 at home:** start without it → no red banner, plays on the laptop; plug it in while idle → switches over.
+8. **Settings carry over:** unzip the next build next to this one → start → toast "Settings brought over…",
+   AUDAC/Streambox set up as before. Settings › About › Export… / Import… round-trips.
