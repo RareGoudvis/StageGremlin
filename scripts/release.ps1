@@ -111,6 +111,8 @@ Build from ``$sha`` (built locally). Not tested on a real show yet — see docs/
 **Portable (recommended):** download StageGremlin-portable.zip → right-click → Properties → Unblock → unzip → run StageGremlin.exe.
 **Installer:** StageGremlin-setup.exe (no admin rights needed).
 "@
-gh release create $tag "$out/StageGremlin-portable.zip" "$out/StageGremlin-setup.exe" --target $sha --title "StageGremlin $tag" --notes $notes --prerelease
+# 0.x builds were test builds (pre-release); from 1.0 on every build is a full release.
+$pre = if ($version.StartsWith("0.")) { @("--prerelease") } else { @("--latest") }
+gh release create $tag "$out/StageGremlin-portable.zip" "$out/StageGremlin-setup.exe" --target $sha --title "StageGremlin $tag" --notes $notes @pre
 if ($LASTEXITCODE) { throw "Uploading the release failed." }
 Write-Host "Published $tag"
