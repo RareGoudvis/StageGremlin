@@ -76,6 +76,18 @@ jobs:
           Get-ChildItem ffmpeg-x -Recurse -Include ffmpeg.exe | Copy-Item -Destination tools/bin/
           Get-ChildItem tools/bin
 
+      # uBlock Origin Lite (Edge build) for the background player window. tauri.release.conf.json bundles
+      # tools/extensions, so the build fails without it (the laptop script fetches it the same way).
+      - name: Download uBlock Origin Lite to bundle
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download -R uBlockOrigin/uBOL-home --pattern "*.edge.zip" -D ubol-tmp
+          if ($LASTEXITCODE) { exit 1 }
+          Expand-Archive (Get-ChildItem ubol-tmp/*.edge.zip | Select-Object -First 1).FullName -DestinationPath tools/extensions/ubol-lite
+          Get-ChildItem tools/extensions/ubol-lite | Select-Object -First 5
+
       - name: Build app (UI + Rust + installer)
         # tauri.release.conf.json adds tools/bin (yt-dlp, ffmpeg) as installer resources.
         run: npm run tauri build -- --config src-tauri/tauri.release.conf.json
@@ -87,6 +99,7 @@ jobs:
           Copy-Item target/release/stagegremlin.exe portable/StageGremlin.exe
           New-Item -ItemType File -Force portable/portable.txt | Out-Null
           Copy-Item tools/bin/* portable/data/bin/
+          Copy-Item -Recurse tools/extensions portable/data/extensions
           Compress-Archive -Path portable/* -DestinationPath StageGremlin-portable.zip -Force
           $setup = Get-ChildItem target/release/bundle/nsis/*.exe | Select-Object -First 1
           Copy-Item $setup.FullName StageGremlin-setup.exe
