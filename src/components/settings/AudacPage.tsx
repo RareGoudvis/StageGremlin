@@ -193,7 +193,7 @@ function TalkCard() {
         <div style={{ fontSize: 13, display: "flex", flexDirection: "column", gap: 2 }}>
           <b>{t("audac.others")}</b>
           {report.others.length ? report.others.map((o) => (
-            <span key={o.name} className="mono">{o.name} · {Math.round(o.agoMs / 1000)} s {t("audac.ago")} · {o.lines} {t("audac.linesWord")}</span>
+            <span key={o.name} className="mono">{o.name === "web" ? "web (Touch 2)" : o.name} · {Math.round(o.agoMs / 1000)} s {t("audac.ago")} · {o.lines} {t("audac.linesWord")}</span>
           )) : <span style={{ color: "var(--dim)" }}>{t("audac.othersNone")}</span>}
           <span style={{ color: "var(--mute)", fontSize: 12 }}>{t("audac.othersNote")} {report.vuLines ? `(${report.vuLines} VU)` : ""}</span>
         </div>

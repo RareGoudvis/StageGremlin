@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { create } from "zustand";
 import { useSettings } from "../../settingsStore";
 import { useUi } from "../../uiStore";
-import { audac, audacConnectSaved, MIN_VOLUME, useAudac, useOtherApps, visible, type AudacState } from "../../lib/audac";
+import { audac, audacConnectSaved, MIN_VOLUME, otherAppName, useAudac, visible, type AudacState } from "../../lib/audac";
 import { useT } from "../../i18n";
 import { summarize } from "../../lib/audacGroups";
 import { changeText, useGuardRules } from "../../lib/audacWatch";
@@ -34,7 +34,7 @@ export function AudacPanel({ big = false, inRun = false }: { big?: boolean; inRu
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: big ? 10 : 6, minHeight: 0 }}>
       <StatusBar st={st} locked={locked} onUnlock={() => setUnlocked(true)} />
-      {st?.status === "connected" && <OthersLine />}
+      <OthersLine st={st} />
       <Changes st={st} />
       {/* Not set up: no IP and no demo. (The demo needs no address.) */}
       {!setup.host.trim() && !setup.demo ? (
@@ -65,12 +65,12 @@ export function AudacPanel({ big = false, inRun = false }: { big?: boolean; inRu
   );
 }
 
-/** "Also talking to the MTX: web" — other apps it answered in the last 30 s. */
-function OthersLine() {
+/** "Also on the MTX: Touch 2" — while another app is connected. */
+function OthersLine({ st }: { st: AudacState | null }) {
   const t = useT();
-  const names = useOtherApps();
+  const names = st?.others ?? [];
   if (!names.length) return null;
-  return <span style={{ fontSize: 12, color: "var(--ambtx)" }}>{t("audac.othersNow")} {names.join(", ")}</span>;
+  return <span role="status" style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ambtx)" }}>! {t("audac.othersNow")} {names.map(otherAppName).join(", ")}</span>;
 }
 
 /** "Changed by someone else": the newest few, until the operator clears them. */
@@ -241,9 +241,13 @@ export function AudacButton() {
   }, [open]);
   return (
     <>
-      <button className="b btn" onClick={() => setOpen(true)} title={t("audac.title")} style={{ fontWeight: 700 }}>
+      <button className="b btn" onClick={() => setOpen(true)} style={{ fontWeight: 700 }}
+        title={st?.others?.length ? `${t("audac.othersNow")} ${st.others.map(otherAppName).join(", ")}` : t("audac.title")}>
         <span style={{ width: 8, height: 8, borderRadius: 4, background: on ? "var(--acc)" : st?.status === "retrying" ? "var(--amb)" : "var(--mute)" }} />
         AUDAC
+        {!!st?.others?.length && (
+          <span aria-label={t("audac.othersNow")} style={{ marginLeft: 2, minWidth: 18, height: 18, borderRadius: 9, background: "var(--amb)", color: "var(--onamb)", fontSize: 12, fontWeight: 900, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>!</span>
+        )}
       </button>
       {open && (
         <div className="scrim" style={{ position: "fixed", zIndex: 66 }} onClick={() => setOpen(false)}>

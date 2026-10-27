@@ -34,6 +34,8 @@ export interface AudacState {
   changes?: AudacChange[];
   /** How many of the 30 name questions the MTX answered since connecting. */
   namesAnswered?: number;
+  /** Other apps on the MTX right now, by name tag (Touch 2 = "web"). */
+  others?: string[];
 }
 
 export interface AudacTalk {
@@ -44,16 +46,9 @@ export interface AudacTalk {
   vuLines: number;
 }
 
-/** Other apps active on the MTX in the last `withinMs` (polls while the caller is on screen). */
-export function useOtherApps(withinMs = 30_000): string[] {
-  const [names, setNames] = useState<string[]>([]);
-  useEffect(() => {
-    const get = () => audac.talk().then((t) => setNames(t.others.filter((o) => o.agoMs < withinMs).map((o) => o.name)), () => {});
-    get();
-    const id = setInterval(get, 3000);
-    return () => clearInterval(id);
-  }, [withinMs]);
-  return names;
+/** A readable name for an app's tag ("web" is how Touch 2 shows up). */
+export function otherAppName(tag: string): string {
+  return tag === "web" ? "Touch 2" : tag;
 }
 
 export interface AudacChange {
@@ -217,7 +212,7 @@ const sim = (() => {
         case "audac_get_state": return state;
         case "audac_connect":
           set({ status: "connecting", host: String(a.host), port: Number(a.port) });
-          setTimeout(() => set({ status: "connected", known: true, names: demoNames, namesAnswered: 30 }), 400);
+          setTimeout(() => set({ status: "connected", known: true, names: demoNames, namesAnswered: 30, others: ["web"] }), 400);
           setTimeout(someoneElse, 9000);
           return;
         case "audac_set_guard": guarded = ((a.rules as GuardRule[]) ?? []).filter((r) => r.full).map((r) => r.zone); return;
