@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { create } from "zustand";
 import { useSettings } from "../../settingsStore";
 import { useUi } from "../../uiStore";
-import { audac, audacConnectSaved, MIN_VOLUME, useAudac, visible, type AudacState } from "../../lib/audac";
+import { audac, audacConnectSaved, MIN_VOLUME, useAudac, useOtherApps, visible, type AudacState } from "../../lib/audac";
 import { useT } from "../../i18n";
 import { summarize } from "../../lib/audacGroups";
 import { changeText, useGuardRules } from "../../lib/audacWatch";
@@ -34,6 +34,7 @@ export function AudacPanel({ big = false, inRun = false }: { big?: boolean; inRu
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: big ? 10 : 6, minHeight: 0 }}>
       <StatusBar st={st} locked={locked} onUnlock={() => setUnlocked(true)} />
+      {st?.status === "connected" && <OthersLine />}
       <Changes st={st} />
       {/* Not set up: no IP and no demo. (The demo needs no address.) */}
       {!setup.host.trim() && !setup.demo ? (
@@ -62,6 +63,14 @@ export function AudacPanel({ big = false, inRun = false }: { big?: boolean; inRu
       )}
     </div>
   );
+}
+
+/** "Also talking to the MTX: web" — other apps it answered in the last 30 s. */
+function OthersLine() {
+  const t = useT();
+  const names = useOtherApps();
+  if (!names.length) return null;
+  return <span style={{ fontSize: 12, color: "var(--ambtx)" }}>{t("audac.othersNow")} {names.join(", ")}</span>;
 }
 
 /** "Changed by someone else": the newest few, until the operator clears them. */
