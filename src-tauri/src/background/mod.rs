@@ -225,6 +225,18 @@ const JS_PAUSE: &str = "window.__cueplayBg && window.__cueplayBg.pause()";
 const JS_NEXT: &str = "window.__cueplayBg && window.__cueplayBg.next()";
 const JS_PREV: &str = "window.__cueplayBg && window.__cueplayBg.prev()";
 
+/// Spotify: play on another Spotify Connect device (`name`, part of its name), or back in the
+/// player window itself (empty). Clicks through Spotify's own device list (inject.js, connect).
+#[tauri::command]
+pub fn bg_spotify_connect(app: AppHandle, state: State<'_, BgHandle>, name: String) -> Result<(), String> {
+    if app.get_webview_window(&window::label(BgSource::Spotify)).is_none() {
+        return Err("Open Spotify in the background player first.".into());
+    }
+    let js = format!("window.__cueplayBg && window.__cueplayBg.connect({})", serde_json::to_string(&name).map_err(|e| e.to_string())?);
+    state.lock().evals_on.push((BgSource::Spotify, js));
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------------------------
 // Shared state
 // ---------------------------------------------------------------------------------------------

@@ -119,6 +119,10 @@ export function StreamboxPage() {
           <Row label={t("sbx.source")} hint={t("sbx.sourceHint")}>
             <SourcePicker />
           </Row>
+          <Row label={t("sbx.connectName")} hint={t("sbx.connectNameHint")}>
+            <input className="input" aria-label={t("sbx.connectName")} placeholder="Stream_Box" value={box.connectName ?? ""}
+              onChange={(e) => save({ connectName: e.target.value })} style={{ flex: 1, maxWidth: 280 }} />
+          </Row>
           <StreamboxPanel />
         </Card>
       )}
