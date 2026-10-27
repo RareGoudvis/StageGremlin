@@ -5,7 +5,7 @@
 import { useEffect, useState } from "react";
 import { useSettings, type AudacSetup } from "../../settingsStore";
 import { useT } from "../../i18n";
-import { audac, audacConnectSaved, findZone, setAudacDemo, useAudac, type AudacState } from "../../lib/audac";
+import { audac, audacConnectSaved, findZone, setAudacDemo, useAudac, type AudacState, type AudacTalk } from "../../lib/audac";
 import type { AudacGroup } from "../../settingsStore";
 import { applyMtxNames, DEFAULT_INPUT_NAMES, DEFAULT_ZONE_NAMES, mtxNames } from "../../lib/audacNames";
 import { Chips, Row } from "../controls";
@@ -174,10 +174,11 @@ function FindCard({ st }: { st: AudacState | null }) {
 function TalkCard() {
   const t = useT();
   const [open, setOpen] = useState(false);
-  const [lines, setLines] = useState<string[]>([]);
+  const [report, setReport] = useState<AudacTalk | null>(null);
+  const lines = report?.lines ?? [];
   useEffect(() => {
     if (!open) return;
-    const get = () => audac.talk().then(setLines, () => {});
+    const get = () => audac.talk().then(setReport, () => {});
     get();
     const id = setInterval(get, 1000);
     return () => clearInterval(id);
@@ -188,6 +189,15 @@ function TalkCard() {
         <button className="b btn" aria-pressed={open} onClick={() => setOpen(!open)}>{open ? t("audac.talkHide") : t("audac.talkShow")}</button>
         {open && <button className="b btn" onClick={() => void navigator.clipboard?.writeText(lines.join("\n"))}>{t("audac.talkCopy")}</button>}
       </div>
+      {open && report && (
+        <div style={{ fontSize: 13, display: "flex", flexDirection: "column", gap: 2 }}>
+          <b>{t("audac.others")}</b>
+          {report.others.length ? report.others.map((o) => (
+            <span key={o.name} className="mono">{o.name} · {Math.round(o.agoMs / 1000)} s {t("audac.ago")} · {o.lines} {t("audac.linesWord")}</span>
+          )) : <span style={{ color: "var(--dim)" }}>{t("audac.othersNone")}</span>}
+          <span style={{ color: "var(--mute)", fontSize: 12 }}>{t("audac.othersNote")} {report.vuLines ? `(${report.vuLines} VU)` : ""}</span>
+        </div>
+      )}
       {open && (
         <pre className="mono scroll" style={{ maxHeight: 300, margin: 0, padding: 8, borderRadius: 8, background: "var(--p2)", fontSize: 11.5, whiteSpace: "pre-wrap", userSelect: "text" }}>
           {lines.slice(-120).join("\n") || "…"}

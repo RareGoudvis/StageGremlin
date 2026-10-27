@@ -115,18 +115,81 @@ pub struct Audac {
 }
 
 /// The last lines sent to and heard from the MTX, for Settings › AUDAC › "Conversation".
-type Talk = Arc<Mutex<VecDeque<String>>>;
+type Talk = Arc<Mutex<TalkLog>>;
+/// Our own name tag in lines to the MTX (protocol.rs, SOURCE).
+const SOURCE_NAME: &str = "SG";
 const TALK_LINES: usize = 200;
+
+#[derive(Default)]
+struct TalkLog {
+    lines: VecDeque<String>,
+    /// Other apps the MTX also answers (it sends every reply to everyone): their name tag
+    /// (e.g. "web") → when last seen and how many lines.
+    others: std::collections::BTreeMap<String, (Instant, u64)>,
+    /// Level-meter lines ("VU", many a second): counted, not logged, or they'd push out the rest.
+    vu: u64,
+}
+
+/// For Settings › AUDAC › "Conversation with the MTX".
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TalkReport {
+    lines: Vec<String>,
+    others: Vec<OtherApp>,
+    vu_lines: u64,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OtherApp {
+    name: String,
+    /// Milliseconds since the MTX last sent something meant for it.
+    ago_ms: u64,
+    lines: u64,
+}
+
+/// "#|web|X001|VU|…" → ("web", "VU"): who a line from the MTX is meant for, and its command.
+fn addressee(line: &str) -> Option<(String, String)> {
+    let mut f = line.trim().strip_prefix('#')?.trim_start_matches('|').split('|').map(str::trim);
+    let to = f.next()?.to_string();
+    let _from = f.next()?;
+    Some((to, f.next()?.to_string()))
+}
 
 fn note_talk(talk: &Talk, arrow: &str, line: &str) {
     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
     // UTC time of day; the UI only needs the order and roughly when.
     let (h, m, sec, ms) = ((now / 3_600_000) % 24, (now / 60_000) % 60, (now / 1000) % 60, now % 1000);
     let mut t = talk.lock().unwrap_or_else(|e| e.into_inner());
-    t.push_back(format!("{h:02}:{m:02}:{sec:02}.{ms:03} UTC {arrow} {}", line.trim()));
-    while t.len() > TALK_LINES {
-        t.pop_front();
+    if arrow == "←" {
+        if let Some((to, command)) = addressee(line) {
+            if to != SOURCE_NAME && to != "ALL" {
+                let e = t.others.entry(to).or_insert((Instant::now(), 0));
+                *e = (Instant::now(), e.1 + 1);
+            }
+            if command == "VU" {
+                t.vu += 1;
+                return;
+            }
+        }
     }
+    let t = &mut *t;
+    t.lines.push_back(format!("{h:02}:{m:02}:{sec:02}.{ms:03} UTC {arrow} {}", visible(line.trim_end_matches(['\r', '\n']))));
+    while t.lines.len() > TALK_LINES {
+        t.lines.pop_front();
+    }
+}
+
+/// Invisible characters as codes, so the log shows exactly what the MTX sent: a NUL byte as
+/// `<00>`, a stray CR as `<0D>`, a byte that isn't text as `<?>`.
+fn visible(text: &str) -> String {
+    text.chars()
+        .map(|c| match c {
+            '\u{FFFD}' => "<?>".to_string(),
+            c if c.is_control() => format!("<{:02X}>", c as u32),
+            c => c.to_string(),
+        })
+        .collect()
 }
 
 pub fn start(app: AppHandle) -> Audac {
@@ -326,10 +389,14 @@ impl Link {
                 while let Some(end) = self.buf.iter().position(|&b| b == b'\n' || b == b'\r') {
                     let raw: Vec<u8> = self.buf.drain(..=end).collect();
                     let text = String::from_utf8_lossy(&raw);
-                    if text.trim().is_empty() {
+                    // Log everything except the bare line breaks between messages.
+                    if text.trim_matches(['\r', '\n']).is_empty() {
                         continue;
                     }
                     note_talk(&self.talk, "←", &text);
+                    if text.trim().is_empty() {
+                        continue;
+                    }
                     if let Some(u) = protocol::parse(&text) {
                         self.apply(u);
                     }
@@ -535,8 +602,13 @@ pub fn audac_set_input(audac: State<'_, Audac>, zone: u8, input: u8) -> Result<(
 
 /// The last lines sent to and heard from the MTX (oldest first), to see what the box really says.
 #[tauri::command]
-pub fn audac_talk(audac: State<'_, Audac>) -> Vec<String> {
-    audac.talk.lock().unwrap_or_else(|e| e.into_inner()).iter().cloned().collect()
+pub fn audac_talk(audac: State<'_, Audac>) -> TalkReport {
+    let t = audac.talk.lock().unwrap_or_else(|e| e.into_inner());
+    TalkReport {
+        lines: t.lines.iter().cloned().collect(),
+        others: t.others.iter().map(|(name, (at, n))| OtherApp { name: name.clone(), ago_ms: at.elapsed().as_millis() as u64, lines: *n }).collect(),
+        vu_lines: t.vu,
+    }
 }
 
 /// How each zone is protected against changes by someone else (Guard, Hold, a schedule's
@@ -550,4 +622,21 @@ pub fn audac_set_guard(audac: State<'_, Audac>, rules: Vec<Rule>) -> Result<(), 
 pub fn audac_set_mute(audac: State<'_, Audac>, zone: u8, mute: bool) -> Result<(), String> {
     zone_ok(zone)?;
     post(&audac, Msg::Mute { zone, mute })
+}
+
+#[cfg(test)]
+mod talk_tests {
+    #[test]
+    fn invisible_characters_show_as_codes() {
+        assert_eq!(super::visible("#|SG|X001|N10|\0\0|U|"), "#|SG|X001|N10|<00><00>|U|");
+        assert_eq!(super::visible("Gym\u{FFFD}"), "Gym<?>");
+        assert_eq!(super::visible("CD - USB"), "CD - USB");
+    }
+
+    #[test]
+    fn tells_who_a_line_is_for() {
+        assert_eq!(super::addressee("#|web|X001|VU|000^000|U|"), Some(("web".into(), "VU".into())));
+        assert_eq!(super::addressee("#|SG|X001|N11|Stream Box|U|"), Some(("SG".into(), "N11".into())));
+        assert_eq!(super::addressee("rubbish"), None);
+    }
 }

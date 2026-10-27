@@ -36,6 +36,26 @@ export interface AudacState {
   namesAnswered?: number;
 }
 
+export interface AudacTalk {
+  lines: string[];
+  /** Other apps the MTX also answers, by the name tag they use (e.g. "web"). */
+  others: { name: string; agoMs: number; lines: number }[];
+  /** Level-meter lines received (not in `lines`). */
+  vuLines: number;
+}
+
+/** Other apps active on the MTX in the last `withinMs` (polls while the caller is on screen). */
+export function useOtherApps(withinMs = 30_000): string[] {
+  const [names, setNames] = useState<string[]>([]);
+  useEffect(() => {
+    const get = () => audac.talk().then((t) => setNames(t.others.filter((o) => o.agoMs < withinMs).map((o) => o.name)), () => {});
+    get();
+    const id = setInterval(get, 3000);
+    return () => clearInterval(id);
+  }, [withinMs]);
+  return names;
+}
+
 export interface AudacChange {
   id: number;
   /** Milliseconds since 1970. */
@@ -77,8 +97,8 @@ export const audac = {
   setMute: (zone: number, mute: boolean) => cmd<void>("audac_set_mute", { zone, mute }),
   /** How each zone is protected against changes by someone else; [] = report only. */
   setGuard: (rules: GuardRule[]) => cmd<void>("audac_set_guard", { rules }),
-  /** The last lines sent to (→) and heard from (←) the MTX. */
-  talk: () => cmd<string[]>("audac_talk"),
+  /** The last lines sent to (→) and heard from (←) the MTX, and the other apps it also answers. */
+  talk: () => cmd<AudacTalk>("audac_talk"),
 };
 
 /**
@@ -201,7 +221,7 @@ const sim = (() => {
           setTimeout(someoneElse, 9000);
           return;
         case "audac_set_guard": guarded = ((a.rules as GuardRule[]) ?? []).filter((r) => r.full).map((r) => r.zone); return;
-        case "audac_talk": return ["(demo: no real MTX)"];
+        case "audac_talk": return { lines: ["(demo: no real MTX)"], others: [{ name: "web", agoMs: 400, lines: 12 }], vuLines: 0 };
         case "audac_disconnect": return set({ status: "off", known: false });
         case "audac_set_volume": return zone(Number(a.zone), { volume: Number(a.db) });
         case "audac_step_volume": {
