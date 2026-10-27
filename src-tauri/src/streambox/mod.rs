@@ -287,8 +287,8 @@ pub fn streambox_send_stop(sending: tauri::State<'_, Sending>) {
 }
 
 #[tauri::command]
-pub fn streambox_sending(sending: tauri::State<'_, Sending>) -> bool {
-    send::is_running(&sending)
+pub fn streambox_sending(sending: tauri::State<'_, Sending>) -> send::SendReport {
+    send::report(&sending)
 }
 
 /// A device description is a small XML file on the device itself (its own address).
