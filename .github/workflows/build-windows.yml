@@ -104,6 +104,8 @@ jobs:
           $tag = "$prefix$next"
           Write-Host "Building $tag"
           "tag=$tag" >> $env:GITHUB_OUTPUT
+          # 0.x builds were test builds (pre-release); from 1.0 on every build is a full release.
+          "pre=$(if ($v.StartsWith('0.')) { 'true' } else { 'false' })" >> $env:GITHUB_OUTPUT
           "SG_BUILD_TAG=$tag" >> $env:GITHUB_ENV
 
       - name: Build app (UI + Rust + installer)
@@ -128,9 +130,10 @@ jobs:
           tag_name: ${{ steps.ver.outputs.tag }}
           target_commitish: ${{ github.sha }}
           name: StageGremlin ${{ steps.ver.outputs.tag }}
-          prerelease: true
+          prerelease: ${{ steps.ver.outputs.pre }}
+          make_latest: ${{ steps.ver.outputs.pre == 'true' && 'false' || 'true' }}
           body: |
-            Test build from `${{ github.sha }}`. Not tested on a real show yet — see docs/TESTING.md.
+            Built from `${{ github.sha }}`. Hardware test notes: docs/TESTING.md.
 
             **Portable (recommended):** download StageGremlin-portable.zip → right-click → Properties → Unblock → unzip → run StageGremlin.exe.
             **Installer:** StageGremlin-setup.exe (no admin rights needed).
