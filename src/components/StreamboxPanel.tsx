@@ -1,10 +1,17 @@
-// The streambox's remote: what plays, volume, mute, and (DLNA) play / pause / stop.
-// On the Background screen and in Settings › Streambox. Buttons never take focus (Space stays free).
+// The streambox's remote: what the box is doing, StageGremlin's stream to it, volume, mute, and
+// (DLNA) play / pause / stop. On the Background screen and in Settings › Streambox.
+// Compact on purpose; the stream address for checking sits behind "Check…".
+// Buttons never take focus (Space stays free).
 
 import { useEffect, useRef, useState } from "react";
 import { useSettings } from "../settingsStore";
-import { streambox, useStreambox } from "../lib/streambox";
+import { streambox, useStreambox, type SendReport } from "../lib/streambox";
 import { useT } from "../i18n";
+
+/** A box that reports only an ID (e.g. "FF310009A9F7…") gets a readable name. */
+export function boxLabel(name: string, ip: string): string {
+  return !name.trim() || /^[0-9a-f-]{16,}$/i.test(name.trim()) ? `Streambox · ${ip}` : name;
+}
 
 export function StreamboxPanel() {
   const t = useT();
@@ -20,23 +27,30 @@ export function StreamboxPanel() {
     pending.current = window.setTimeout(() => void streambox.setVolume(v).catch(() => {}), 200);
   };
   const run = (p: Promise<unknown>) => p.then(refresh, () => refresh());
-  // Sending our show output to the box.
-  const [sending, setSending] = useState(false);
+
+  // Our stream to the box: on/off, its address, and whether the box is actually pulling it.
+  const [report, setReport] = useState<SendReport | null>(null);
   const [sendBusy, setSendBusy] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
-  const [streamUrl, setStreamUrl] = useState<string | null>(null);
-  useEffect(() => void streambox.sending().then(setSending, () => {}), []);
+  const [details, setDetails] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    const ask = () => streambox.report().then((r) => alive && setReport(r), () => {});
+    void ask();
+    const id = window.setInterval(ask, 1500);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+  }, []);
+  const sending = !!report?.on;
   const toggleSend = async () => {
     setSendBusy(true);
     setSendError(null);
     try {
-      if (sending) {
-        await streambox.sendStop();
-        setStreamUrl(null);
-      } else {
-        setStreamUrl(await streambox.sendStart());
-      }
-      setSending(!sending);
+      if (sending) await streambox.sendStop();
+      else await streambox.sendStart();
+      setReport(await streambox.report());
     } catch (e) {
       setSendError(String(e));
     } finally {
@@ -47,21 +61,32 @@ export function StreamboxPanel() {
 
   if (!box.ip) return <span style={{ fontSize: 13, color: "var(--dim)" }}>{t("sbx.noneYet")}</span>;
   const vol = drag ?? status?.volume ?? 0;
+  const playing = status?.playing;
+  const what = [status?.title, status?.app].filter(Boolean).join(" · ");
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 10, borderRadius: 10, background: "var(--p2)" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "8px 10px", borderRadius: 10, background: "var(--p2)" }}>
+      {/* Name, and what the box itself says it's doing. */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ width: 9, height: 9, borderRadius: 5, flex: "none", background: error ? "var(--amb)" : status ? "var(--acc)" : "var(--mute)" }} />
-        <span className="clamp1" style={{ flex: 1, fontSize: 14, fontWeight: 700 }}>{box.name}</span>
-        <span className="tag">{box.via === "cast" ? "Google Cast" : "DLNA"}</span>
+        <span className="clamp1" title={box.name} style={{ flex: 1, fontSize: 13.5, fontWeight: 700 }}>{boxLabel(box.name, box.ip)}</span>
+        <span className="tag" style={{ background: playing ? "var(--acc)" : undefined, color: playing ? "var(--ongo)" : undefined }}>
+          {error ? "?" : playing ? `▶ ${t("sbx.playing")}` : playing === false ? `■ ${t("sbx.stopped")}` : box.via === "cast" ? "Cast" : "DLNA"}
+        </span>
       </div>
       {error ? (
-        <span style={{ fontSize: 12.5, color: "var(--ambtx)" }}>{error}</span>
+        <span style={{ fontSize: 12, color: "var(--ambtx)" }}>{error}</span>
       ) : (
-        <span className="clamp1" style={{ fontSize: 12.5, color: "var(--dim)" }}>
-          {status?.title || status?.app ? [status.title, status.app].filter(Boolean).join(" · ") : status ? t("sbx.idle") : "…"}
+        <span className="clamp1" style={{ fontSize: 12, color: "var(--dim)" }}>{what || (status ? t("sbx.idle") : "…")}</span>
+      )}
+
+      {/* Our stream: is the box actually fetching it? */}
+      {sending && (
+        <span role="status" style={{ fontSize: 12.5, fontWeight: 700, color: report!.listeners > 0 ? "var(--acc)" : "var(--ambtx)" }}>
+          {report!.listeners > 0 ? `✓ ${t("sbx.listening")}` : `… ${t("sbx.waitingBox")}`}
         </span>
       )}
+
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <input type="range" tabIndex={-1} min={0} max={100} value={vol} aria-label={t("sbx.volume")} disabled={!status}
           onChange={(e) => {
@@ -69,33 +94,42 @@ export function StreamboxPanel() {
             setDrag(v);
             sendVolume(v);
           }} style={{ flex: 1 }} />
-        <span className="mono" style={{ width: 34, textAlign: "right", fontSize: 12.5 }}>{status?.muted ? "MUTE" : vol}</span>
+        <span className="mono" style={{ width: 34, textAlign: "right", fontSize: 12 }}>{status?.muted ? "MUTE" : vol}</span>
         <button className="b chip" tabIndex={-1} disabled={!status} aria-pressed={!!status?.muted} onClick={() => run(streambox.setMute(!status?.muted))}
-          style={{ background: status?.muted ? "var(--red)" : undefined, color: status?.muted ? "var(--onred)" : undefined }}>
+          style={{ height: 28, background: status?.muted ? "var(--red)" : undefined, color: status?.muted ? "var(--onred)" : undefined }}>
           {t("audac.mute")}
         </button>
       </div>
-      <button className="b btn" tabIndex={-1} disabled={sendBusy} onClick={() => void toggleSend()} title={t("sbx.sendHint")}
-        style={{ justifyContent: "center", fontWeight: 700, background: sending ? "var(--hl)" : "var(--gobg)", color: sending ? "var(--bg)" : "var(--ongo)" }}>
-        {sendBusy ? "…" : sending ? t("sbx.sendStop") : t("sbx.send")}
-      </button>
-      {sendError && <span style={{ fontSize: 12.5, color: "var(--redtx)" }}>{sendError}</span>}
+
+      <div style={{ display: "flex", gap: 6 }}>
+        <button className="b btn" tabIndex={-1} disabled={sendBusy} onClick={() => void toggleSend()} title={t("sbx.sendHint")}
+          style={{ flex: 2, height: 32, justifyContent: "center", fontWeight: 700, background: sending ? "var(--hl)" : "var(--gobg)", color: sending ? "var(--bg)" : "var(--ongo)" }}>
+          {sendBusy ? "…" : sending ? t("sbx.sendStop") : (box.source ?? "background") === "show" ? t("sbx.sendShort") : t("sbx.sendBg")}
+        </button>
+        {status?.canTransport && (
+          <>
+            <button className="b btn" tabIndex={-1} aria-label={status.playing ? t("sbx.pause") : t("sbx.play")} title={status.playing ? t("sbx.pause") : t("sbx.play")}
+              onClick={() => run(streambox.transport(status.playing ? "pause" : "play"))} style={{ height: 32, width: 40, justifyContent: "center", padding: 0 }}>
+              {status.playing ? "❚❚" : "▶"}
+            </button>
+            <button className="b btn" tabIndex={-1} aria-label={t("sbx.stop")} title={t("sbx.stop")} onClick={() => run(streambox.transport("stop"))}
+              style={{ height: 32, width: 40, justifyContent: "center", padding: 0 }}>■</button>
+          </>
+        )}
+        {sending && (
+          <button className="b btn btn-ghost" tabIndex={-1} aria-pressed={details} onClick={() => setDetails(!details)} style={{ height: 32, fontSize: 12 }}>{t("sbx.checkMore")}</button>
+        )}
+      </div>
+      {sendError && <span style={{ fontSize: 12, color: "var(--redtx)" }}>{sendError}</span>}
+
       {/* The check that splits a problem in two: if a phone plays this address, laptop + firewall are fine. */}
-      {streamUrl && (
+      {sending && details && report?.url && (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <span className="mono clamp1" style={{ flex: 1, fontSize: 12, userSelect: "text" }}>{streamUrl}</span>
-            <button className="b btn btn-ghost" tabIndex={-1} onClick={() => void navigator.clipboard?.writeText(streamUrl).catch(() => {})} style={{ height: 26, fontSize: 12 }}>{t("sbx.copy")}</button>
+            <span className="mono clamp1" style={{ flex: 1, fontSize: 11.5, userSelect: "text" }}>{report.url}</span>
+            <button className="b btn btn-ghost" tabIndex={-1} onClick={() => void navigator.clipboard?.writeText(report.url!).catch(() => {})} style={{ height: 24, fontSize: 12 }}>{t("sbx.copy")}</button>
           </span>
-          <span style={{ fontSize: 12, color: "var(--dim)" }}>{t("sbx.urlHint")}</span>
-        </div>
-      )}
-      {status?.canTransport && (
-        <div style={{ display: "flex", gap: 6 }}>
-          <button className="b btn" tabIndex={-1} onClick={() => run(streambox.transport(status.playing ? "pause" : "play"))} style={{ flex: 1, justifyContent: "center" }}>
-            {status.playing ? `❚❚ ${t("sbx.pause")}` : `▶ ${t("sbx.play")}`}
-          </button>
-          <button className="b btn" tabIndex={-1} onClick={() => run(streambox.transport("stop"))} style={{ flex: 1, justifyContent: "center" }}>■ {t("sbx.stop")}</button>
+          <span style={{ fontSize: 11.5, color: "var(--dim)" }}>{t("sbx.urlHint")} {(box.source ?? "background") === "show" ? t("sbx.onlyShow") : t("sbx.onlyBg")}</span>
         </div>
       )}
     </div>

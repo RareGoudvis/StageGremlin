@@ -271,11 +271,18 @@ pub async fn streambox_transport(target: Target, action: String) -> Result<(), S
 pub async fn streambox_send_start(
     target: Target,
     format: Option<String>,
+    // "background" (default): the Windows default output, where the background player plays.
+    // "show": StageGremlin's show output (cues and pads).
+    source: Option<String>,
     sending: tauri::State<'_, Sending>,
     engine: tauri::State<'_, crate::engine_thread::EngineHandle>,
     yt: tauri::State<'_, crate::yt::Yt>,
 ) -> Result<String, String> {
-    let device = engine.output_status().map(|o| o.output_name).unwrap_or_default();
+    // An empty name records the Windows default output (send.rs, start_loopback).
+    let device = match source.as_deref() {
+        Some("show") => engine.output_status().map(|o| o.output_name).unwrap_or_default(),
+        _ => String::new(),
+    };
     // The work blocks (network, starting the recording) but is short; State can't move to another thread.
     let ffmpeg = yt.bin_dir().join(if cfg!(windows) { "ffmpeg.exe" } else { "ffmpeg" });
     send::start(&sending, target, &device, send::Codec::parse(format.as_deref()), ffmpeg)
