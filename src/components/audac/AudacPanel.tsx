@@ -28,7 +28,35 @@ export function AudacPanel({ big = false, inRun = false }: { big?: boolean; inRu
   // Select mode: tick zones, then one row sets them all.
   const [selecting, setSelecting] = useState(false);
   const [picked, setPicked] = useState<number[]>([]);
+  // Making or changing a group right here (not in Run): the ticked zones, a name, Save.
+  const [editing, setEditing] = useState<string | null>(null);
+  const [groupName, setGroupName] = useState("");
   const groups = (setup.groups ?? []).filter((g) => g.zones.length);
+  const stopSelecting = () => { setSelecting(false); setPicked([]); setEditing(null); setGroupName(""); };
+  const editGroup = (id: string) => {
+    const g = groups.find((x) => x.id === id);
+    if (!g) return;
+    setSelecting(true);
+    setPicked([...g.zones]);
+    setEditing(g.id);
+    setGroupName(g.name);
+  };
+  const saveGroup = () => {
+    const a = useSettings.getState().ui.audac;
+    const list = a.groups ?? [];
+    const zonesSorted = [...picked].sort((x, y) => x - y);
+    const name = groupName.trim() || t("audac.newGroup");
+    const next = editing
+      ? list.map((g) => (g.id === editing ? { ...g, name, zones: zonesSorted } : g))
+      : [...list, { id: `g${Date.now().toString(36)}`, name, zones: zonesSorted }];
+    useSettings.getState().update({ audac: { ...a, groups: next } });
+    stopSelecting();
+  };
+  const deleteGroup = () => {
+    const a = useSettings.getState().ui.audac;
+    useSettings.getState().update({ audac: { ...a, groups: (a.groups ?? []).filter((g) => g.id !== editing) } });
+    stopSelecting();
+  };
   const rules = useGuardRules();
 
   return (
@@ -44,16 +72,30 @@ export function AudacPanel({ big = false, inRun = false }: { big?: boolean; inRu
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ flex: 1, fontSize: 12, color: "var(--mute)" }}>{selecting ? t("audac.selectHint") : ""}</span>
             <button className="b btn btn-ghost" tabIndex={-1} aria-pressed={selecting} style={{ height: 26, fontSize: 12 }}
-              onClick={() => { setSelecting(!selecting); setPicked([]); }}>
+              onClick={() => (selecting ? stopSelecting() : setSelecting(true))}>
               {selecting ? t("audac.selectDone") : t("audac.select")}
             </button>
           </div>
           {selecting && picked.length > 0 && (
             <SetRow title={`${picked.length} ${t("audac.selected")}`} members={picked} st={st} inputs={inputs} big={big} accent />
           )}
+          {/* Save the ticked zones as a group (or change the group being edited). Not in Run. */}
+          {selecting && !inRun && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <input className="input" tabIndex={-1} aria-label={t("audac.groupName")} placeholder={t("audac.groupName")} value={groupName}
+                onChange={(e) => setGroupName(e.target.value)} style={{ flex: 1, minWidth: 120, height: 30 }} />
+              <button className="b btn btn-go" tabIndex={-1} disabled={!picked.length} onClick={saveGroup} style={{ height: 30, fontSize: 12.5 }}>
+                {editing ? t("audac.saveGroupEdit") : t("audac.saveGroup")}
+              </button>
+              {editing && (
+                <button className="b btn btn-ghost" tabIndex={-1} onClick={deleteGroup} style={{ height: 30, fontSize: 12.5, color: "var(--redtx)" }}>{t("audac.deleteGroup")}</button>
+              )}
+            </div>
+          )}
           {!selecting && groups.map((g) => (
             <SetRow key={g.id} title={g.name || t("audac.newGroup")} members={g.zones} st={st} inputs={inputs} big={big}
-              subtitle={g.zones.map((n) => setup.zones[n - 1]?.name || n).join(" · ")} />
+              subtitle={g.zones.map((n) => setup.zones[n - 1]?.name || n).join(" · ")}
+              onEdit={inRun ? undefined : () => editGroup(g.id)} />
           ))}
           {zones.map((z) => (
             <ZoneRow key={z.n} n={z.n} name={z.name} zone={st?.zones[z.n - 1]} inputs={inputs} big={big} rule={rules.find((r) => r.zone === z.n)}
@@ -116,7 +158,9 @@ function InputSelect({ label, value, inputs, big, mixed = false, onChange }: {
 }
 
 /** One row that sets several zones at once (a group, or the zones ticked in select mode). */
-function SetRow({ title, subtitle, members, st, inputs, big, accent = false }: {
+function SetRow({ title, subtitle, members, st, inputs, big, accent = false, onEdit }: {
+  /** A pencil to change or delete the group (outside Run). */
+  onEdit?: () => void;
   title: string;
   subtitle?: string;
   members: number[];
@@ -139,6 +183,10 @@ function SetRow({ title, subtitle, members, st, inputs, big, accent = false }: {
           <span className="clamp1" style={{ fontWeight: 800, fontSize: big ? 15 : 13 }}>{title}</span>
           {subtitle && <span className="clamp1" style={{ fontSize: 11.5, color: "var(--mute)" }}>{subtitle}</span>}
         </span>
+        {onEdit && (
+          <button className="b btn btn-ghost" tabIndex={-1} aria-label={`${t("audac.editGroup")}: ${title}`} title={t("audac.editGroup")} onClick={onEdit}
+            style={{ height: h, width: h, justifyContent: "center", padding: 0 }}>✎</button>
+        )}
         <span className="mono" style={{ width: 62, textAlign: "right", fontSize: 12.5, color: sum.mute ? "var(--redtx)" : "var(--text)" }}>
           {sum.mute ? "MUTE" : shown >= MIN_VOLUME ? "off" : `−${shown} dB`}
         </span>
