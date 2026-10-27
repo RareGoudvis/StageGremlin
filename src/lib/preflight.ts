@@ -38,6 +38,7 @@ export function usePreflight(): { checks: Check[]; passed: number; allOk: boolea
   const analysis = useDoc((s) => s.analysis);
   const manual = useDoc((s) => s.manualChecks);
   const output = useEngine((s) => s.output);
+  const outputLost = useEngine((s) => s.outputLost);
   const missingMap = useMedia((s) => s.missing);
 
   const cues = allCues(show);
@@ -62,11 +63,13 @@ export function usePreflight(): { checks: Check[]; passed: number; allOk: boolea
     },
     {
       key: "output", kind: "auto",
-      title: output?.outputFound ? `Output: ${output.outputName}` : output ? "Chosen output not found" : "Output: waiting for the engine",
+      title: output?.outputFound ? `Output: ${output.outputName}` : outputLost ? "Chosen output lost" : output ? `Output: ${output.outputName}` : "Output: waiting for the engine",
       detail: output?.outputFound
         ? output.preferred ? "The chosen output device is connected." : "Playing on the Windows default output. Pick the Qu-24 below if it should go to the desk."
-        : output ? `${output.preferred ?? "The chosen device"} is missing; playing on ${output.outputName}.` : "No output status received yet.",
-      ok: !!output?.outputFound,
+        : outputLost ? `${output!.preferred} disappeared; playing on ${output!.outputName}. Plug it back in and it switches back by itself.`
+        : output ? `${output.preferred ?? "The chosen device"} isn't connected, so it plays on the Windows default. Plug it in and it switches over by itself.` : "No output status received yet.",
+      // Not plugged in (yet) is fine; only a device that disappeared is a problem.
+      ok: !!output && !outputLost,
     },
     {
       // Background music (WebView2) plays on the WINDOWS DEFAULT device, not on the show output.

@@ -1,5 +1,6 @@
 // Settings › TOOLS: the YouTube helpers (yt-dlp, ffmpeg) and About.
 
+import { exportSettings, importSettings } from "../../lib/settingsTransfer";
 import { useEffect, useState } from "react";
 import { useSettings } from "../../settingsStore";
 import { useT } from "../../i18n";
@@ -92,6 +93,12 @@ export function AboutPage() {
         </Row>
         <Row label="Licence"><span>AGPL-3.0</span></Row>
         <Row label="Source"><span className="mono" style={{ userSelect: "text" }}>github.com/RareGoudvis/StageGremlin</span></Row>
+      </Card>
+      <Card title={t("set.transfer")} note={t("set.transferNote")}>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="b btn" onClick={() => void exportSettings()}>{t("set.export")}</button>
+          <button className="b btn" onClick={() => void importSettings()}>{t("set.import")}</button>
+        </div>
       </Card>
     </>
   );

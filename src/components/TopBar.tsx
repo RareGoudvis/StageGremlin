@@ -147,12 +147,14 @@ function BoothMenu() {
   );
 }
 
-/** Red banner under the top bar when the chosen output (the Qu-24) disappeared. */
+/** Red banner under the top bar when the chosen output (the Qu-24) disappeared mid-session.
+ *  Not connected from the start is fine: we play on the Windows default without a fuss. */
 export function OutputBanner() {
   const t = useT();
   const output = useEngine((s) => s.output);
+  const lost = useEngine((s) => s.outputLost);
   const mode = useDoc((s) => s.mode);
-  if (!output || output.outputFound) return null;
+  if (!output || output.outputFound || !lost) return null;
   return (
     <div role="alert" style={{ flex: "none", display: "flex", alignItems: "center", gap: 12, padding: "6px 18px", background: "var(--red)", color: "var(--onred)", fontSize: 14, fontWeight: 700 }}>
       <span style={{ flex: 1 }}>{output.preferred ?? "The chosen output"} not found — playing on {output.outputName}</span>

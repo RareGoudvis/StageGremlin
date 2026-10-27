@@ -82,6 +82,70 @@ pub fn merge_ui(ui: &mut Value, patch: Value) {
     }
 }
 
+/// A new build in a fresh folder starts without settings.json. Bring the settings of the most
+/// recently used StageGremlin over (a portable copy unzipped next to this one, or the installed
+/// version), so the AUDAC names, the Streambox, outputs etc. don't have to be set up again.
+/// Returns where they came from; `None` when this copy already has settings or there's nothing to bring.
+pub fn carry_over(data_dir: &Path, candidates: &[PathBuf]) -> Option<PathBuf> {
+    let own = path_in(data_dir);
+    if own.exists() {
+        return None;
+    }
+    let newest = candidates
+        .iter()
+        .filter(|p| **p != own)
+        .filter_map(|p| Some((std::fs::metadata(p).ok()?.modified().ok()?, p)))
+        // Only real settings files: a damaged one is skipped, not copied.
+        .filter(|(_, p)| std::fs::read_to_string(p).ok().and_then(|t| serde_json::from_str::<MachineSettings>(&t).ok()).is_some())
+        .max_by_key(|(when, _)| *when)?
+        .1
+        .clone();
+    std::fs::copy(&newest, &own).ok()?;
+    Some(newest)
+}
+
+/// Settings files of other StageGremlin copies on this computer: portable folders next to this
+/// one (`<parent>/<any folder>/data/settings.json`) and the installed version's.
+pub fn other_copies(exe_dir: Option<&Path>, installed_data_dir: Option<&Path>) -> Vec<PathBuf> {
+    let mut found = Vec::new();
+    if let Some(parent) = exe_dir.and_then(Path::parent) {
+        if let Ok(entries) = std::fs::read_dir(parent) {
+            for e in entries.flatten() {
+                let p = e.path().join("data").join("settings.json");
+                if p.is_file() {
+                    found.push(p);
+                }
+            }
+        }
+    }
+    if let Some(dir) = installed_data_dir {
+        let p = path_in(dir);
+        if p.is_file() {
+            found.push(p);
+        }
+    }
+    found
+}
+
+/// Settings → a file the operator chose (a backup, or to take to another laptop).
+pub fn export(data_dir: &Path, dest: &Path) -> Result<(), String> {
+    let settings = load(&path_in(data_dir));
+    let text = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
+    std::fs::write(dest, text).map_err(|e| format!("Could not write {}: {e}", dest.display()))
+}
+
+/// A file made by `export` → this copy's settings (replaces them all).
+pub fn import(data_dir: &Path, src: &Path) -> Result<MachineSettings, String> {
+    let text = std::fs::read_to_string(src).map_err(|e| format!("Could not read {}: {e}", src.display()))?;
+    let settings: MachineSettings = serde_json::from_str(&text).map_err(|_| "That is not a StageGremlin settings file.".to_string())?;
+    if !settings.ui.is_object() {
+        return Err("That is not a StageGremlin settings file.".into());
+    }
+    let _guard = SAVE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    save(&path_in(data_dir), &settings)?;
+    Ok(settings)
+}
+
 fn save(path: &Path, settings: &MachineSettings) -> Result<(), String> {
     let text = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
     std::fs::write(path, text).map_err(|e| format!("Could not save settings to {}: {e}", path.display()))
@@ -97,6 +161,62 @@ mod tests {
         let mut ui = json!({ "language": "nl", "theme": "dark" });
         merge_ui(&mut ui, json!({ "theme": null, "shortcuts": { "go": "Space" } }));
         assert_eq!(ui, json!({ "language": "nl", "shortcuts": { "go": "Space" } }));
+    }
+
+    fn temp(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("sg-settings-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn a_fresh_copy_takes_the_newest_settings_and_keeps_its_own() {
+        let root = temp("carry");
+        let (old, newer, fresh) = (root.join("build13/data"), root.join("build14/data"), root.join("build15/data"));
+        for d in [&old, &newer, &fresh] {
+            std::fs::create_dir_all(d).unwrap();
+        }
+        std::fs::write(path_in(&old), r#"{"ui":{"lang":"en"}}"#).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(30));
+        std::fs::write(path_in(&newer), r#"{"ui":{"lang":"nl"}}"#).unwrap();
+        let exe_dir = root.join("build15");
+        let from = carry_over(&fresh, &other_copies(Some(&exe_dir), None)).unwrap();
+        assert_eq!(from, path_in(&newer));
+        assert_eq!(load(&path_in(&fresh)).ui, json!({ "lang": "nl" }));
+        // Second start: it has its own settings now, nothing is copied over them.
+        std::fs::write(path_in(&newer), r#"{"ui":{"lang":"en"}}"#).unwrap();
+        assert_eq!(carry_over(&fresh, &other_copies(Some(&exe_dir), None)), None);
+        assert_eq!(load(&path_in(&fresh)).ui, json!({ "lang": "nl" }));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_damaged_file_is_not_carried_over() {
+        let root = temp("damaged");
+        let (bad, fresh) = (root.join("a/data"), root.join("b/data"));
+        std::fs::create_dir_all(&bad).unwrap();
+        std::fs::create_dir_all(&fresh).unwrap();
+        std::fs::write(path_in(&bad), "{ not json").unwrap();
+        assert_eq!(carry_over(&fresh, &other_copies(Some(&root.join("b")), None)), None);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn export_then_import_round_trips_and_rejects_other_files() {
+        let root = temp("export");
+        let (a, b) = (root.join("a"), root.join("b"));
+        std::fs::create_dir_all(&a).unwrap();
+        std::fs::create_dir_all(&b).unwrap();
+        std::fs::write(path_in(&a), r#"{"outputDevice":"Qu-24","ui":{"audac":{"host":"192.168.3.210"}}}"#).unwrap();
+        let file = root.join("backup.json");
+        export(&a, &file).unwrap();
+        let got = import(&b, &file).unwrap();
+        assert_eq!(got.ui["audac"]["host"], "192.168.3.210");
+        assert_eq!(load(&path_in(&b)).output_device.as_deref(), Some("Qu-24"));
+        std::fs::write(root.join("song.json"), "[1,2,3]").unwrap();
+        assert!(import(&b, &root.join("song.json")).is_err());
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]
