@@ -10,9 +10,12 @@ import "./styles.css";
 
 import App from "./App";
 import { startEngineSync } from "./lib/engineSync";
+import { installEmergencyKeys } from "./lib/emergencyKeys";
 import { useSettings } from "./settingsStore";
 
 startEngineSync();
+// First keyboard listener of all: Stop all / Panic work even with a dialog open (see emergencyKeys.ts).
+installEmergencyKeys();
 void useSettings.getState().load();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(

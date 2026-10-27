@@ -39,6 +39,15 @@ scripts/release.ps1 Local release: build portable zip + installer, publish a Git
   ceiling −1 dBTP. See `show::norm_gain`.
 - Run mode is locked: no editing. Space = GO even when a button has focus; Esc = Stop all; Esc Esc = Panic.
 
+## Audio paths (what the master limiter covers)
+
+- Cues and pads → engine (kira) → master limiter → show output (Qu-24). Covered.
+- Background music → WebView2 window → **Windows default output device**, not the show output; never through
+  the limiter. It only reaches the desk when the Qu-24 is the Windows default (Preflight checks this:
+  `audio_default_output`; button opens Windows sound settings).
+- Headphone preview → second engine → its own device. Not the limiter, by design (never the hall).
+- AUDAC zones / Streambox → outside StageGremlin.
+
 ## Commands
 
 ```

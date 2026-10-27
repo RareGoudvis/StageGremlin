@@ -3,7 +3,8 @@
 
 import { useDoc } from "../store";
 import { useEngine } from "../engineStore";
-import { useMedia } from "./media";
+import { currentGate, useMedia } from "./media";
+import { useBgRouting } from "./bgRouting";
 import { allCues } from "../types";
 
 export interface Check {
@@ -41,11 +42,24 @@ export function usePreflight(): { checks: Check[]; passed: number; allOk: boolea
 
   const cues = allCues(show);
   const missing = [...cues, ...show.pads.map((p) => p.cue)].filter((c) => missingMap[c.id]);
-  const busy = cues.filter((c) => analysis[c.id]?.state === "busy").length;
-  const failed = cues.filter((c) => analysis[c.id]?.state === "error");
+  const withPads = [...cues, ...show.pads.map((p) => p.cue)];
+  const busy = withPads.filter((c) => analysis[c.id]?.state === "busy").length;
+  const failed = withPads.filter((c) => analysis[c.id]?.state === "error");
   const noLoudness = cues.filter((c) => !c.loudness && analysis[c.id]?.state !== "busy");
 
+  // Re-render when the check state changes; the gate itself reads the stores.
+  useMedia((s) => `${s.checkState}|${s.checkedSignature}|${s.checkError}`);
+  const gate = currentGate();
+  const routing = useBgRouting();
+  const checkState = useMedia.getState().checkState;
+
   const checks: Check[] = [
+    {
+      key: "verify", kind: "auto",
+      title: gate.ok ? "All cue and pad files verified" : checkState === "checking" ? "Checking the files…" : checkState === "failed" ? "The file check failed" : "Files not verified — Run is blocked",
+      detail: gate.reason,
+      ok: gate.ok,
+    },
     {
       key: "output", kind: "auto",
       title: output?.outputFound ? `Output: ${output.outputName}` : output ? "Chosen output not found" : "Output: waiting for the engine",
@@ -53,6 +67,16 @@ export function usePreflight(): { checks: Check[]; passed: number; allOk: boolea
         ? output.preferred ? "The chosen output device is connected." : "Playing on the Windows default output. Pick the Qu-24 below if it should go to the desk."
         : output ? `${output.preferred ?? "The chosen device"} is missing; playing on ${output.outputName}.` : "No output status received yet.",
       ok: !!output?.outputFound,
+    },
+    {
+      // Background music (WebView2) plays on the WINDOWS DEFAULT device, not on the show output.
+      key: "bgRoute", kind: "auto",
+      title: !routing.known ? "Background music output: unknown" : routing.same ? `Background music also goes to ${routing.showName}` : `Background music goes to ${routing.defaultName ?? "an unknown device"}, not the show output`,
+      detail: routing.same
+        ? "Windows' default output is the show output, so background music reaches the desk too. It does not pass StageGremlin's limiter: set its level in the Background screen."
+        : `Make ${routing.showName ?? "the show output"} the default device in Windows Settings › Sound, or background music plays on ${routing.defaultName ?? "another device"}. Only matters if you use background music.`,
+      // Only blocks the green light when this show actually uses background music.
+      ok: routing.same || !(show.background as { source?: string } | null | undefined)?.source,
     },
     {
       key: "cues", kind: "auto",

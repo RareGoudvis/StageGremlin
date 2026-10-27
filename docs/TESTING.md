@@ -194,3 +194,25 @@ Use Build mode unless the step says Run.
 - **Terminal output**: copy the last ~50 lines from the terminal running `npm run tauri dev`, especially lines with
   `error`, `panicked` or `warning`.
 - For sound problems, a short phone video helps (what you pressed, what you heard).
+
+
+---
+
+## Review fixes (27 Oct 2026) — needs Windows / the Qu-24
+
+These can't be tested automatically; please check them on the real laptop:
+
+1. **Save As to another folder** (USB stick or a new folder): open the show from the new folder only, rename the
+   old folder → every cue still plays. **Good:** nothing marked missing.
+2. **Emergency keys through a dialog**: in Run, open *Make next* (or Swap, or right-click a cue), then press
+   **Esc Esc** quickly. **Good:** Panic (everything stops instantly). A single Esc only closes the dialog.
+3. **Preflight states**: open a show, go to Preflight straight away. **Good:** "Checking the files…", then
+   "All cue and pad files verified". Rename one media file in Explorer → Run is blocked with the reason.
+   A file that won't decode (rename a .txt to .mp3) also blocks Run.
+4. **Background music routing**: set the laptop speakers as Windows default, Qu-24 as show output, play
+   background music. **Good:** Preflight shows the amber "Background music goes to Speakers…" row with an
+   "Open Windows sound settings" button; after making the Qu-24 default, it turns green and the music is on the desk.
+5. **GO from a slow USB stick**: put the show folder on a USB stick, GO quickly through several cues.
+   **Good:** no stutter, timers (pre-waits, follows) on time.
+6. **Rehearsal from a marker**: a cue with an attached cue later in the song → start from a marker before it.
+   **Good:** the attached cue fires at its moment; one before the marker doesn't.
