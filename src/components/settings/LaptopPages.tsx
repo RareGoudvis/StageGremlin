@@ -21,7 +21,7 @@ export function AudioPage() {
       <OutputPicker />
       <OutputPicker preview />
       <CalibrationCard />
-      <Card title="Limiter ceiling" note="Nothing leaves the laptop louder than this (true peak). Saved with the show.">
+      <Card title="Limiter ceiling" note="Every cue and pad leaves the laptop no louder than this (true peak). Saved with the show. Not covered by it: background music (plays on the Windows default device at its own level), the headphone preview (its own device, never the hall) and AUDAC/Streambox (outside StageGremlin).">
         <Row label="Ceiling">
           <NumField label="Limiter ceiling" unit="dBTP" value={settings.limiterCeilingDb} min={-12} max={0} step={0.5} onChange={(v) => set({ limiterCeilingDb: v })} />
         </Row>

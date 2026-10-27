@@ -4,6 +4,7 @@
 // Leaving: hold the small corner button for 3 s, or type the PIN when one is set in Settings.
 
 import { useEffect, useRef, useState } from "react";
+import { setLocalOverlay } from "../lib/emergencyKeys";
 import { useDoc } from "../store";
 import { useEngine } from "../engineStore";
 import { useUi } from "../uiStore";
@@ -33,6 +34,11 @@ export function DumboView() {
   const pads = showPads ? show.pads.filter((p) => p.hotkey) : [];
 
   // The keyboard: GO, Stop all (twice = Panic), pads. Everything else is swallowed.
+  // The PIN prompt counts as "something open": Esc closes it, Esc Esc still panics.
+  useEffect(() => {
+    setLocalOverlay("dumbo-pin", askPin);
+    return () => setLocalOverlay("dumbo-pin", false);
+  }, [askPin]);
   const live = useRef({ askPin, showPads });
   live.current = { askPin, showPads };
   useEffect(() => {

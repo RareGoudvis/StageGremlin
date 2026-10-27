@@ -9,7 +9,8 @@ import { usePreflight, type Check } from "../lib/preflight";
 import { call, type AudioOutput } from "../lib/tauri";
 import type { ToneKind } from "../types";
 import { fileSave } from "../lib/fileActions";
-import { canEnterRun, locateCue, useMedia } from "../lib/media";
+import { canEnterRun, checkFiles, locateCue, useMedia } from "../lib/media";
+import { openSoundSettings } from "../lib/bgRouting";
 import { ask, toast } from "../uiStore";
 
 export function PreflightView() {
@@ -87,6 +88,16 @@ function CheckRow({ check, onToggle }: { check: Check; onToggle?: () => void }) 
       {check.key === "missing" && check.fixId && (
         <span role="button" tabIndex={0} className="b btn" onClick={() => void locateCue(check.fixId!)} onKeyDown={(e) => e.key === "Enter" && void locateCue(check.fixId!)}
           style={{ background: "var(--red)", color: "var(--onred)", fontWeight: 700 }}>Locate…</span>
+      )}
+      {check.key === "bgRoute" && !check.ok && (
+        <span role="button" tabIndex={0} className="b btn" onClick={openSoundSettings} onKeyDown={(e) => e.key === "Enter" && openSoundSettings()}>
+          Open Windows sound settings
+        </span>
+      )}
+      {check.key === "verify" && !check.ok && (
+        <span role="button" tabIndex={0} className="b btn" onClick={() => void checkFiles()} onKeyDown={(e) => e.key === "Enter" && void checkFiles()}>
+          Check again
+        </span>
       )}
       {check.key === "saved" && !check.ok && (
         <span role="button" tabIndex={0} className="b btn" onClick={() => void fileSave()} onKeyDown={(e) => e.key === "Enter" && void fileSave()}>Save now</span>

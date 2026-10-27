@@ -232,6 +232,10 @@ export async function mockInvoke(cmd: string, args?: Record<string, unknown>): P
         { name: "Headphones (Realtek(R) Audio)", isDefault: false },
         { name: "Qu-24 USB", isDefault: false },
       ];
+    case "audio_default_output":
+      return { name: "Browser · Windows default output" };
+    case "open_sound_settings":
+      return undefined;
     case "audio_output_status":
       return { outputName: "Browser · Windows default output", outputFound: true, preferred: null };
     case "audio_set_output": {

@@ -40,6 +40,10 @@ export interface Commands {
   net_discover: { args: undefined; ret: { ip: string; name: string; model: string | null; kinds: string[]; dlnaUrl: string | null }[] };
   audio_list_outputs: { args: undefined; ret: AudioOutput[] };
   audio_output_status: { args: undefined; ret: OutputStatus };
+  /** Windows' default output device: where the background player (WebView2) actually plays. */
+  audio_default_output: { args: undefined; ret: { name: string | null } };
+  /** Opens Windows Settings › Sound. */
+  open_sound_settings: { args: undefined; ret: void };
   /** null = follow the Windows default output. Rebuilds the engine (cuts sound): never offer it in Run. */
   audio_set_output: { args: { name: string | null }; ret: void };
 

@@ -26,6 +26,7 @@ import { UpNext, upNextCues } from "../components/run/UpNext";
 import { GoBlock } from "../components/run/GoBlock";
 import { Dock } from "../components/run/Dock";
 import { bg, bgDo } from "../components/background/useBackground";
+import { setLocalOverlay } from "../lib/emergencyKeys";
 
 const DOUBLE_ESC_MS = 500;
 
@@ -37,6 +38,11 @@ export function RunView() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
   const big = useUi((s) => s.booth.big);
+  // The search box counts as "something open": Esc closes it instead of stopping everything.
+  useEffect(() => {
+    setLocalOverlay("run-search", searchOpen);
+    return () => setLocalOverlay("run-search", false);
+  }, [searchOpen]);
 
   // The card follows the cue the operator clicked in "Also playing", else the most recent one.
   const run = running?.find((r) => r.instance === focusInstance && !r.padId) ?? mainRunning(running);
@@ -78,6 +84,8 @@ export function RunView() {
         if (!e.repeat) void go();
         return;
       }
+      // Stop all / Panic are handled first, by lib/emergencyKeys.ts (they must work through dialogs too);
+      // this branch only remains as a fallback.
       if (hit("stopAll")) {
         e.preventDefault();
         // It also stops a headphone preview (that never plays in the hall anyway).
