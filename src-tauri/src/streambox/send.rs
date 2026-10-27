@@ -66,6 +66,9 @@ pub struct Sending {
 
 struct Running {
     stop: Arc<AtomicBool>,
+    /// Who is pulling the stream right now (the box, or a phone doing the check).
+    listeners: Listeners,
+    url: String,
     target: Target,
     /// Google Cast: the media app session we started (to stop it again).
     cast_session: Option<String>,
@@ -95,6 +98,7 @@ pub fn start(state: &Sending, target: Target, device: &str, codec: Codec, ffmpeg
         return Err("MP3 needs ffmpeg: install it in Settings › Import & tools.".into());
     }
     let mut format = start_loopback(listeners.clone(), stop_flag.clone(), device.to_string())?;
+    let listeners_seen = listeners.clone();
     format.codec = codec;
 
     // The laptop's own address as the box sees it: ask the system which interface would reach the box.
@@ -122,7 +126,8 @@ pub fn start(state: &Sending, target: Target, device: &str, codec: Codec, ffmpeg
             None
         }
     };
-    *state.running.lock().unwrap_or_else(|e| e.into_inner()) = Some(Running { stop: stop_flag, target, cast_session });
+    *state.running.lock().unwrap_or_else(|e| e.into_inner()) =
+        Some(Running { stop: stop_flag, listeners: listeners_seen, url: url.clone(), target, cast_session });
     Ok(url)
 }
 
@@ -136,8 +141,27 @@ pub fn stop(state: &Sending) {
     };
 }
 
-pub fn is_running(state: &Sending) -> bool {
-    state.running.lock().unwrap_or_else(|e| e.into_inner()).is_some()
+/// What the panel shows: sending or not, to what address, and how many are listening.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SendReport {
+    pub on: bool,
+    pub url: Option<String>,
+    /// 0 = nobody is pulling the stream (the box didn't connect, or hung up).
+    pub listeners: usize,
+}
+
+pub fn report(state: &Sending) -> SendReport {
+    let r = state.running.lock().unwrap_or_else(|e| e.into_inner());
+    match r.as_ref() {
+        None => SendReport { on: false, url: None, listeners: 0 },
+        Some(r) => {
+            // Drop listeners that have gone (a closed channel) before counting.
+            let mut list = r.listeners.lock().unwrap_or_else(|e| e.into_inner());
+            list.retain(|tx| !matches!(tx.try_send(Vec::new()), Err(std::sync::mpsc::TrySendError::Disconnected(_))));
+            SendReport { on: true, url: Some(r.url.clone()), listeners: list.len() }
+        }
+    }
 }
 
 // ---------------------------------------------------------------- the web server

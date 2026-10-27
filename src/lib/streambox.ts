@@ -17,6 +17,13 @@ export interface BoxStatus {
   canTransport: boolean;
 }
 
+export interface SendReport {
+  on: boolean;
+  url: string | null;
+  /** 0 = nobody is pulling the stream. */
+  listeners: number;
+}
+
 const POLL_MS = 3000;
 
 const target = (b: StreamboxSetup) => ({ via: b.via, ip: b.ip, dlnaUrl: b.dlnaUrl || null });
@@ -34,7 +41,9 @@ export const streambox = {
   /** Send StageGremlin's show output to the box; returns the stream address the box got. */
   sendStart: () => cmd<string>("streambox_send_start", { target: target(useSettings.getState().ui.streambox), format: useSettings.getState().ui.streambox.format }),
   sendStop: () => cmd<void>("streambox_send_stop", {}),
-  sending: () => cmd<boolean>("streambox_sending", {}),
+  /** Sending now? (`report` also says to what address and how many are listening.) */
+  sending: () => cmd<SendReport>("streambox_sending", {}).then((r) => r.on),
+  report: () => cmd<SendReport>("streambox_sending", {}),
 };
 
 /** Live status while mounted (null = not asked yet). `error` says why the box doesn't answer. */
@@ -67,7 +76,7 @@ let simSending = false;
 function sim(name: string, a: Record<string, unknown>): unknown {
   if (name === "streambox_send_start") { simSending = true; return "http://192.168.1.10:51234/stream.wav"; }
   if (name === "streambox_send_stop") { simSending = false; return; }
-  if (name === "streambox_sending") return simSending;
+  if (name === "streambox_sending") return { on: simSending, url: simSending ? "http://192.168.1.10:51234/stream.wav" : null, listeners: simSending ? 1 : 0 };
   if (name === "streambox_set_volume") simState.volume = Number(a.volume);
   if (name === "streambox_set_mute") simState.muted = !!a.mute;
   if (name === "streambox_transport") simState.playing = a.action === "play";
