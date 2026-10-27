@@ -315,7 +315,13 @@ impl Link {
                         self.out.push_back(protocol::set_mute(zone, mute));
                         self.update(|s| s.zones[zone as usize - 1].mute = mute);
                     }
-                    Msg::Guard(rules) => self.watch.set_rules(&rules),
+                    Msg::Guard(rules) => {
+                        // A zone already louder than a new ceiling comes down at once.
+                        for (zone, level) in self.watch.set_rules(&rules, Instant::now()) {
+                            eprintln!("[audac] zone {zone} louder than its limit: down to -{level} dB");
+                            self.out.push_front(protocol::set_volume(zone, level));
+                        }
+                    }
                 }
             }
 
