@@ -238,7 +238,7 @@ export function OutputPicker({ preview = false }: { preview?: boolean }) {
         <span className="tag tag-red" style={{ alignSelf: "flex-start" }}>SAME AS THE SHOW OUTPUT: PREVIEW WOULD PLAY IN THE HALL</span>
       )}
       {!preview && <span style={{ fontSize: 12.5, color: output?.outputFound === false ? "var(--redtx)" : "var(--dim)" }}>
-        {output ? (output.outputFound ? `Playing on ${output.outputName}.` : `${output.preferred} not found — playing on ${output.outputName}.`) : "Waiting for the engine…"}
+        {output ? (output.outputFound ? `Playing on ${output.outputName}.` : `${output.preferred} isn't connected — playing on ${output.outputName} until it is.`) : "Waiting for the engine…"}
       </span>}
     </div>
   );

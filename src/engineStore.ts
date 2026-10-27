@@ -16,6 +16,12 @@ interface EngineStore {
   /** Every log line received this session (the engine only sends new ones). */
   log: ShowLogEntry[];
   output: OutputStatus | null;
+  /**
+   * True only when the chosen output (the Qu-24) WAS connected this session and then disappeared
+   * (a USB dropout mid-show): that's worth a red banner. Never connected (at home, not plugged in
+   * yet) is not an error: we simply play on the Windows default until it shows up.
+   */
+  outputLost: boolean;
   lastError: string | null;
 
   /** Rehearsal mode: start anywhere, log lines are tagged, real durations are measured. */
@@ -34,12 +40,16 @@ interface EngineStore {
 }
 
 /** How far each running instance got, to measure it when it stops. */
+/** The chosen output's name the last time it was connected (see outputLost). */
+let seenPreferred: string | null = null;
+
 const lastSeen = new Map<number, { cueId: string; played: number; pad: boolean }>();
 
 export const useEngine = create<EngineStore>((set, get) => ({
   state: null,
   log: [],
   output: null,
+  outputLost: false,
   lastError: null,
   rehearsal: false,
   measured: {},
@@ -67,7 +77,11 @@ export const useEngine = create<EngineStore>((set, get) => ({
       log: s.newLog.length ? [...old.log, ...s.newLog.map((l) => ({ ...l, rehearsal: old.rehearsal }))].slice(-LOG_CAP) : old.log,
     });
   },
-  setOutput: (output) => set({ output }),
+  setOutput: (output) => {
+    if (output.outputFound && output.preferred) seenPreferred = output.preferred;
+    const outputLost = !output.outputFound && !!output.preferred && output.preferred === seenPreferred;
+    set({ output, outputLost });
+  },
   setError: (lastError) => set({ lastError }),
   setRehearsal: (rehearsal) => {
     lastSeen.clear();

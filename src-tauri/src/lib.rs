@@ -61,6 +61,16 @@ pub fn run() {
                 None => app.path().app_data_dir()?,
             };
             let _ = std::fs::create_dir_all(&data_dir);
+            // A new build unzipped into a fresh folder: bring the last-used settings over.
+            let carried_from = {
+                let exe_dir = std::env::current_exe().ok().and_then(|e| e.parent().map(|p| p.to_path_buf()));
+                let installed = if portable_dir.is_some() { app.path().app_data_dir().ok() } else { None };
+                let from_portable = if portable_dir.is_some() { exe_dir.as_deref() } else { None };
+                settings::carry_over(&data_dir, &settings::other_copies(from_portable, installed.as_deref()))
+            };
+            if let Some(from) = &carried_from {
+                eprintln!("[settings] brought over from {}", from.display());
+            }
 
             // The main window is made here (tauri.conf.json has "create": false) so it can get its
             // browser data folder directly: portable keeps it next to the .exe. (An environment
@@ -80,6 +90,7 @@ pub fn run() {
                 portable: portable_dir.is_some(),
                 data_dir: data_dir.display().to_string(),
                 build: updates::current_tag().map(String::from),
+                carried_from: carried_from.map(|p| p.display().to_string()),
             });
             let machine = settings::load(&settings::path_in(&data_dir));
             let engine = EngineHandle::spawn(app.handle().clone(), machine.output_device);
@@ -98,6 +109,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::settings_export,
+            commands::settings_import,
             commands::engine_set_show,
             commands::engine_go,
             commands::engine_stop_all,

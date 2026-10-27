@@ -49,6 +49,8 @@ pub struct AppInfo {
     pub data_dir: String,
     /// The release tag this build was made as (e.g. "v0.1.0-build.9"); None in dev builds.
     pub build: Option<String>,
+    /// Settings brought over from another StageGremlin copy at this start (shown once in the UI).
+    pub carried_from: Option<String>,
 }
 
 /// Engine errors also go out as an `engine://error` event, so the operator sees
@@ -339,6 +341,19 @@ pub fn show_in_folder(path: String) -> Result<(), String> {
 #[tauri::command]
 pub fn settings_get(info: State<'_, AppInfo>) -> serde_json::Value {
     settings::load(&settings::path_in(Path::new(&info.data_dir))).ui
+}
+
+/// Saves all settings of this laptop to a file the operator picked.
+#[tauri::command]
+pub fn settings_export(info: State<'_, AppInfo>, path: String) -> Result<(), String> {
+    settings::export(Path::new(&info.data_dir), Path::new(&path))
+}
+
+/// Replaces this laptop's settings with an exported file; returns the new UI settings.
+/// The output devices take effect at the next start (the audio engine reads them then).
+#[tauri::command]
+pub fn settings_import(info: State<'_, AppInfo>, path: String) -> Result<serde_json::Value, String> {
+    Ok(settings::import(Path::new(&info.data_dir), Path::new(&path))?.ui)
 }
 
 /// Merges `patch` into the UI settings (top-level keys; null removes a key) and returns the result.
