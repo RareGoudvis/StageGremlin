@@ -295,7 +295,9 @@ impl Link {
                     }
                     Msg::Volume { zone, db } => {
                         pending_volume[zone as usize - 1] = Some(db);
-                        self.watch.ours(zone, Field::Volume, Some(db), Instant::now());
+                        // A slider sends a run of volumes; the MTX answers each, some after the next one
+                        // went out. So for a moment ANY volume report for this zone is ours.
+                        self.watch.ours(zone, Field::Volume, None, Instant::now());
                         // Show it right away; the MTX's own update confirms it a moment later.
                         self.update(|s| s.zones[zone as usize - 1].volume = db);
                     }
