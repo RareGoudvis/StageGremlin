@@ -9,7 +9,8 @@ import { useUi } from "../../uiStore";
 import { audac, audacConnectSaved, MIN_VOLUME, useAudac, visible, type AudacState } from "../../lib/audac";
 import { useT } from "../../i18n";
 import { summarize } from "../../lib/audacGroups";
-import { changeText } from "../../lib/audacWatch";
+import { changeText, useGuardRules } from "../../lib/audacWatch";
+import type { GuardRule } from "../../lib/audacGroups";
 
 // Changes by someone else that the operator has read ("Clear"); shared by every open panel.
 const useCleared = create<{ upTo: number; clear: (id: number) => void }>((set) => ({ upTo: 0, clear: (upTo) => set({ upTo }) }));
@@ -28,7 +29,7 @@ export function AudacPanel({ big = false, inRun = false }: { big?: boolean; inRu
   const [selecting, setSelecting] = useState(false);
   const [picked, setPicked] = useState<number[]>([]);
   const groups = (setup.groups ?? []).filter((g) => g.zones.length);
-  const guarded = setup.guard?.when !== "off" ? setup.guard?.zones ?? [] : [];
+  const rules = useGuardRules();
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: big ? 10 : 6, minHeight: 0 }}>
@@ -54,7 +55,7 @@ export function AudacPanel({ big = false, inRun = false }: { big?: boolean; inRu
               subtitle={g.zones.map((n) => setup.zones[n - 1]?.name || n).join(" · ")} />
           ))}
           {zones.map((z) => (
-            <ZoneRow key={z.n} n={z.n} name={z.name} zone={st?.zones[z.n - 1]} inputs={inputs} big={big} guarded={guarded.includes(z.n)}
+            <ZoneRow key={z.n} n={z.n} name={z.name} zone={st?.zones[z.n - 1]} inputs={inputs} big={big} rule={rules.find((r) => r.zone === z.n)}
               pick={selecting ? { on: picked.includes(z.n), toggle: () => setPicked((p) => (p.includes(z.n) ? p.filter((x) => x !== z.n) : [...p, z.n])) } : undefined} />
           ))}
         </div>
@@ -157,13 +158,14 @@ function StatusBar({ st, locked, onUnlock }: { st: AudacState | null; locked: bo
   );
 }
 
-function ZoneRow({ n, name, zone, inputs, big, guarded = false, pick }: {
+function ZoneRow({ n, name, zone, inputs, big, rule, pick }: {
   n: number;
   name: string;
   zone: { volume: number; input: number; mute: boolean } | undefined;
   inputs: { n: number; name: string }[];
   big: boolean;
-  guarded?: boolean;
+  /** How this zone is protected right now (Guard, Hold, a running schedule). */
+  rule?: GuardRule;
   /** Select mode: a tick box in front of the name. */
   pick?: { on: boolean; toggle: () => void };
 }) {
@@ -181,7 +183,11 @@ function ZoneRow({ n, name, zone, inputs, big, guarded = false, pick }: {
         {pick && <input type="checkbox" tabIndex={-1} aria-label={name} checked={pick.on} onChange={pick.toggle} style={{ width: 18, height: 18 }} />}
         <span className="clamp1" style={{ flex: 1, fontWeight: 700, fontSize: big ? 15 : 13 }} onClick={pick?.toggle}>
           {name}
-          {guarded && <span title={t("audac.guard")} style={{ marginLeft: 6, fontSize: 11, color: "var(--acc)" }}>● {t("audac.guard")}</span>}
+          {rule && (
+            <span title={t("audac.guardNote")} style={{ marginLeft: 6, fontSize: 11, color: "var(--acc)" }}>
+              ● {rule.full ? (rule.unlimited ? t("audac.hold") : t("audac.guard")) : ""}{rule.ceiling !== null ? `${rule.full ? " · " : ""}≤ −${rule.ceiling} dB` : ""}
+            </span>
+          )}
         </span>
         <span className="mono" style={{ width: 62, textAlign: "right", fontSize: 12.5, color: zone?.mute ? "var(--redtx)" : "var(--text)" }}>
           {zone?.mute ? "MUTE" : shown >= MIN_VOLUME ? "off" : `−${shown} dB`}

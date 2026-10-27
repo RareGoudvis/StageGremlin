@@ -7,16 +7,34 @@
 
 use std::time::{Duration, Instant};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::protocol::ZONES;
 
-/// How long after our own command a change of that setting still counts as ours (the MTX's
-/// answer, and a volume step whose result we can't predict).
+/// How long after our own command its effects are still settling (a volume step's unknown result,
+/// or an old value in a report that was already on its way).
 pub const OURS_FOR: Duration = Duration::from_millis(2500);
-/// A guarded setting is put back at most this often per minute; after that we stop fighting
-/// (someone keeps changing it on purpose) and only report it.
+/// How long an old value in a report counts as "already on its way" rather than a new change.
+/// Short: the same value set again by someone else after this is caught (and the 10 s poll
+/// catches anything that slips through).
+pub const STALE_FOR: Duration = Duration::from_millis(800);
+/// A politely guarded setting is put back at most this often per minute; after that we stop
+/// fighting (someone keeps changing it on purpose) and only report it. "Hold" has no limit.
 pub const MAX_RESTORES_PER_MINUTE: usize = 3;
+
+/// How one zone is protected against changes by someone else.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Rule {
+    pub zone: u8,
+    /// Put back every change (input, volume, mute).
+    pub full: bool,
+    /// Never louder than this (dB below max; louder = smaller number): a change by someone else
+    /// above it is put back to it. Quieter is allowed.
+    pub ceiling: Option<u8>,
+    /// No limit on putting back ("Hold"; always for the ceiling: hearing safety).
+    pub unlimited: bool,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -39,91 +57,114 @@ fn idx(f: Field) -> usize {
 pub enum Verdict {
     /// Expected, our own, or the first value we hear: nothing to say.
     Fine,
-    /// Someone else changed it. `restore`: put `from` back (guarded zone).
-    Foreign { from: u8, restore: bool },
+    /// Someone else changed it. `restore`: the value to send back (protected zone), if any.
+    Foreign { from: u8, restore: Option<u8> },
 }
 
 #[derive(Default, Clone)]
 struct Slot {
     /// What we expect; None until the MTX has told us once.
     expected: Option<u8>,
-    /// Until when a change counts as our own.
-    ours_until: Option<Instant>,
+    /// After our volume step (result unknown): until when ANY new value counts as our own.
+    any_until: Option<Instant>,
+    /// After we set or put back a value: the value it had before, which may still arrive in a
+    /// report that was already on its way; until when that one is ignored.
+    stale: Option<(u8, Instant)>,
     /// When we last put it back (for MAX_RESTORES_PER_MINUTE).
     restores: Vec<Instant>,
 }
 
 pub struct Watch {
     slots: Vec<[Slot; 3]>,
-    guarded: [bool; ZONES],
+    rules: [Option<Rule>; ZONES],
 }
 
 impl Default for Watch {
     fn default() -> Self {
-        Self { slots: vec![Default::default(); ZONES], guarded: [false; ZONES] }
+        Self { slots: vec![Default::default(); ZONES], rules: [None; ZONES] }
     }
 }
 
 impl Watch {
     /// After (re)connecting: forget what we expected; the first answers set it again.
     pub fn reset(&mut self) {
-        let guarded = self.guarded;
+        let rules = self.rules;
         *self = Self::default();
-        self.guarded = guarded;
+        self.rules = rules;
     }
 
-    /// Zones (1–8) to put back when someone else changes them.
-    pub fn set_guarded(&mut self, zones: &[u8]) {
-        self.guarded = [false; ZONES];
-        for &z in zones {
-            if (1..=ZONES as u8).contains(&z) {
-                self.guarded[z as usize - 1] = true;
+    /// How each zone is protected (zones not listed: changes are only reported).
+    pub fn set_rules(&mut self, rules: &[Rule]) {
+        self.rules = [None; ZONES];
+        for r in rules {
+            if (1..=ZONES as u8).contains(&r.zone) {
+                self.rules[r.zone as usize - 1] = Some(*r);
             }
         }
     }
 
-    pub fn is_guarded(&self, zone: u8) -> bool {
-        (1..=ZONES as u8).contains(&zone) && self.guarded[zone as usize - 1]
+    fn rule(&self, zone: u8) -> Option<Rule> {
+        if (1..=ZONES as u8).contains(&zone) { self.rules[zone as usize - 1] } else { None }
     }
 
     /// We sent a command. `value`: what it will become, or None when we can't know (volume step).
     pub fn ours(&mut self, zone: u8, field: Field, value: Option<u8>, now: Instant) {
         let Some(slot) = self.slot(zone, field) else { return };
-        slot.ours_until = Some(now + OURS_FOR);
-        if value.is_some() {
-            slot.expected = value;
+        match value {
+            None => slot.any_until = Some(now + OURS_FOR),
+            Some(v) => {
+                if let Some(old) = slot.expected {
+                    slot.stale = Some((old, now + STALE_FOR));
+                }
+                slot.expected = Some(v);
+            }
         }
     }
 
     /// The MTX says `zone`'s `field` is now `value`.
     pub fn verdict(&mut self, zone: u8, field: Field, value: u8, now: Instant) -> Verdict {
-        let guarded = self.is_guarded(zone);
+        let rule = self.rule(zone);
         let Some(slot) = self.slot(zone, field) else { return Verdict::Fine };
-        let ours = slot.ours_until.is_some_and(|t| now < t);
+        let any_ours = slot.any_until.is_some_and(|t| now < t);
+        let stale = slot.stale.is_some_and(|(v, t)| v == value && now < t);
         match slot.expected {
             None => {
                 slot.expected = Some(value);
                 Verdict::Fine
             }
             Some(e) if e == value => Verdict::Fine,
-            Some(_) if ours => {
-                // Our own command's result (a volume step we couldn't predict, or the MTX
-                // rounding what we asked): the MTX knows best.
+            // A report from just before our command landed: not a change.
+            Some(_) if stale => Verdict::Fine,
+            Some(_) if any_ours => {
+                // Our own volume step, whose result we couldn't predict: the MTX knows best.
                 slot.expected = Some(value);
                 Verdict::Fine
             }
             Some(e) => {
                 slot.restores.retain(|t| now.duration_since(*t) < Duration::from_secs(60));
-                let restore = guarded && slot.restores.len() < MAX_RESTORES_PER_MINUTE;
-                if restore {
-                    // Keep expecting ours; the caller sends it again.
-                    slot.restores.push(now);
-                    slot.ours_until = Some(now + OURS_FOR);
-                } else {
-                    // Not guarded (or we stop fighting): their value is the new normal.
-                    slot.expected = Some(value);
+                let polite_ok = slot.restores.len() < MAX_RESTORES_PER_MINUTE;
+                // What to send back, if anything.
+                let target = match rule {
+                    // Louder than the ceiling: back to what it was when that was within the
+                    // ceiling, otherwise to the ceiling itself.
+                    Some(r) if field == Field::Volume && r.ceiling.is_some_and(|c| value < c) => {
+                        let c = r.ceiling.unwrap_or(e);
+                        Some(if e >= c { e } else { c })
+                    }
+                    Some(r) if r.full && (r.unlimited || polite_ok) => Some(e),
+                    _ => None,
+                };
+                match target {
+                    Some(v) => {
+                        // Keep expecting the restored value; the caller sends it.
+                        slot.restores.push(now);
+                        slot.stale = Some((value, now + STALE_FOR));
+                        slot.expected = Some(v);
+                    }
+                    // Not protected (or we stop fighting): their value is the new normal.
+                    None => slot.expected = Some(value),
                 }
-                Verdict::Foreign { from: e, restore }
+                Verdict::Foreign { from: e, restore: target }
             }
         }
     }
@@ -160,7 +201,7 @@ mod tests {
         let mut w = Watch::default();
         let now = t0();
         w.verdict(5, Field::Input, 2, now);
-        assert_eq!(w.verdict(5, Field::Input, 4, now + Duration::from_secs(10)), Verdict::Foreign { from: 2, restore: false });
+        assert_eq!(w.verdict(5, Field::Input, 4, now + Duration::from_secs(10)), Verdict::Foreign { from: 2, restore: None });
         // Their value is the new normal: hearing it again (a poll) says nothing new.
         assert_eq!(w.verdict(5, Field::Input, 4, now + Duration::from_secs(25)), Verdict::Fine);
     }
@@ -168,19 +209,19 @@ mod tests {
     #[test]
     fn a_guarded_zone_is_put_back_but_not_forever() {
         let mut w = Watch::default();
-        w.set_guarded(&[5]);
+        w.set_rules(&[Rule { zone: 5, full: true, ..Default::default() }]);
         let now = t0();
         w.verdict(5, Field::Mute, 0, now);
         let mut restores = 0;
         for i in 1..=6 {
             let at = now + Duration::from_secs(5 * i);
             match w.verdict(5, Field::Mute, 1, at) {
-                Verdict::Foreign { from: 0, restore: true } => {
+                Verdict::Foreign { from: 0, restore: Some(0) } => {
                     restores += 1;
                     // We sent it back and the MTX confirms ours.
                     assert_eq!(w.verdict(5, Field::Mute, 0, at + Duration::from_millis(300)), Verdict::Fine);
                 }
-                Verdict::Foreign { restore: false, .. } => break,
+                Verdict::Foreign { restore: None, .. } => break,
                 v => panic!("unexpected {v:?}"),
             }
         }
@@ -200,11 +241,39 @@ mod tests {
     #[test]
     fn reconnecting_starts_fresh_but_keeps_the_guard() {
         let mut w = Watch::default();
-        w.set_guarded(&[3]);
+        w.set_rules(&[Rule { zone: 3, full: true, ..Default::default() }]);
         let now = t0();
         w.verdict(3, Field::Input, 1, now);
         w.reset();
         assert_eq!(w.verdict(3, Field::Input, 6, now), Verdict::Fine);
-        assert!(w.is_guarded(3));
+        assert_eq!(w.verdict(3, Field::Input, 2, now + Duration::from_secs(5)), Verdict::Foreign { from: 6, restore: Some(6) });
+    }
+
+    #[test]
+    fn hold_never_gives_up() {
+        let mut w = Watch::default();
+        w.set_rules(&[Rule { zone: 1, full: true, unlimited: true, ..Default::default() }]);
+        let now = t0();
+        w.verdict(1, Field::Input, 3, now);
+        for i in 1..=20 {
+            let at = now + Duration::from_secs(2 * i);
+            assert_eq!(w.verdict(1, Field::Input, 7, at), Verdict::Foreign { from: 3, restore: Some(3) }, "try {i}");
+            assert_eq!(w.verdict(1, Field::Input, 3, at + Duration::from_millis(200)), Verdict::Fine);
+        }
+    }
+
+    #[test]
+    fn no_louder_than_the_ceiling_but_quieter_is_fine() {
+        let mut w = Watch::default();
+        // Scheduled at -30 dB: someone may turn it down, never up past -30.
+        w.set_rules(&[Rule { zone: 4, ceiling: Some(30), unlimited: true, ..Default::default() }]);
+        let now = t0();
+        w.verdict(4, Field::Volume, 30, now);
+        assert_eq!(w.verdict(4, Field::Volume, 40, now + Duration::from_secs(5)), Verdict::Foreign { from: 30, restore: None }, "quieter: reported, kept");
+        assert_eq!(w.verdict(4, Field::Volume, 10, now + Duration::from_secs(10)), Verdict::Foreign { from: 40, restore: Some(40) }, "louder than ceiling: back to where it was");
+        w.verdict(4, Field::Volume, 40, now + Duration::from_millis(10_200));
+        assert_eq!(w.verdict(4, Field::Volume, 34, now + Duration::from_secs(15)), Verdict::Foreign { from: 40, restore: None }, "louder but within the ceiling: allowed");
+        w.verdict(4, Field::Input, 1, now);
+        assert_eq!(w.verdict(4, Field::Input, 2, now + Duration::from_secs(20)), Verdict::Foreign { from: 1, restore: None }, "inputs only reported");
     }
 }

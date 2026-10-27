@@ -7,17 +7,28 @@ import { useSettings } from "../settingsStore";
 import { useUi } from "../uiStore";
 import { translate, type TKey } from "../i18n";
 import { audac, useAudac } from "./audac";
-import { activeGuard, describeChange } from "./audacGroups";
+import { describeChange, guardRules, type GuardRule } from "./audacGroups";
+import { useScheduleRunning } from "./audacSchedule";
 
-/** Tell the core which zones to put back, whenever the setting or Run changes (and after reconnecting). */
+/** Tell the core how each zone is protected, whenever Guard, Run or the running schedule changes (and after reconnecting). */
 export function useAudacGuardSync() {
   const guard = useSettings((s) => s.ui.audac.guard);
   const inRun = useDoc((s) => s.mode === "run");
+  const running = useScheduleRunning((s) => s.running);
   const connected = useAudac()?.status === "connected";
-  const zones = activeGuard(guard ?? { zones: [], when: "off" }, inRun).join(",");
+  const rules = guardRules(guard ?? { zones: [], when: "off" }, inRun, running);
+  const key = JSON.stringify(rules);
   useEffect(() => {
-    audac.setGuard(zones ? zones.split(",").map(Number) : []).catch(() => {});
-  }, [zones, connected]);
+    audac.setGuard(JSON.parse(key)).catch(() => {});
+  }, [key, connected]);
+}
+
+/** The same rules, for showing per zone in the panel ("Hold", "≤ −30 dB"). */
+export function useGuardRules(): GuardRule[] {
+  const guard = useSettings((s) => s.ui.audac.guard);
+  const inRun = useDoc((s) => s.mode === "run");
+  const running = useScheduleRunning((s) => s.running);
+  return guardRules(guard ?? { zones: [], when: "off" }, inRun, running);
 }
 
 /** One toast per new change by someone else, e.g. "09:31 · Podium: input Line 3 → Aux (put back)". */

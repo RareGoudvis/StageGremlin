@@ -8,6 +8,7 @@ import { listen } from "@tauri-apps/api/event";
 import { isTauri } from "./tauri";
 import { useSettings, type AudacSetup } from "../settingsStore";
 import { applyMtxNames, DEFAULT_INPUT_NAMES, DEFAULT_ZONE_NAMES, mtxNames } from "./audacNames";
+import type { GuardRule } from "./audacGroups";
 
 export type AudacStatus = "off" | "connecting" | "connected" | "retrying";
 
@@ -74,8 +75,8 @@ export const audac = {
   step: (zone: number, up: boolean) => cmd<void>("audac_step_volume", { zone, up }),
   setInput: (zone: number, input: number) => cmd<void>("audac_set_input", { zone, input }),
   setMute: (zone: number, mute: boolean) => cmd<void>("audac_set_mute", { zone, mute }),
-  /** Zones to put back when someone else changes them; [] = guard off. */
-  setGuard: (zones: number[]) => cmd<void>("audac_set_guard", { zones }),
+  /** How each zone is protected against changes by someone else; [] = report only. */
+  setGuard: (rules: GuardRule[]) => cmd<void>("audac_set_guard", { rules }),
   /** The last lines sent to (→) and heard from (←) the MTX. */
   talk: () => cmd<string[]>("audac_talk"),
 };
@@ -168,8 +169,10 @@ const sim = (() => {
   let guarded: number[] = [];
   let nextId = 1;
   /** Demo: "a colleague with Touch 2" switches zone 2 to input 7 a few seconds after connecting. */
+  let demoDone = false;
   const someoneElse = () => {
-    if (state.status !== "connected") return;
+    if (state.status !== "connected" || demoDone) return;
+    demoDone = true;
     const z = 2, before = state.zones[z - 1].input, to = before === 7 ? 3 : 7;
     const restored = guarded.includes(z);
     zone(z, { input: to });
@@ -197,7 +200,7 @@ const sim = (() => {
           setTimeout(() => set({ status: "connected", known: true, names: demoNames, namesAnswered: 30 }), 400);
           setTimeout(someoneElse, 9000);
           return;
-        case "audac_set_guard": guarded = (a.zones as number[]) ?? []; return;
+        case "audac_set_guard": guarded = ((a.rules as GuardRule[]) ?? []).filter((r) => r.full).map((r) => r.zone); return;
         case "audac_talk": return ["(demo: no real MTX)"];
         case "audac_disconnect": return set({ status: "off", known: false });
         case "audac_set_volume": return zone(Number(a.zone), { volume: Number(a.db) });
