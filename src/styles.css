@@ -127,21 +127,22 @@ input[type=checkbox] { accent-color: var(--acc); width: 18px; height: 18px; marg
 
 /* ---- Top bar: fold up step by step when the window is narrow ----
    The header is a size container, so these follow its own width (and the UI-size setting).
-   Order: least needed first. Everything hidden keeps its meaning in a tooltip or an icon. */
+   Order: least needed first. Everything hidden keeps its meaning in a tooltip or an icon.
+   (!important: some of these elements set display inline, which would otherwise win.) */
 .topbar { container-type: inline-size; container-name: topbar; }
 @container topbar (max-width: 1650px) {
-  .tb-logo-text, .tb-settings-label { display: none; }
+  .tb-logo-text, .tb-settings-label { display: none !important; }
 }
 @container topbar (max-width: 1450px) {
-  .tb-clock, .tb-mode-num { display: none; }
+  .tb-clock, .tb-mode-num { display: none !important; }
   .tb-file { max-width: 200px !important; }
 }
 @container topbar (max-width: 1350px) {
-  .tb-output-name, .tb-bg-label, .tb-master-label { display: none; }
+  .tb-output-name, .tb-bg-label, .tb-master-label { display: none !important; }
   .topbar { gap: 10px !important; }
 }
 @container topbar (max-width: 1250px) {
-  .tb-mode-label-bg { display: none; }
+  .tb-mode-label-bg { display: none !important; }
 }
 
 /* Run: dialogs open inside an area of the show screen (see RunDialogHost.tsx), not over GO/STOP/PANIC. */

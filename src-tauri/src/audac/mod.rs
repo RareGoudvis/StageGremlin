@@ -78,6 +78,8 @@ pub struct AudacState {
     pub changes: Vec<Change>,
     /// How many of the 30 name questions the MTX answered since connecting (0 = it doesn't know GN).
     pub names_answered: u8,
+    /// Other apps the MTX answered in the last OTHERS_FOR (by name tag; Touch 2 is "web").
+    pub others: Vec<String>,
 }
 
 /// A zone setting changed by someone other than StageGremlin.
@@ -116,6 +118,9 @@ pub struct Audac {
 
 /// The last lines sent to and heard from the MTX, for Settings › AUDAC › "Conversation".
 type Talk = Arc<Mutex<TalkLog>>;
+/// An app counts as "on the MTX now" this long after the MTX last answered it (Touch 2's
+/// level meters arrive several times a second while it's open).
+const OTHERS_FOR: Duration = Duration::from_secs(15);
 /// Our own name tag in lines to the MTX (protocol.rs, SOURCE).
 const SOURCE_NAME: &str = "SG";
 const TALK_LINES: usize = 200;
@@ -203,6 +208,7 @@ pub fn start(app: AppHandle) -> Audac {
         names: vec![String::new(); NAMES],
         changes: Vec::new(),
         names_answered: 0,
+        others: Vec::new(),
     }));
     let talk: Talk = Default::default();
     let talk_for_link = talk.clone();
@@ -243,6 +249,7 @@ impl Link {
         let mut next_try = Instant::now();
         let mut last_poll = Instant::now();
         let mut last_heard = Instant::now();
+        let mut last_others = Instant::now();
         // Questions waiting to go out, one every ASK_GAP (see get_all).
         let mut asks: VecDeque<String> = Default::default();
         let mut next_ask = Instant::now();
@@ -282,6 +289,8 @@ impl Link {
                             s.status = Status::Off;
                             s.message = None;
                             s.known = false;
+                            // Not connected: we can't see who else is.
+                            s.others.clear();
                         });
                     }
                     Msg::Volume { zone, db } => {
@@ -367,6 +376,15 @@ impl Link {
                 if last_poll.elapsed() >= POLL_EVERY {
                     last_poll = Instant::now();
                     asks.extend(protocol::get_all());
+                }
+                // Who else is on the MTX right now (Touch 2 streams level meters while open).
+                if last_others.elapsed() >= Duration::from_secs(1) {
+                    last_others = Instant::now();
+                    let now_others = self.others_now();
+                    let changed = self.state.lock().map(|s| s.others != now_others).unwrap_or(false);
+                    if changed {
+                        self.update(|s| s.others = now_others);
+                    }
                 }
                 if self.heard_something() {
                     last_heard = Instant::now();
@@ -491,6 +509,12 @@ impl Link {
                 Update::Other => {}
             }
         });
+    }
+
+    /// Name tags of other apps the MTX answered in the last OTHERS_FOR.
+    fn others_now(&self) -> Vec<String> {
+        let t = self.talk.lock().unwrap_or_else(|e| e.into_inner());
+        t.others.iter().filter(|(_, (at, _))| at.elapsed() < OTHERS_FOR).map(|(name, _)| name.clone()).collect()
     }
 
     fn send(&mut self, line: &str) {

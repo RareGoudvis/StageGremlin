@@ -6,7 +6,7 @@ import type { LogEntry } from "../../types";
 import { PadsDock } from "./PadsDock";
 import { BackgroundDock } from "../background/BackgroundDock";
 import { AudacPanel } from "../audac/AudacPanel";
-import { useAudacConfigured } from "../../lib/audac";
+import { useAudac, useAudacConfigured } from "../../lib/audac";
 import { useSettings } from "../../settingsStore";
 
 type Tab = "pads" | "bg" | "audac" | "log";
@@ -15,10 +15,12 @@ export function Dock() {
   const [tab, setTab] = useState<Tab>("pads");
   // Hidden in Run when this laptop says so (Settings › AUDAC › In Run).
   const audacOn = useAudacConfigured() && useSettings((s) => s.ui.audac.inRun) !== "hide";
+  // "!" on the tab while another app (Touch 2) is on the MTX.
+  const othersOn = !!useAudac()?.others?.length;
   const tabs: { id: Tab; label: string }[] = [
     { id: "pads", label: "PADS" },
     { id: "bg", label: "BACKGROUND" },
-    ...(audacOn ? [{ id: "audac" as const, label: "AUDAC" }] : []),
+    ...(audacOn ? [{ id: "audac" as const, label: othersOn ? "AUDAC !" : "AUDAC" }] : []),
     { id: "log", label: "LOG" },
   ];
   return (
