@@ -23,7 +23,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
 use protocol::{Update, MIN_VOLUME, NAMES, ZONES};
-use watch::{Field, Verdict, Watch};
+use watch::{Field, Rule, Verdict, Watch};
 
 const RETRY_EVERY: Duration = Duration::from_secs(3);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
@@ -103,8 +103,8 @@ enum Msg {
     Step { zone: u8, up: bool },
     Input { zone: u8, input: u8 },
     Mute { zone: u8, mute: bool },
-    /// Zones to put back when someone else changes them (empty = guard off).
-    Guard(Vec<u8>),
+    /// How each zone is protected against changes by someone else (empty = report only).
+    Guard(Vec<Rule>),
 }
 
 /// Managed by Tauri; the commands below talk to the thread through it.
@@ -241,7 +241,7 @@ impl Link {
                         self.out.push_back(protocol::set_mute(zone, mute));
                         self.update(|s| s.zones[zone as usize - 1].mute = mute);
                     }
-                    Msg::Guard(zones) => self.watch.set_guarded(&zones),
+                    Msg::Guard(rules) => self.watch.set_rules(&rules),
                 }
             }
 
@@ -374,13 +374,15 @@ impl Link {
         let mut changes = Vec::new();
         for (zone, what, to) in seen {
             if let Verdict::Foreign { from, restore } = self.watch.verdict(zone, what, to, now) {
-                if restore {
-                    self.out.push_back(match what {
-                        Field::Volume => protocol::set_volume(zone, from),
-                        Field::Input => protocol::set_input(zone, from),
-                        Field::Mute => protocol::set_mute(zone, from == 1),
+                if let Some(v) = restore {
+                    // Ahead of everything else waiting: a too-loud zone must come down at once.
+                    self.out.push_front(match what {
+                        Field::Volume => protocol::set_volume(zone, v),
+                        Field::Input => protocol::set_input(zone, v),
+                        Field::Mute => protocol::set_mute(zone, v == 1),
                     });
                 }
+                let restore = restore.is_some();
                 eprintln!("[audac] zone {zone} {what:?} changed by someone else: {from} -> {to}{}", if restore { " (put back)" } else { "" });
                 let at = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
                 changes.push(Change { id: self.next_change, at, zone, what, from, to, restored: restore });
@@ -537,10 +539,11 @@ pub fn audac_talk(audac: State<'_, Audac>) -> Vec<String> {
     audac.talk.lock().unwrap_or_else(|e| e.into_inner()).iter().cloned().collect()
 }
 
-/// Zones to put back when someone else changes them; empty = guard off.
+/// How each zone is protected against changes by someone else (Guard, Hold, a schedule's
+/// "never louder"); zones not listed are only reported.
 #[tauri::command]
-pub fn audac_set_guard(audac: State<'_, Audac>, zones: Vec<u8>) -> Result<(), String> {
-    post(&audac, Msg::Guard(zones))
+pub fn audac_set_guard(audac: State<'_, Audac>, rules: Vec<Rule>) -> Result<(), String> {
+    post(&audac, Msg::Guard(rules))
 }
 
 #[tauri::command]

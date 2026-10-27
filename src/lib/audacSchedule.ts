@@ -6,6 +6,8 @@
 // repeat, so if the app is opened in the middle of lunch, lunch simply starts then.
 
 import { useEffect } from "react";
+import { create } from "zustand";
+import { volumeFor } from "./audacGroups";
 import { useSettings, type ScheduleEntry } from "../settingsStore";
 import { useDoc } from "../store";
 import { toast } from "../uiStore";
@@ -18,6 +20,10 @@ const PAGE_LOAD_MS = 8_000;
 
 /** Times we started in this session, kept as they were then (so the end mutes the same zones). */
 const started = new Map<string, ScheduleEntry>();
+
+/** The scheduled times running now (their zones are protected: lib/audacGroups.ts, guardRules). */
+export const useScheduleRunning = create<{ running: ScheduleEntry[] }>(() => ({ running: [] }));
+const publish = () => useScheduleRunning.setState({ running: [...started.values()] });
 /** Times we already warned about (can't reach the MTX), so the toast doesn't repeat every check. */
 const warned = new Set<string>();
 let checking = false;
@@ -86,9 +92,10 @@ async function start(e: ScheduleEntry) {
     return;
   }
   started.set(e.id, e);
+  publish();
   for (const z of e.zones) {
     await audac.setInput(z, e.input);
-    await audac.setVolume(z, e.volume);
+    await audac.setVolume(z, volumeFor(e, z));
     await audac.setMute(z, false);
   }
   if (e.music.source) {
@@ -104,6 +111,7 @@ async function start(e: ScheduleEntry) {
 
 async function end(e: ScheduleEntry, after: "release" | "keep") {
   started.delete(e.id);
+  publish();
   if (e.music.source) await bg.command("pause").catch(() => {});
   const st = await audac.getState();
   if (st.status === "connected") {

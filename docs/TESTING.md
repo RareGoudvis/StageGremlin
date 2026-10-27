@@ -231,3 +231,7 @@ These can't be tested automatically; please check them on the real laptop:
 7. **No Qu-24 at home:** start without it → no red banner, plays on the laptop; plug it in while idle → switches over.
 8. **Settings carry over:** unzip the next build next to this one → start → toast "Settings brought over…",
    AUDAC/Streambox set up as before. Settings › About › Export… / Import… round-trips.
+9. **Hold:** Guard › How hard › Hold. Change a guarded zone in Touch 2 again and again: it always comes back.
+10. **Scheduled time protects:** while a scheduled time is on, turn one of its zones UP in Touch 2 → back to its
+    level at once. Turn it DOWN → allowed (unless "May not change it"). Per zone levels: "Per zone" next to Level.
+11. **Conversation:** Settings › AUDAC › Conversation with the MTX › Show → Copy, and send it along.

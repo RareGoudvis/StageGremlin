@@ -1,6 +1,7 @@
 // Settings › Schedule: times when StageGremlin runs the AUDAC zones (and background music) by itself,
 // e.g. lunch in the study hall. Admin only. The runner is lib/audacSchedule.ts.
 
+import { volumeFor } from "../../lib/audacGroups";
 import { useSettings, type AudacSetup, type ScheduleEntry } from "../../settingsStore";
 import { useT, type TKey } from "../../i18n";
 import { MIN_VOLUME, visible } from "../../lib/audac";
@@ -102,8 +103,27 @@ function EntryCard({ e, setup, set, remove }: { e: ScheduleEntry; setup: AudacSe
       </Row>
       <Row label={t("sched.level")}>
         {/* Right = louder, like the panel. */}
-        <input type="range" aria-label={t("sched.level")} min={0} max={MIN_VOLUME} value={MIN_VOLUME - e.volume} onChange={(ev) => set({ volume: MIN_VOLUME - Number(ev.target.value) })} style={{ flex: 1 }} />
+        <input type="range" aria-label={t("sched.level")} min={0} max={MIN_VOLUME} value={MIN_VOLUME - e.volume} disabled={!!e.zoneVolumes}
+          onChange={(ev) => set({ volume: MIN_VOLUME - Number(ev.target.value) })} style={{ flex: 1 }} />
         <span className="mono" style={{ width: 64, textAlign: "right" }}>−{e.volume} dB</span>
+        <button className="b chip" aria-pressed={!!e.zoneVolumes} title={t("sched.advancedHint")}
+          onClick={() => set({ zoneVolumes: e.zoneVolumes ? undefined : Object.fromEntries(e.zones.map((z) => [String(z), e.volume])) })}>
+          {t("sched.advanced")}
+        </button>
+      </Row>
+      {e.zoneVolumes && e.zones.map((z) => {
+        const v = volumeFor(e, z);
+        return (
+          <Row key={z} label={setup.zones[z - 1]?.name || `Zone ${z}`}>
+            <input type="range" aria-label={`${setup.zones[z - 1]?.name || z} ${t("sched.level")}`} min={0} max={MIN_VOLUME} value={MIN_VOLUME - v}
+              onChange={(ev) => set({ zoneVolumes: { ...e.zoneVolumes, [String(z)]: MIN_VOLUME - Number(ev.target.value) } })} style={{ flex: 1 }} />
+            <span className="mono" style={{ width: 64, textAlign: "right" }}>−{v} dB</span>
+          </Row>
+        );
+      })}
+      <Row label={t("sched.protect")} hint={t("sched.protectHint")}>
+        <Chips<NonNullable<ScheduleEntry["protect"]>> label={t("sched.protect")} value={e.protect ?? "noLouder"} onChange={(protect) => set({ protect })}
+          options={[{ value: "noLouder", label: t("sched.protectNoLouder") }, { value: "full", label: t("sched.protectFull") }, { value: "off", label: t("sched.protectOff") }]} />
       </Row>
       <Row label={t("sched.music")} hint={t("sched.musicHint")}>
         <select className="select" aria-label={t("sched.music")} value={e.music.source} onChange={(ev) => set({ music: { ...e.music, source: ev.target.value as ScheduleEntry["music"]["source"] } })} style={{ width: 170 }}>

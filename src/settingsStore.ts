@@ -114,7 +114,7 @@ export interface AudacSetup {
   /** Named sets of zones controlled together, e.g. "All playgrounds" = zones 3, 4 and 6. */
   groups: AudacGroup[];
   /** Zones StageGremlin puts back when someone else (Touch 2, a wall panel) changes them, and when. */
-  guard: { zones: number[]; when: "off" | "run" | "always" };
+  guard: { zones: number[]; when: "off" | "run" | "always"; strength?: "polite" | "hold" };
 }
 
 export interface AudacGroup {
@@ -139,6 +139,14 @@ export interface ScheduleEntry {
   volume: number;
   /** Optional: background music to start ("" = none) and a playlist link on that service. */
   music: { source: "" | BgSource; link: string };
+  /** Advanced: a volume per zone (zone number → dB below max) instead of one for all. */
+  zoneVolumes?: Record<string, number>;
+  /**
+   * While this time is on, against changes by someone else (Touch 2…): "noLouder" puts any zone
+   * turned up past its scheduled level back down (hearing safety; turning down is allowed),
+   * "full" puts every change back. Default "noLouder".
+   */
+  protect?: "off" | "noLouder" | "full";
 }
 
 // Names from AUDAC's MTX input list; each school renames them (aux, streambox, mic…) and hides the unused.

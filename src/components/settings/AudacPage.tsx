@@ -102,6 +102,10 @@ function GuardCard() {
           options={[{ value: "off", label: t("audac.guardOff") }, { value: "run", label: t("audac.guardRun") }, { value: "always", label: t("audac.guardAlways") }]} />
       </Row>
       <ZonePicker label={t("audac.guard")} value={guard.zones} onChange={(zones) => saveAudac({ guard: { ...guard, zones } })} />
+      <Row label={t("audac.strength")}>
+        <Chips<"polite" | "hold"> label={t("audac.strength")} value={guard.strength ?? "polite"} onChange={(strength) => saveAudac({ guard: { ...guard, strength } })}
+          options={[{ value: "polite", label: t("audac.polite") }, { value: "hold", label: t("audac.holdLong") }]} />
+      </Row>
     </Card>
   );
 }
