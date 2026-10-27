@@ -14,6 +14,7 @@ import { ResumeDialog, useResumeCheck } from "./components/ResumeDialog";
 import { PrintDialog, PrintSheet } from "./components/PrintSheet";
 import { useUi } from "./uiStore";
 import { SettingsDialog } from "./components/SettingsDialog";
+import { InRun } from "./components/RunDialogHost";
 import { useSettings } from "./settingsStore";
 import { DumboView } from "./views/DumboView";
 import { useMedia } from "./lib/media";
@@ -101,12 +102,12 @@ export default function App() {
       )}
       <CueEditor />
       {dialog?.kind === "add" && <AddDialog tab={dialog.tab} />}
-      {dialog?.kind === "swap" && <SwapDialog cueId={dialog.cueId} />}
+      <InRun area="main">{dialog?.kind === "swap" && <SwapDialog cueId={dialog.cueId} />}</InRun>
       {dialog?.kind === "resume" && <ResumeDialog />}
       {dialog?.kind === "print" && <PrintDialog />}
-      {dialog?.kind === "settings" && <SettingsDialog />}
+      <InRun area="main">{dialog?.kind === "settings" && <SettingsDialog />}</InRun>
       <ContextMenuHost />
-      <ConfirmDialog />
+      <InRun area="list"><ConfirmDialog /></InRun>
       <Toast />
     </div>
     {/* Only visible when printing (Ctrl+P). */}

@@ -27,6 +27,7 @@ import { GoBlock } from "../components/run/GoBlock";
 import { Dock } from "../components/run/Dock";
 import { bg, bgDo } from "../components/background/useBackground";
 import { setLocalOverlay } from "../lib/emergencyKeys";
+import { RunDialogArea } from "../components/RunDialogHost";
 
 const DOUBLE_ESC_MS = 500;
 
@@ -156,10 +157,17 @@ export function RunView() {
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
     <RehearsalStrip />
-    <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "240px minmax(0, 1fr) 400px", gap: 12, padding: "10px 14px 12px" }}>
+    <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "240px minmax(0, 1fr) 400px", gap: 12, padding: "10px 14px 12px", position: "relative" }}>
+      {/* Bigger dialogs (Swap, Settings) open over the rail + middle; the GO column stays free. */}
+      <div style={{ position: "absolute", top: 10, left: 14, bottom: 12, right: 14 + 400 + 12, pointerEvents: "none", zIndex: 60 }}>
+        <RunDialogArea name="main" />
+      </div>
       <SectionRail focusCueId={run?.cueId ?? playhead} />
       <div style={{ display: "flex", flexDirection: "column", gap: 10, minHeight: 0 }}>
         <NowPlaying run={run} standbyId={playhead} onFocus={setFocusInstance} />
+        {/* Small dialogs (Make next) open over the up-next list only. */}
+        <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+        <RunDialogArea name="list" />
         <UpNext
           playhead={playhead}
           selectedId={selectedId}
@@ -169,6 +177,7 @@ export function RunView() {
           searchOpen={searchOpen}
           closeSearch={() => { setSearchOpen(false); setSearch(""); }}
         />
+        </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10, minHeight: 0 }}>
         <GoBlock standbyId={playhead} />
