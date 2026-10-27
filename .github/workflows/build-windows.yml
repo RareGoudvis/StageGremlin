@@ -16,6 +16,9 @@ name: Build Windows
 
 on:
   workflow_dispatch:
+  # A push to the `release` branch also builds (so a build can be started without the Actions page).
+  push:
+    branches: [release]
 
 # A newer build request cancels one that's still running.
 concurrency:
@@ -43,6 +46,25 @@ jobs:
 
       - name: Install npm packages
         run: npm ci
+
+      # Mandatory checks: the build (and the Release) only happens when all of these pass.
+      - name: Check — UI type-check and build
+        run: npm run build
+
+      - name: Check — UI tests
+        shell: pwsh
+        run: if ((Get-Content package.json -Raw | ConvertFrom-Json).scripts.test) { npm test; if ($LASTEXITCODE) { exit 1 } }
+
+      - name: Check — engine tests
+        run: cargo test -p cueplay-engine
+
+      - name: Check — app tests
+        run: cargo test -p stagegremlin
+
+      # Clippy errors fail the build; plain warnings are only reported (Windows-only code can't be
+      # linted on the Linux dev machine, so a new lint must not block a show-day build).
+      - name: Check — clippy
+        run: cargo clippy -p stagegremlin
 
       - name: Download yt-dlp and ffmpeg to bundle
         shell: pwsh

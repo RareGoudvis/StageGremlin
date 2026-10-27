@@ -73,6 +73,19 @@ if ($FreshTools -or -not (Test-Path "$ubol/manifest.json")) {
 # 3. Build: UI + Rust + installer. tauri.release.conf.json adds tools/bin as installer resources.
 npm install
 if ($LASTEXITCODE) { throw "npm install failed" }
+
+# Mandatory checks: a release is only made when ALL of them pass. There is no switch to skip them.
+function Assert-Step([string]$what, [scriptblock]$cmd) {
+  Write-Host "== $what" -ForegroundColor Cyan
+  & $cmd
+  if ($LASTEXITCODE) { throw "$what failed - no release made. Fix it, commit, and run this again." }
+}
+Assert-Step "UI type-check and build" { npm run build }
+if ((Get-Content package.json -Raw | ConvertFrom-Json).scripts.test) { Assert-Step "UI tests" { npm test } }
+Assert-Step "Engine tests" { cargo test -p cueplay-engine }
+Assert-Step "App tests" { cargo test -p stagegremlin }
+Assert-Step "Clippy" { cargo clippy -p stagegremlin }
+
 npm run tauri build -- --config src-tauri/tauri.release.conf.json
 if ($LASTEXITCODE) { throw "The build failed (see above)." }
 

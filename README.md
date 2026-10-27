@@ -73,8 +73,12 @@ About › Check for updates). Nothing installs by itself.
 
 Portable: download the zip, right-click → Properties → Unblock, unzip, run `StageGremlin.exe`.
 
-Backup: **Actions → Build Windows → Run workflow** on GitHub still builds the same thing in the cloud. Nothing
-else (pushes, tags) starts it.
+Backup: **Actions → Build Windows → Run workflow** on GitHub, or a push to the `release` branch, builds the same
+thing in the cloud. Plain pushes to `main` never start it. Cloud builds have no shared admin password (that hash
+lives only in `.env.local` on the laptop), so each install asks for its own.
+
+Both ways run the same mandatory checks first (UI type-check + build, UI tests, Rust tests, clippy); if one fails,
+no release is made.
 
 ## Bundled
 
