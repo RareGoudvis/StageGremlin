@@ -250,6 +250,21 @@ mod tests {
     }
 
     #[test]
+    fn dragging_our_own_slider_is_never_someone_else() {
+        let mut w = Watch::default();
+        let now = t0();
+        w.verdict(6, Field::Volume, 3, now);
+        // Slider: 3 → 9 → 13, answers arrive late and out of step.
+        for i in 0..3u64 {
+            w.ours(6, Field::Volume, None, now + Duration::from_millis(100 * i));
+        }
+        for (i, v) in [5u8, 9, 11, 13].iter().enumerate() {
+            assert_eq!(w.verdict(6, Field::Volume, *v, now + Duration::from_millis(400 + 150 * i as u64)), Verdict::Fine);
+        }
+        assert_eq!(w.verdict(6, Field::Volume, 13, now + Duration::from_secs(20)), Verdict::Fine, "settled on the last one");
+    }
+
+    #[test]
     fn hold_never_gives_up() {
         let mut w = Watch::default();
         w.set_rules(&[Rule { zone: 1, full: true, unlimited: true, ..Default::default() }]);
