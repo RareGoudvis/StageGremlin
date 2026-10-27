@@ -28,6 +28,10 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
 const POLL_EVERY: Duration = Duration::from_secs(15);
 /// No answer for this long after a poll = the link is gone (cable out, box off).
 const DEAD_AFTER: Duration = Duration::from_secs(40);
+/// Gap between our own questions: the MTX may drop a command that arrives right on top of another.
+const ASK_GAP: Duration = Duration::from_millis(250);
+/// Until the MTX has answered all three "everything" questions, ask the missing ones again this often.
+const REASK_EVERY: Duration = Duration::from_secs(3);
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -91,7 +95,7 @@ pub fn start(app: AppHandle) -> Audac {
     let shared = state.clone();
     std::thread::Builder::new()
         .name("audac".into())
-        .spawn(move || Link { app, state: shared, rx, stream: None, buf: Vec::new(), heard: false }.run())
+        .spawn(move || Link { app, state: shared, rx, stream: None, buf: Vec::new(), heard: false, got: [false; 3] }.run())
         .expect("could not start the AUDAC thread");
     Audac { tx: Mutex::new(tx), state }
 }
@@ -105,6 +109,8 @@ struct Link {
     buf: Vec<u8>,
     /// Set when a line from the MTX arrived (the link is alive).
     heard: bool,
+    /// Answers received since connecting: [volumes, inputs, mutes] of all zones.
+    got: [bool; 3],
 }
 
 impl Link {
@@ -113,6 +119,10 @@ impl Link {
         let mut next_try = Instant::now();
         let mut last_poll = Instant::now();
         let mut last_heard = Instant::now();
+        // Questions waiting to go out, one every ASK_GAP (see get_all).
+        let mut asks: std::collections::VecDeque<String> = Default::default();
+        let mut next_ask = Instant::now();
+        let mut last_reask = Instant::now();
         // A slider sends many volumes; only the newest per zone goes out (see `flush`).
         let mut pending_volume: [Option<u8>; ZONES] = [None; ZONES];
 
@@ -180,9 +190,10 @@ impl Link {
                             self.buf.clear();
                             last_poll = Instant::now();
                             last_heard = Instant::now();
-                            for l in protocol::get_all() {
-                                self.send(&l);
-                            }
+                            self.got = [false; 3];
+                            asks = protocol::get_all().into_iter().collect();
+                            next_ask = Instant::now();
+                            last_reask = Instant::now();
                             self.update(|s| {
                                 s.status = Status::Connected;
                                 s.message = None;
@@ -200,6 +211,18 @@ impl Link {
             // 3. Read what the MTX says, and check the link is still alive.
             if self.stream.is_some() {
                 self.read();
+                // Ask the questions one at a time; re-ask what's still unanswered.
+                if self.got != [true; 3] && asks.is_empty() && last_reask.elapsed() >= REASK_EVERY {
+                    last_reask = Instant::now();
+                    let all = protocol::get_all();
+                    asks = (0..3).filter(|&i| !self.got[i]).map(|i| all[i].clone()).collect();
+                }
+                if Instant::now() >= next_ask {
+                    if let Some(l) = asks.pop_front() {
+                        self.send(&l);
+                        next_ask = Instant::now() + ASK_GAP;
+                    }
+                }
                 if last_poll.elapsed() >= POLL_EVERY {
                     last_poll = Instant::now();
                     self.send(&protocol::line("GMALL", "0"));
@@ -221,9 +244,15 @@ impl Link {
             Ok(0) => self.lost("The MTX closed the connection (is someone else connected?)."),
             Ok(n) => {
                 self.buf.extend_from_slice(&chunk[..n]);
-                while let Some(end) = self.buf.iter().position(|&b| b == b'\n') {
+                // The manual ends lines with "return": that may be CR only, CR LF, or LF. Accept all.
+                while let Some(end) = self.buf.iter().position(|&b| b == b'\n' || b == b'\r') {
                     let raw: Vec<u8> = self.buf.drain(..=end).collect();
-                    if let Some(u) = protocol::parse(&String::from_utf8_lossy(&raw)) {
+                    let text = String::from_utf8_lossy(&raw);
+                    if text.trim().is_empty() {
+                        continue;
+                    }
+                    eprintln!("[audac] < {}", text.trim());
+                    if let Some(u) = protocol::parse(&text) {
                         self.apply(u);
                     }
                 }
@@ -241,7 +270,18 @@ impl Link {
     fn apply(&mut self, u: Update) {
         self.heard = true;
         let zone = |z: u8| (1..=ZONES as u8).contains(&z).then(|| z as usize - 1);
+        match u {
+            Update::AllVolumes(_) => self.got[0] = true,
+            Update::AllInputs(_) => self.got[1] = true,
+            Update::AllMutes(_) => self.got[2] = true,
+            _ => {}
+        }
+        // The panel opens as soon as we know the volumes: inputs and mutes follow (re-asked if dropped).
+        let known = self.got[0];
         self.update(|s| {
+            if known {
+                s.known = true;
+            }
             match u {
                 Update::Volume(z, v) => { if let Some(i) = zone(z) { s.zones[i].volume = v } }
                 Update::Input(z, v) => { if let Some(i) = zone(z) { s.zones[i].input = v } }
@@ -255,8 +295,6 @@ impl Link {
                 Update::AllInputs(v) => v.iter().zip(s.zones.iter_mut()).for_each(|(v, z)| z.input = *v),
                 Update::AllMutes(v) => {
                     v.iter().zip(s.zones.iter_mut()).for_each(|(v, z)| z.mute = *v);
-                    // GMALL is the last of the three questions we ask after connecting.
-                    s.known = true;
                 }
                 Update::Other => {}
             }
