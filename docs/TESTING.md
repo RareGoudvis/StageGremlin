@@ -235,3 +235,14 @@ These can't be tested automatically; please check them on the real laptop:
 10. **Scheduled time protects:** while a scheduled time is on, turn one of its zones UP in Touch 2 → back to its
     level at once. Turn it DOWN → allowed (unless "May not change it"). Per zone levels: "Per zone" next to Level.
 11. **Conversation:** Settings › AUDAC › Conversation with the MTX › Show → Copy, and send it along.
+
+## Streambox from the school work laptop — findings (27 Oct 2026)
+
+- Laptop on the staff network (10.14.90.x), box on 10.14.85.x. Laptop → box works (DLNA control: volume, play/stop).
+- Box → laptop is blocked: Windows firewall ON, BlockInbound, LocalFirewallRules "N/A (GPO-store only)" (only IT can
+  add rules), and a phone on the box's Wi-Fi can't open the stream address either. So DLNA/Cast sending can't work there.
+- AirPlay push tested with cliraop (libraop): no answer on 5000/7000; a scan of ~90 usual ports found nothing open
+  from the laptop. The network filters too. AirPlay route closed.
+- What works there: Spotify Connect (same account in the player and on the phone, Premium), web radio/internet links
+  (the box fetches them itself). Sending StageGremlin's own sound needs another network/laptop, an IT rule, or an
+  internet relay (Icecast) — parked.
