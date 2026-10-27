@@ -315,6 +315,10 @@ fn start_loopback(listeners: Listeners, stop: Arc<AtomicBool>, name: String) -> 
                     .output_devices()
                     .ok()
                     .and_then(|mut list| list.find(|d| d.description().map(|x| x.name() == name).unwrap_or(false)));
+                // A device asked for by name must exist: silently recording another one would confuse.
+                if !name.is_empty() && named.is_none() {
+                    return Err(format!("\"{name}\" isn't connected, so there's nothing to record from it."));
+                }
                 let device = named.or_else(|| host.default_output_device()).ok_or("No sound output to record.")?;
                 let config = device.default_output_config().map_err(|e| e.to_string())?;
                 if config.sample_format() != cpal::SampleFormat::F32 {
