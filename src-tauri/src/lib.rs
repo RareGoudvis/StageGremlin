@@ -173,6 +173,7 @@ pub fn run() {
             audac::audac_set_input,
             audac::audac_set_mute,
             audac::audac_set_guard,
+            audac::audac_talk,
             updates::app_check_update,
             updates::open_release_page,
             streambox::net_discover,

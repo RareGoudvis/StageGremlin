@@ -2,7 +2,7 @@
 // called here (e.g. input 4 = "Streambox", zone 3 = "Study hall"). Remembered on this laptop.
 // Anyone can set up and use the connection; naming zones and inputs and choosing which show needs the admin password.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSettings, type AudacSetup } from "../../settingsStore";
 import { useT } from "../../i18n";
 import { audac, audacConnectSaved, findZone, setAudacDemo, useAudac, type AudacState } from "../../lib/audac";
@@ -60,11 +60,12 @@ export function AudacPage() {
       <GuardCard />
       {/* Admin only: the zone and input names, which of them show, and the groups. */}
       <AdminGate>
-      <MtxNamesCard names={st?.names} />
+      <MtxNamesCard st={st} />
       <FindCard st={st} />
       <Names title={t("audac.inputs")} note={t("audac.inputsNote")} list={setup.inputs} onChange={(inputs) => save({ inputs })} />
       <Names title={t("audac.zones")} note={t("audac.zonesNote")} list={setup.zones} onChange={(zones) => save({ zones })} />
       <GroupsCard />
+      <TalkCard />
       </AdminGate>
     </>
   );
@@ -165,10 +166,38 @@ function FindCard({ st }: { st: AudacState | null }) {
   );
 }
 
-/** The names stored on the MTX: shown, and one button to use them all here. */
-function MtxNamesCard({ names }: { names: string[] | undefined }) {
+/** What StageGremlin and the MTX say to each other, to find out what the box really answers. */
+function TalkCard() {
   const t = useT();
-  const got = mtxNames(names);
+  const [open, setOpen] = useState(false);
+  const [lines, setLines] = useState<string[]>([]);
+  useEffect(() => {
+    if (!open) return;
+    const get = () => audac.talk().then(setLines, () => {});
+    get();
+    const id = setInterval(get, 1000);
+    return () => clearInterval(id);
+  }, [open]);
+  return (
+    <Card title={t("audac.talk")} note={t("audac.talkNote")}>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button className="b btn" aria-pressed={open} onClick={() => setOpen(!open)}>{open ? t("audac.talkHide") : t("audac.talkShow")}</button>
+        {open && <button className="b btn" onClick={() => void navigator.clipboard?.writeText(lines.join("\n"))}>{t("audac.talkCopy")}</button>}
+      </div>
+      {open && (
+        <pre className="mono scroll" style={{ maxHeight: 300, margin: 0, padding: 8, borderRadius: 8, background: "var(--p2)", fontSize: 11.5, whiteSpace: "pre-wrap", userSelect: "text" }}>
+          {lines.slice(-120).join("\n") || "…"}
+        </pre>
+      )}
+    </Card>
+  );
+}
+
+/** The names stored on the MTX: shown, and one button to use them all here. */
+function MtxNamesCard({ st }: { st: AudacState | null }) {
+  const t = useT();
+  const got = mtxNames(st?.names);
+  const connected = st?.status === "connected";
   const use = () => {
     if (!got) return;
     const a = useSettings.getState().ui.audac;
@@ -185,7 +214,9 @@ function MtxNamesCard({ names }: { names: string[] | undefined }) {
           <div><button className="b btn" onClick={use}>{t("audac.useMtxNames")}</button></div>
         </div>
       ) : (
-        <span style={{ fontSize: 13, color: "var(--dim)" }}>{t("audac.mtxNamesNone")}</span>
+        <span style={{ fontSize: 13, color: "var(--dim)" }}>
+          {!connected ? t("audac.mtxNamesNone") : st?.namesAnswered ? t("audac.mtxNamesEmpty") : t("audac.mtxNamesNoAnswer")}
+        </span>
       )}
     </Card>
   );

@@ -96,8 +96,9 @@ pub fn parse(raw: &str) -> Option<Update> {
             _ => Update::Other,
         });
     }
-    // Names: "N01" … "N30" with the name as argument (may contain spaces).
-    if command.len() == 3 && command.starts_with('N') {
+    // Names: "N01" … "N30" (or "N1" … "N30": we ask unpadded, like the portal) with the name as
+    // argument (may contain spaces).
+    if (2..=3).contains(&command.len()) && command.starts_with('N') && command[1..].bytes().all(|b| b.is_ascii_digit()) {
         if let Ok(i) = command[1..].parse::<u8>() {
             return Some(Update::Name(i, argument.to_string()));
         }
@@ -156,6 +157,8 @@ mod tests {
         assert_eq!(parse("#|SG|X001|N01|Gym|U|"), Some(Update::Name(1, "Gym".into())));
         assert_eq!(parse("#|SG|X001|N12|CD - USB|U|"), Some(Update::Name(12, "CD - USB".into())));
         assert_eq!(parse("#|SG|X001|N05||U|"), Some(Update::Name(5, String::new())));
+        assert_eq!(parse("#|SG|X001|N1|Gym|U|"), Some(Update::Name(1, "Gym".into())), "unpadded answer");
+        assert_eq!(parse("#|SG|X001|NGI|x|U|"), Some(Update::Other), "not a name");
     }
 
     #[test]
