@@ -5,7 +5,8 @@
 import { useState } from "react";
 import { useSettings, type AudacSetup } from "../../settingsStore";
 import { useT } from "../../i18n";
-import { audac, audacConnectSaved, setAudacDemo, useAudac } from "../../lib/audac";
+import { audac, audacConnectSaved, findZone, setAudacDemo, useAudac, type AudacState } from "../../lib/audac";
+import type { AudacGroup } from "../../settingsStore";
 import { applyMtxNames, DEFAULT_INPUT_NAMES, DEFAULT_ZONE_NAMES, mtxNames } from "../../lib/audacNames";
 import { Chips, Row } from "../controls";
 import { Card, PageTitle } from "./common";
@@ -56,13 +57,111 @@ export function AudacPage() {
           </button>
         </Row>
       </Card>
-      {/* Admin only: the zone and input names, and which of them show. */}
+      <GuardCard />
+      {/* Admin only: the zone and input names, which of them show, and the groups. */}
       <AdminGate>
       <MtxNamesCard names={st?.names} />
+      <FindCard st={st} />
       <Names title={t("audac.inputs")} note={t("audac.inputsNote")} list={setup.inputs} onChange={(inputs) => save({ inputs })} />
       <Names title={t("audac.zones")} note={t("audac.zonesNote")} list={setup.zones} onChange={(zones) => save({ zones })} />
+      <GroupsCard />
       </AdminGate>
     </>
+  );
+}
+
+const saveAudac = (patch: Partial<AudacSetup>) => useSettings.getState().update({ audac: { ...useSettings.getState().ui.audac, ...patch } });
+
+/** Zone tick chips 1–8 with their names. */
+function ZonePicker({ value, onChange, label }: { value: number[]; onChange: (z: number[]) => void; label: string }) {
+  const zones = useSettings((s) => s.ui.audac.zones);
+  return (
+    <div role="group" aria-label={label} style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+      {zones.map((z, i) => {
+        const n = i + 1, on = value.includes(n);
+        return (
+          <button key={n} className="b chip" aria-pressed={on} onClick={() => onChange(on ? value.filter((x) => x !== n) : [...value, n].sort((a, b) => a - b))}
+            style={{ height: 28, fontSize: 12, padding: "0 8px" }}>
+            {n} {z.name}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Guard: which zones StageGremlin puts back when someone else changes them, and when. */
+function GuardCard() {
+  const t = useT();
+  const guard = useSettings((s) => s.ui.audac.guard) ?? { zones: [], when: "off" as const };
+  return (
+    <Card title={t("audac.guard")} note={t("audac.guardNote")}>
+      <Row label={t("audac.guardWhen")}>
+        <Chips<"off" | "run" | "always"> label={t("audac.guardWhen")} value={guard.when} onChange={(when) => saveAudac({ guard: { ...guard, when } })}
+          options={[{ value: "off", label: t("audac.guardOff") }, { value: "run", label: t("audac.guardRun") }, { value: "always", label: t("audac.guardAlways") }]} />
+      </Row>
+      <ZonePicker label={t("audac.guard")} value={guard.zones} onChange={(zones) => saveAudac({ guard: { ...guard, zones } })} />
+    </Card>
+  );
+}
+
+/** Groups: named sets of zones that get one row in the AUDAC panel. */
+function GroupsCard() {
+  const t = useT();
+  const groups = useSettings((s) => s.ui.audac.groups) ?? [];
+  const put = (list: AudacGroup[]) => saveAudac({ groups: list });
+  const change = (id: string, patch: Partial<AudacGroup>) => put(groups.map((g) => (g.id === id ? { ...g, ...patch } : g)));
+  return (
+    <Card title={t("audac.groups")} note={t("audac.groupsNote")}>
+      {groups.map((g) => (
+        <div key={g.id} style={{ display: "flex", flexDirection: "column", gap: 6, padding: 8, borderRadius: 10, background: "var(--p2)" }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input className="input" aria-label={t("audac.groups")} value={g.name} placeholder={t("audac.newGroup")} onChange={(e) => change(g.id, { name: e.target.value })} style={{ flex: 1 }} />
+            <button className="b btn btn-ghost" onClick={() => put(groups.filter((x) => x.id !== g.id))}>{t("audac.delete")}</button>
+          </div>
+          <ZonePicker label={g.name} value={g.zones} onChange={(zones) => change(g.id, { zones })} />
+        </div>
+      ))}
+      <div>
+        <button className="b btn" onClick={() => put([...groups, { id: `g${Date.now().toString(36)}`, name: "", zones: [] }])}>{t("audac.addGroup")}</button>
+      </div>
+    </Card>
+  );
+}
+
+/** Which is which: blink a zone, or play an input on a test zone. */
+function FindCard({ st }: { st: AudacState | null }) {
+  const t = useT();
+  const setup = useSettings((s) => s.ui.audac);
+  const [testZone, setTestZone] = useState(1);
+  const live = st?.status === "connected" && st.known;
+  return (
+    <Card title={t("audac.findTitle")} note={t("audac.findNote")}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6 }}>
+        {setup.zones.map((z, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span className="mono" style={{ width: 16, color: "var(--mute)" }}>{i + 1}</span>
+            <span className="clamp1" style={{ flex: 1 }}>{z.name}</span>
+            <button className="b btn" disabled={!live} onClick={() => findZone(i + 1, !!st?.zones[i]?.mute)}>{t("audac.find")}</button>
+          </div>
+        ))}
+      </div>
+      <Row label={t("audac.testZone")}>
+        <select className="select" aria-label={t("audac.testZone")} value={testZone} onChange={(e) => setTestZone(Number(e.target.value))} style={{ flex: 1, height: 34 }}>
+          {setup.zones.map((z, i) => <option key={i} value={i + 1}>{i + 1} {z.name}</option>)}
+        </select>
+      </Row>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6 }}>
+        {setup.inputs.map((x, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span className="mono" style={{ width: 16, color: "var(--mute)" }}>{i + 1}</span>
+            <span className="clamp1" style={{ flex: 1 }}>{x.name}</span>
+            <button className="b btn" disabled={!live} aria-pressed={st?.zones[testZone - 1]?.input === i + 1}
+              onClick={() => { void audac.setMute(testZone, false); void audac.setInput(testZone, i + 1); }}>{t("audac.try")}</button>
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 

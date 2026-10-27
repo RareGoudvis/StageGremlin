@@ -3,10 +3,16 @@
 // Buttons never take keyboard focus (tabIndex -1): in Run, Space must stay GO.
 
 import { useEffect, useState } from "react";
+import { create } from "zustand";
 import { useSettings } from "../../settingsStore";
 import { useUi } from "../../uiStore";
 import { audac, audacConnectSaved, MIN_VOLUME, useAudac, visible, type AudacState } from "../../lib/audac";
 import { useT } from "../../i18n";
+import { summarize } from "../../lib/audacGroups";
+import { changeText } from "../../lib/audacWatch";
+
+// Changes by someone else that the operator has read ("Clear"); shared by every open panel.
+const useCleared = create<{ upTo: number; clear: (id: number) => void }>((set) => ({ upTo: 0, clear: (upTo) => set({ upTo }) }));
 
 export function AudacPanel({ big = false, inRun = false }: { big?: boolean; inRun?: boolean }) {
   const t = useT();
@@ -18,20 +24,110 @@ export function AudacPanel({ big = false, inRun = false }: { big?: boolean; inRu
   const [unlocked, setUnlocked] = useState(false);
   const locked = inRun && setup.inRun === "locked" && !unlocked;
   const live = st?.status === "connected" && st.known && !locked;
+  // Select mode: tick zones, then one row sets them all.
+  const [selecting, setSelecting] = useState(false);
+  const [picked, setPicked] = useState<number[]>([]);
+  const groups = (setup.groups ?? []).filter((g) => g.zones.length);
+  const guarded = setup.guard?.when !== "off" ? setup.guard?.zones ?? [] : [];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: big ? 10 : 6, minHeight: 0 }}>
       <StatusBar st={st} locked={locked} onUnlock={() => setUnlocked(true)} />
+      <Changes st={st} />
       {/* Not set up: no IP and no demo. (The demo needs no address.) */}
       {!setup.host.trim() && !setup.demo ? (
         <span style={{ fontSize: 13, color: "var(--dim)" }}>{t("audac.notSetUp")}</span>
       ) : (
         <div className="scroll" style={{ display: "flex", flexDirection: "column", gap: big ? 8 : 4, opacity: live ? 1 : 0.5, pointerEvents: live ? "auto" : "none", minHeight: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ flex: 1, fontSize: 12, color: "var(--mute)" }}>{selecting ? t("audac.selectHint") : ""}</span>
+            <button className="b btn btn-ghost" tabIndex={-1} aria-pressed={selecting} style={{ height: 26, fontSize: 12 }}
+              onClick={() => { setSelecting(!selecting); setPicked([]); }}>
+              {selecting ? t("audac.selectDone") : t("audac.select")}
+            </button>
+          </div>
+          {selecting && picked.length > 0 && (
+            <SetRow title={`${picked.length} ${t("audac.selected")}`} members={picked} st={st} inputs={inputs} big={big} accent />
+          )}
+          {!selecting && groups.map((g) => (
+            <SetRow key={g.id} title={g.name || t("audac.newGroup")} members={g.zones} st={st} inputs={inputs} big={big}
+              subtitle={g.zones.map((n) => setup.zones[n - 1]?.name || n).join(" · ")} />
+          ))}
           {zones.map((z) => (
-            <ZoneRow key={z.n} n={z.n} name={z.name} zone={st?.zones[z.n - 1]} inputs={inputs} big={big} />
+            <ZoneRow key={z.n} n={z.n} name={z.name} zone={st?.zones[z.n - 1]} inputs={inputs} big={big} guarded={guarded.includes(z.n)}
+              pick={selecting ? { on: picked.includes(z.n), toggle: () => setPicked((p) => (p.includes(z.n) ? p.filter((x) => x !== z.n) : [...p, z.n])) } : undefined} />
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** "Changed by someone else": the newest few, until the operator clears them. */
+function Changes({ st }: { st: AudacState | null }) {
+  const t = useT();
+  const upTo = useCleared((s) => s.upTo);
+  const list = (st?.changes ?? []).filter((c) => c.id > upTo).slice(-3);
+  if (!list.length) return null;
+  return (
+    <div role="status" style={{ display: "flex", flexDirection: "column", gap: 3, padding: "6px 10px", borderRadius: 10, background: "var(--amb)", color: "var(--onamb)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <b style={{ flex: 1, fontSize: 12.5 }}>{t("audac.changes")}</b>
+        <button className="b btn btn-ghost" tabIndex={-1} onClick={() => useCleared.getState().clear(list[list.length - 1].id)} style={{ height: 24, fontSize: 12, color: "inherit", border: "1px solid currentColor" }}>{t("audac.clear")}</button>
+      </div>
+      {list.map((c) => <span key={c.id} style={{ fontSize: 12.5 }}>{changeText(c).replace(`${t("audac.someoneElse")} `, "")}</span>)}
+    </div>
+  );
+}
+
+/** One row that sets several zones at once (a group, or the zones ticked in select mode). */
+function SetRow({ title, subtitle, members, st, inputs, big, accent = false }: {
+  title: string;
+  subtitle?: string;
+  members: number[];
+  st: AudacState | null;
+  inputs: { n: number; name: string }[];
+  big: boolean;
+  accent?: boolean;
+}) {
+  const t = useT();
+  const sum = summarize(st?.zones ?? [], members);
+  const [drag, setDrag] = useState<number | null>(null);
+  useEffect(() => setDrag(null), [sum.volume]);
+  const shown = drag ?? sum.volume;
+  const h = big ? 34 : 28;
+  const each = (f: (z: number) => Promise<void>) => members.forEach((z) => void f(z));
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: big ? "10px 12px" : "6px 8px", borderRadius: 10, background: "var(--p2)", border: `2px solid ${accent ? "var(--acc)" : "var(--line, transparent)"}` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+          <span className="clamp1" style={{ fontWeight: 800, fontSize: big ? 15 : 13 }}>{title}</span>
+          {subtitle && <span className="clamp1" style={{ fontSize: 11.5, color: "var(--mute)" }}>{subtitle}</span>}
+        </span>
+        <span className="mono" style={{ width: 62, textAlign: "right", fontSize: 12.5, color: sum.mute ? "var(--redtx)" : "var(--text)" }}>
+          {sum.mute ? "MUTE" : shown >= MIN_VOLUME ? "off" : `−${shown} dB`}
+        </span>
+        <button className="b btn" tabIndex={-1} aria-label={`${title}: ${t("audac.down")}`} onClick={() => each((z) => audac.step(z, false))} style={{ height: h, width: h, justifyContent: "center", padding: 0 }}>−</button>
+        <button className="b btn" tabIndex={-1} aria-label={`${title}: ${t("audac.up")}`} onClick={() => each((z) => audac.step(z, true))} style={{ height: h, width: h, justifyContent: "center", padding: 0 }}>+</button>
+        <button className="b chip" tabIndex={-1} aria-pressed={sum.mute} onClick={() => each((z) => audac.setMute(z, !sum.mute))}
+          style={{ height: h, background: sum.mute ? "var(--red)" : undefined, color: sum.mute ? "var(--onred)" : undefined }}>
+          {t("audac.mute")}
+        </button>
+      </div>
+      <input type="range" tabIndex={-1} aria-label={`${title} volume`} min={0} max={MIN_VOLUME} step={1} value={MIN_VOLUME - shown}
+        onChange={(e) => {
+          const db = MIN_VOLUME - Number(e.target.value);
+          setDrag(db);
+          each((z) => audac.setVolume(z, db));
+        }} />
+      <div role="group" aria-label={`${title} input`} style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+        {inputs.map((i) => (
+          <button key={i.n} className="b chip" tabIndex={-1} aria-pressed={sum.input === i.n} onClick={() => each((z) => audac.setInput(z, i.n))}
+            style={{ height: big ? 30 : 24, fontSize: big ? 12.5 : 11.5, padding: "0 8px" }}>
+            {i.name}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -61,12 +157,15 @@ function StatusBar({ st, locked, onUnlock }: { st: AudacState | null; locked: bo
   );
 }
 
-function ZoneRow({ n, name, zone, inputs, big }: {
+function ZoneRow({ n, name, zone, inputs, big, guarded = false, pick }: {
   n: number;
   name: string;
   zone: { volume: number; input: number; mute: boolean } | undefined;
   inputs: { n: number; name: string }[];
   big: boolean;
+  guarded?: boolean;
+  /** Select mode: a tick box in front of the name. */
+  pick?: { on: boolean; toggle: () => void };
 }) {
   const t = useT();
   const volume = zone?.volume ?? MIN_VOLUME;
@@ -79,7 +178,11 @@ function ZoneRow({ n, name, zone, inputs, big }: {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: big ? "10px 12px" : "6px 8px", borderRadius: 10, background: "var(--p2)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <span className="clamp1" style={{ flex: 1, fontWeight: 700, fontSize: big ? 15 : 13 }}>{name}</span>
+        {pick && <input type="checkbox" tabIndex={-1} aria-label={name} checked={pick.on} onChange={pick.toggle} style={{ width: 18, height: 18 }} />}
+        <span className="clamp1" style={{ flex: 1, fontWeight: 700, fontSize: big ? 15 : 13 }} onClick={pick?.toggle}>
+          {name}
+          {guarded && <span title={t("audac.guard")} style={{ marginLeft: 6, fontSize: 11, color: "var(--acc)" }}>● {t("audac.guard")}</span>}
+        </span>
         <span className="mono" style={{ width: 62, textAlign: "right", fontSize: 12.5, color: zone?.mute ? "var(--redtx)" : "var(--text)" }}>
           {zone?.mute ? "MUTE" : shown >= MIN_VOLUME ? "off" : `−${shown} dB`}
         </span>

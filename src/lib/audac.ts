@@ -1,5 +1,5 @@
 // AUDAC MTX88 remote: commands, live state and the per-laptop setup (IP address, zone and input names).
-// The core holds the one network connection the MTX allows (src-tauri/src/audac). In a plain browser
+// The core holds StageGremlin's network connection to the MTX (src-tauri/src/audac). In a plain browser
 // a small simulator answers instead, so the panel can be designed without the box.
 
 import { useEffect, useState } from "react";
@@ -29,6 +29,20 @@ export interface AudacState {
   zones: AudacZone[];
   /** The 30 names stored on the MTX ("" until it has sent them; see lib/audacNames.ts). */
   names?: string[];
+  /** Recent changes made by someone else (Touch 2, a wall panel…), newest last. */
+  changes?: AudacChange[];
+}
+
+export interface AudacChange {
+  id: number;
+  /** Milliseconds since 1970. */
+  at: number;
+  zone: number;
+  what: "volume" | "input" | "mute";
+  from: number;
+  to: number;
+  /** StageGremlin put it back (guarded zone). */
+  restored: boolean;
 }
 
 export const MIN_VOLUME = 70;
@@ -58,7 +72,18 @@ export const audac = {
   step: (zone: number, up: boolean) => cmd<void>("audac_step_volume", { zone, up }),
   setInput: (zone: number, input: number) => cmd<void>("audac_set_input", { zone, input }),
   setMute: (zone: number, mute: boolean) => cmd<void>("audac_set_mute", { zone, mute }),
+  /** Zones to put back when someone else changes them; [] = guard off. */
+  setGuard: (zones: number[]) => cmd<void>("audac_set_guard", { zones }),
 };
+
+/**
+ * "Find": mute the zone three times, briefly, then leave it as it was. With something playing,
+ * you hear which room drops out.
+ */
+export function findZone(zone: number, mutedNow: boolean) {
+  const steps = [!mutedNow, mutedNow, !mutedNow, mutedNow, !mutedNow, mutedNow];
+  steps.forEach((m, i) => setTimeout(() => void audac.setMute(zone, m).catch(() => {}), i * 450));
+}
 
 /** Connect with this laptop's saved address (or to the pretend MTX in demo). */
 export function audacConnectSaved() {
@@ -134,6 +159,18 @@ const sim = (() => {
     status: "off", host: "", port: 5001, message: null, known: false,
     zones: Array.from({ length: 8 }, (_, i) => ({ volume: 30, input: i === 0 ? 4 : 3, mute: false })),
     names: Array.from({ length: 30 }, () => ""),
+    changes: [],
+  };
+  let guarded: number[] = [];
+  let nextId = 1;
+  /** Demo: "a colleague with Touch 2" switches zone 2 to input 7 a few seconds after connecting. */
+  const someoneElse = () => {
+    if (state.status !== "connected") return;
+    const z = 2, before = state.zones[z - 1].input, to = before === 7 ? 3 : 7;
+    const restored = guarded.includes(z);
+    zone(z, { input: to });
+    set({ changes: [...(state.changes ?? []), { id: nextId++, at: Date.now(), zone: z, what: "input" as const, from: before, to, restored }].slice(-12) });
+    if (restored) setTimeout(() => zone(z, { input: before }), 400);
   };
   const demoNames = ["Hall", "Stage", "Playground", "Corridor", "Canteen", "Office", "Gym", "Outside",
     "Mic", "Streambox", "CD - USB", "Aux", "Line 5", "Line 6", ...Array.from({ length: 16 }, (_, i) => (i % 2 ? "Wall mic" : "Wall input"))];
@@ -154,7 +191,9 @@ const sim = (() => {
         case "audac_connect":
           set({ status: "connecting", host: String(a.host), port: Number(a.port) });
           setTimeout(() => set({ status: "connected", known: true, names: demoNames }), 400);
+          setTimeout(someoneElse, 9000);
           return;
+        case "audac_set_guard": guarded = (a.zones as number[]) ?? []; return;
         case "audac_disconnect": return set({ status: "off", known: false });
         case "audac_set_volume": return zone(Number(a.zone), { volume: Number(a.db) });
         case "audac_step_volume": {
