@@ -62,7 +62,8 @@ npm run build                             # type-check + build the UI
 ## Status (v1.0.0, 27 Oct 2026)
 
 Everything in the brief is written. Tested on the school's Windows laptop with the real AUDAC MTX88 (zones, names,
-schedule, Touch 2 detection); NOT yet with the real Qu-24 in a show.
+schedule, Touch 2 detection), and a real show played over the laptop's aux output. Still untested: the Qu-24 over USB
+(its dropout rescue and switch-back).
 `docs/TESTING.md` is the test plan. Code that only runs on Windows (background volume sessions, keep-awake,
 explorer /select, WebView2 data dir, yt-dlp/ffmpeg) compiles but is untested.
 
