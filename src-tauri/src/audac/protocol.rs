@@ -72,7 +72,9 @@ pub enum Update {
 /// Read one line from the MTX. `None` = not a line we understand.
 pub fn parse(raw: &str) -> Option<Update> {
     // "#|ALL|X001|V02|40|…": drop the "#|" so the first field is the destination.
-    let text = raw.trim().strip_prefix('#')?.trim_start_matches('|');
+    // Leading/trailing NUL bytes and line breaks are not part of the message (the real MTX sends a
+    // NUL before every line).
+    let text = raw.trim_matches(|c: char| c.is_whitespace() || c == '\0').strip_prefix('#')?.trim_start_matches('|');
     // [destination, source, command, argument, checksum, ...]; the manual's examples
     // sometimes have a space before the command, so trim every field.
     let fields: Vec<&str> = text.split('|').map(str::trim).collect();
@@ -159,6 +161,16 @@ mod tests {
         assert_eq!(parse("#|SG|X001|N05||U|"), Some(Update::Name(5, String::new())));
         assert_eq!(parse("#|SG|X001|N1|Turnzaal|U|"), Some(Update::Name(1, "Turnzaal".into())), "unpadded answer");
         assert_eq!(parse("#|SG|X001|NGI|x|U|"), Some(Update::Other), "not a name");
+    }
+
+    #[test]
+    fn reads_lines_exactly_as_the_real_mtx_sends_them() {
+        // Copied from the school's MTX88 (27 Oct 2026): a NUL byte before every line.
+        assert_eq!(parse("\0#|SG|X001|N01|Lagere school|U|\r\n"), Some(Update::Name(1, "Lagere school".into())));
+        assert_eq!(parse("\0#|SG|X001|VALL|03^03^03^03^00^41^00^00|U|"), Some(Update::AllVolumes(vec![3, 3, 3, 3, 0, 41, 0, 0])));
+        assert_eq!(parse("\0#|SG|X001|RALL|3^5^5^3^5^4^7^8|U|"), Some(Update::AllInputs(vec![3, 5, 5, 3, 5, 4, 7, 8])));
+        assert_eq!(parse("\0#|SG|X001|MALL|0^0^0^0^0^0^0^0|U|").map(|u| matches!(u, Update::AllMutes(_))), Some(true));
+        assert_eq!(parse("\0#|web|X001|VU|000^000^000^000^000^000^000^000^000^000|U|"), Some(Update::Other));
     }
 
     #[test]
