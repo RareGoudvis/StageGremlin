@@ -31,6 +31,8 @@ export interface AudacState {
   names?: string[];
   /** Recent changes made by someone else (Touch 2, a wall panel…), newest last. */
   changes?: AudacChange[];
+  /** How many of the 30 name questions the MTX answered since connecting. */
+  namesAnswered?: number;
 }
 
 export interface AudacChange {
@@ -74,6 +76,8 @@ export const audac = {
   setMute: (zone: number, mute: boolean) => cmd<void>("audac_set_mute", { zone, mute }),
   /** Zones to put back when someone else changes them; [] = guard off. */
   setGuard: (zones: number[]) => cmd<void>("audac_set_guard", { zones }),
+  /** The last lines sent to (→) and heard from (←) the MTX. */
+  talk: () => cmd<string[]>("audac_talk"),
 };
 
 /**
@@ -190,10 +194,11 @@ const sim = (() => {
         case "audac_get_state": return state;
         case "audac_connect":
           set({ status: "connecting", host: String(a.host), port: Number(a.port) });
-          setTimeout(() => set({ status: "connected", known: true, names: demoNames }), 400);
+          setTimeout(() => set({ status: "connected", known: true, names: demoNames, namesAnswered: 30 }), 400);
           setTimeout(someoneElse, 9000);
           return;
         case "audac_set_guard": guarded = (a.zones as number[]) ?? []; return;
+        case "audac_talk": return ["(demo: no real MTX)"];
         case "audac_disconnect": return set({ status: "off", known: false });
         case "audac_set_volume": return zone(Number(a.zone), { volume: Number(a.db) });
         case "audac_step_volume": {

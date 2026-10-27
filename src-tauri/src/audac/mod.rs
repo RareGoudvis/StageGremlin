@@ -76,6 +76,8 @@ pub struct AudacState {
     pub names: Vec<String>,
     /// Recent changes made by someone else (Touch 2, a wall panel…), newest last.
     pub changes: Vec<Change>,
+    /// How many of the 30 name questions the MTX answered since connecting (0 = it doesn't know GN).
+    pub names_answered: u8,
 }
 
 /// A zone setting changed by someone other than StageGremlin.
@@ -109,6 +111,22 @@ enum Msg {
 pub struct Audac {
     tx: Mutex<Sender<Msg>>,
     state: Arc<Mutex<AudacState>>,
+    talk: Talk,
+}
+
+/// The last lines sent to and heard from the MTX, for Settings › AUDAC › "Conversation".
+type Talk = Arc<Mutex<VecDeque<String>>>;
+const TALK_LINES: usize = 200;
+
+fn note_talk(talk: &Talk, arrow: &str, line: &str) {
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+    // UTC time of day; the UI only needs the order and roughly when.
+    let (h, m, sec, ms) = ((now / 3_600_000) % 24, (now / 60_000) % 60, (now / 1000) % 60, now % 1000);
+    let mut t = talk.lock().unwrap_or_else(|e| e.into_inner());
+    t.push_back(format!("{h:02}:{m:02}:{sec:02}.{ms:03} UTC {arrow} {}", line.trim()));
+    while t.len() > TALK_LINES {
+        t.pop_front();
+    }
 }
 
 pub fn start(app: AppHandle) -> Audac {
@@ -121,15 +139,18 @@ pub fn start(app: AppHandle) -> Audac {
         zones: vec![Zone { volume: MIN_VOLUME, input: 0, mute: false }; ZONES],
         names: vec![String::new(); NAMES],
         changes: Vec::new(),
+        names_answered: 0,
     }));
+    let talk: Talk = Default::default();
+    let talk_for_link = talk.clone();
     let (tx, rx) = mpsc::channel();
     let shared = state.clone();
     std::thread::Builder::new()
         .name("audac".into())
         .spawn(move || Link { app, state: shared, rx, stream: None, buf: Vec::new(), heard: false, got: [false; 3], got_names: [false; NAMES],
-            watch: Watch::default(), out: Default::default(), next_change: 1 }.run())
+            watch: Watch::default(), out: Default::default(), next_change: 1, talk: talk_for_link }.run())
         .expect("could not start the AUDAC thread");
-    Audac { tx: Mutex::new(tx), state }
+    Audac { tx: Mutex::new(tx), state, talk }
 }
 
 struct Link {
@@ -150,6 +171,7 @@ struct Link {
     /// Commands waiting to go out, one every SEND_GAP (before any questions).
     out: VecDeque<String>,
     next_change: u64,
+    talk: Talk,
 }
 
 impl Link {
@@ -307,7 +329,7 @@ impl Link {
                     if text.trim().is_empty() {
                         continue;
                     }
-                    eprintln!("[audac] < {}", text.trim());
+                    note_talk(&self.talk, "←", &text);
                     if let Some(u) = protocol::parse(&text) {
                         self.apply(u);
                     }
@@ -367,10 +389,12 @@ impl Link {
         }
         // The panel opens as soon as we know the volumes: inputs and mutes follow (re-asked if dropped).
         let known = self.got[0];
+        let answered = self.got_names.iter().filter(|g| **g).count() as u8;
         self.update(|s| {
             if known {
                 s.known = true;
             }
+            s.names_answered = answered;
             if !changes.is_empty() {
                 s.changes.extend(changes);
                 let extra = s.changes.len().saturating_sub(KEEP_CHANGES);
@@ -402,6 +426,7 @@ impl Link {
 
     fn send(&mut self, line: &str) {
         let Some(stream) = self.stream.as_mut() else { return };
+        note_talk(&self.talk, "→", line);
         if let Err(e) = stream.write_all(line.as_bytes()) {
             self.lost(&format!("Couldn't send: {e}"));
         }
@@ -504,6 +529,12 @@ pub fn audac_set_input(audac: State<'_, Audac>, zone: u8, input: u8) -> Result<(
         return Err(format!("Input {input} doesn't exist (1–8)."));
     }
     post(&audac, Msg::Input { zone, input })
+}
+
+/// The last lines sent to and heard from the MTX (oldest first), to see what the box really says.
+#[tauri::command]
+pub fn audac_talk(audac: State<'_, Audac>) -> Vec<String> {
+    audac.talk.lock().unwrap_or_else(|e| e.into_inner()).iter().cloned().collect()
 }
 
 /// Zones to put back when someone else changes them; empty = guard off.
