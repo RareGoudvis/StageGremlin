@@ -39,7 +39,11 @@ export const streambox = {
   setMute: (mute: boolean) => cmd<void>("streambox_set_mute", { target: target(useSettings.getState().ui.streambox), mute }),
   transport: (action: "play" | "pause" | "stop") => cmd<void>("streambox_transport", { target: target(useSettings.getState().ui.streambox), action }),
   /** Send StageGremlin's show output to the box; returns the stream address the box got. */
-  sendStart: () => cmd<string>("streambox_send_start", { target: target(useSettings.getState().ui.streambox), format: useSettings.getState().ui.streambox.format }),
+  sendStart: () => cmd<string>("streambox_send_start", {
+    target: target(useSettings.getState().ui.streambox),
+    format: useSettings.getState().ui.streambox.format,
+    source: useSettings.getState().ui.streambox.source ?? "background",
+  }),
   sendStop: () => cmd<void>("streambox_send_stop", {}),
   /** Sending now? (`report` also says to what address and how many are listening.) */
   sending: () => cmd<SendReport>("streambox_sending", {}).then((r) => r.on),

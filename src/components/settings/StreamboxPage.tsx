@@ -116,6 +116,10 @@ export function StreamboxPage() {
               options={[{ value: "wav", label: "WAV" }, { value: "mp3", label: "MP3" },
                 ...(box.via === "dlna" ? [{ value: "l16" as const, label: "L16 (PCM)" }] : [])]} />
           </Row>
+          <Row label={t("sbx.source")} hint={t("sbx.sourceHint")}>
+            <Chips<NonNullable<StreamboxSetup["source"]>> label={t("sbx.source")} value={box.source ?? "background"} onChange={(source) => save({ source })}
+              options={[{ value: "background", label: t("sbx.srcBg") }, { value: "show", label: t("sbx.srcShow") }]} />
+          </Row>
           <StreamboxPanel />
         </Card>
       )}
