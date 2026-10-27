@@ -7,7 +7,7 @@
 // middle area, without a frame (bg_dock). It steps aside while a dialog or menu needs that space,
 // and goes back to a hidden, normal window when you leave this screen.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useUi } from "../uiStore";
 import { useMenu } from "../components/ContextMenu";
 import { backgroundKey, bg, bgDo, useBackground, useEnabledSources, type BgSource } from "../components/background/useBackground";
@@ -27,12 +27,31 @@ export function BackgroundView() {
   const hasBox = useSettings((s) => !!s.ui.streambox.ip);
   useBackgroundKeys();
   const panel = { minHeight: 0, borderRadius: 14, background: "var(--p1)", border: "1px solid var(--line)" } as const;
+  // The left panel (decks, duck, level) folds into a thin strip; the player grows into the space
+  // (it follows its area by itself). Remembered per laptop, best effort.
+  const [folded, setFolded] = useState(() => {
+    try { return localStorage.getItem("sg.bgFolded") === "1"; } catch { return false; }
+  });
+  const fold = (on: boolean) => {
+    setFolded(on);
+    try { localStorage.setItem("sg.bgFolded", on ? "1" : "0"); } catch { /* not remembered */ }
+  };
   return (
-    <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "300px minmax(0, 1fr) 380px", gap: 12, padding: "12px 14px" }}>
-      <section aria-label={t("bgv.playback")} className="scroll" style={{ ...panel, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
-        <Decks />
-        <span style={{ marginTop: "auto", paddingTop: 10, borderTop: "1px solid var(--line)", fontSize: 12, color: "var(--mute)", lineHeight: 1.45 }}>{t("bgv.noGo")}</span>
-      </section>
+    <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: `${folded ? "52px" : "300px"} minmax(0, 1fr) 380px`, gap: 12, padding: "12px 14px" }}>
+      {folded ? (
+        <section aria-label={t("bgv.playback")} style={{ ...panel, padding: "8px 6px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+          <button className="b btn" aria-label={t("bgv.unfold")} title={t("bgv.unfold")} onClick={() => fold(false)} style={{ width: 38, height: 34, justifyContent: "center", padding: 0, fontSize: 16 }}>›</button>
+          <button className="b btn" title={`${t("bgv.duck")} · D`} aria-label={t("bgv.duck")} onClick={() => bgDo(bg.command("duck"))} style={{ width: 38, height: 34, justifyContent: "center", padding: 0, fontWeight: 800 }}>D</button>
+          <button className="b btn" title={`${t("bgv.restore")} · R`} aria-label={t("bgv.restore")} onClick={() => bgDo(bg.command("restore"))} style={{ width: 38, height: 34, justifyContent: "center", padding: 0, fontWeight: 800 }}>R</button>
+        </section>
+      ) : (
+        <section aria-label={t("bgv.playback")} className="scroll" style={{ ...panel, padding: 16, display: "flex", flexDirection: "column", gap: 14, position: "relative" }}>
+          <button className="b btn btn-ghost" aria-label={t("bgv.fold")} title={t("bgv.fold")} onClick={() => fold(true)}
+            style={{ position: "absolute", top: 6, right: 6, width: 30, height: 28, justifyContent: "center", padding: 0, fontSize: 16, zIndex: 1 }}>‹</button>
+          <Decks />
+          <span style={{ marginTop: "auto", paddingTop: 10, borderTop: "1px solid var(--line)", fontSize: 12, color: "var(--mute)", lineHeight: 1.45 }}>{t("bgv.noGo")}</span>
+        </section>
+      )}
       {/* Square bottom corners: the player window laid over this panel is square, and fills it to the bottom. */}
       <section aria-label={t("bgv.player")} style={{ ...panel, borderRadius: "14px 14px 0 0", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <Player />

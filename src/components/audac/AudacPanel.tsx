@@ -90,6 +90,31 @@ function Changes({ st }: { st: AudacState | null }) {
   );
 }
 
+/**
+ * The zone's input as a compact dropdown (instead of a row of buttons). Shows the input even when
+ * it's one hidden in Settings, so what the zone plays is never a mystery.
+ */
+function InputSelect({ label, value, inputs, big, mixed = false, onChange }: {
+  label: string;
+  value: number;
+  inputs: { n: number; name: string }[];
+  big: boolean;
+  /** A group whose zones are on different inputs. */
+  mixed?: boolean;
+  onChange: (input: number) => void;
+}) {
+  const allNames = useSettings((s) => s.ui.audac.inputs);
+  const known = inputs.some((i) => i.n === value);
+  return (
+    <select className="select" tabIndex={-1} aria-label={label} value={known ? value : 0}
+      onChange={(e) => { const v = Number(e.target.value); if (v) onChange(v); }}
+      style={{ width: big ? 190 : 150, height: big ? 32 : 28, fontSize: big ? 13 : 12.5, fontWeight: 600, flex: "none" }}>
+      {!known && <option value={0}>{mixed ? "—" : value ? (allNames[value - 1]?.name || `Input ${value}`) : "—"}</option>}
+      {inputs.map((i) => <option key={i.n} value={i.n}>{i.name}</option>)}
+    </select>
+  );
+}
+
 /** One row that sets several zones at once (a group, or the zones ticked in select mode). */
 function SetRow({ title, subtitle, members, st, inputs, big, accent = false }: {
   title: string;
@@ -124,19 +149,14 @@ function SetRow({ title, subtitle, members, st, inputs, big, accent = false }: {
           {t("audac.mute")}
         </button>
       </div>
-      <input type="range" tabIndex={-1} aria-label={`${title} volume`} min={0} max={MIN_VOLUME} step={1} value={MIN_VOLUME - shown}
-        onChange={(e) => {
-          const db = MIN_VOLUME - Number(e.target.value);
-          setDrag(db);
-          each((z) => audac.setVolume(z, db));
-        }} />
-      <div role="group" aria-label={`${title} input`} style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-        {inputs.map((i) => (
-          <button key={i.n} className="b chip" tabIndex={-1} aria-pressed={sum.input === i.n} onClick={() => each((z) => audac.setInput(z, i.n))}
-            style={{ height: big ? 30 : 24, fontSize: big ? 12.5 : 11.5, padding: "0 8px" }}>
-            {i.name}
-          </button>
-        ))}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <input type="range" tabIndex={-1} aria-label={`${title} volume`} min={0} max={MIN_VOLUME} step={1} value={MIN_VOLUME - shown}
+          onChange={(e) => {
+            const db = MIN_VOLUME - Number(e.target.value);
+            setDrag(db);
+            each((z) => audac.setVolume(z, db));
+          }} style={{ flex: 1, minWidth: 60 }} />
+        <InputSelect label={`${title} input`} value={sum.input} inputs={inputs} big={big} mixed={sum.input === 0} onChange={(i) => each((z) => audac.setInput(z, i))} />
       </div>
     </div>
   );
@@ -187,7 +207,7 @@ function ZoneRow({ n, name, zone, inputs, big, rule, pick }: {
   const h = big ? 34 : 28;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: big ? "10px 12px" : "6px 8px", borderRadius: 10, background: "var(--p2)" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: big ? "8px 12px" : "5px 8px", borderRadius: 10, background: "var(--p2)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         {pick && <input type="checkbox" tabIndex={-1} aria-label={name} checked={pick.on} onChange={pick.toggle} style={{ width: 18, height: 18 }} />}
         <span className="clamp1" style={{ flex: 1, fontWeight: 700, fontSize: big ? 15 : 13 }} onClick={pick?.toggle}>
@@ -208,20 +228,15 @@ function ZoneRow({ n, name, zone, inputs, big, rule, pick }: {
           {t("audac.mute")}
         </button>
       </div>
-      {/* Right = louder. The MTX counts dB below maximum, so the slider is turned around. */}
-      <input type="range" tabIndex={-1} aria-label={`${name} volume`} min={0} max={MIN_VOLUME} step={1} value={MIN_VOLUME - shown}
-        onChange={(e) => {
-          const db = MIN_VOLUME - Number(e.target.value);
-          setDrag(db);
-          void audac.setVolume(n, db);
-        }} />
-      <div role="group" aria-label={`${name} input`} style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-        {inputs.map((i) => (
-          <button key={i.n} className="b chip" tabIndex={-1} aria-pressed={zone?.input === i.n} onClick={() => void audac.setInput(n, i.n)}
-            style={{ height: big ? 30 : 24, fontSize: big ? 12.5 : 11.5, padding: "0 8px" }}>
-            {i.name}
-          </button>
-        ))}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {/* Right = louder. The MTX counts dB below maximum, so the slider is turned around. */}
+        <input type="range" tabIndex={-1} aria-label={`${name} volume`} min={0} max={MIN_VOLUME} step={1} value={MIN_VOLUME - shown}
+          onChange={(e) => {
+            const db = MIN_VOLUME - Number(e.target.value);
+            setDrag(db);
+            void audac.setVolume(n, db);
+          }} style={{ flex: 1, minWidth: 60 }} />
+        <InputSelect label={`${name} input`} value={zone?.input ?? 0} inputs={inputs} big={big} onChange={(i) => void audac.setInput(n, i)} />
       </div>
     </div>
   );
