@@ -155,7 +155,7 @@ pub struct OtherApp {
 
 /// "#|web|X001|VU|…" → ("web", "VU"): who a line from the MTX is meant for, and its command.
 fn addressee(line: &str) -> Option<(String, String)> {
-    let mut f = line.trim().strip_prefix('#')?.trim_start_matches('|').split('|').map(str::trim);
+    let mut f = line.trim_matches(|c: char| c.is_whitespace() || c == '\0').strip_prefix('#')?.trim_start_matches('|').split('|').map(str::trim);
     let to = f.next()?.to_string();
     let _from = f.next()?;
     Some((to, f.next()?.to_string()))
@@ -402,7 +402,9 @@ impl Link {
         match stream.read(&mut chunk) {
             Ok(0) => self.lost("The MTX closed the connection (is someone else connected?)."),
             Ok(n) => {
-                self.buf.extend_from_slice(&chunk[..n]);
+                // The MTX puts a NUL byte before every line (seen on the real box): drop them, or
+                // no line would start with '#' and nothing would be understood.
+                self.buf.extend(chunk[..n].iter().copied().filter(|&b| b != 0));
                 // The manual ends lines with "return": that may be CR only, CR LF, or LF. Accept all.
                 while let Some(end) = self.buf.iter().position(|&b| b == b'\n' || b == b'\r') {
                     let raw: Vec<u8> = self.buf.drain(..=end).collect();
@@ -662,5 +664,6 @@ mod talk_tests {
         assert_eq!(super::addressee("#|web|X001|VU|000^000|U|"), Some(("web".into(), "VU".into())));
         assert_eq!(super::addressee("#|SG|X001|N11|Stream Box|U|"), Some(("SG".into(), "N11".into())));
         assert_eq!(super::addressee("rubbish"), None);
+        assert_eq!(super::addressee("\0#|web|X001|VU|000|U|"), Some(("web".into(), "VU".into())), "NUL first, as the real MTX sends it");
     }
 }
