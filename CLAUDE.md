@@ -59,9 +59,10 @@ cargo test -p cueplay-engine              # engine tests (no audio device needed
 npm run build                             # type-check + build the UI
 ```
 
-## Status (v0.1.0, 26 Oct 2026)
+## Status (v1.0.0, 27 Oct 2026)
 
-Everything in the brief is written; NOTHING has been tested on Windows or with the real Qu-24 yet.
+Everything in the brief is written. Tested on the school's Windows laptop with the real AUDAC MTX88 (zones, names,
+schedule, Touch 2 detection); NOT yet with the real Qu-24 in a show.
 `docs/TESTING.md` is the test plan. Code that only runs on Windows (background volume sessions, keep-awake,
 explorer /select, WebView2 data dir, yt-dlp/ffmpeg) compiles but is untested.
 

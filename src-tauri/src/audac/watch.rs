@@ -94,13 +94,27 @@ impl Watch {
     }
 
     /// How each zone is protected (zones not listed: changes are only reported).
-    pub fn set_rules(&mut self, rules: &[Rule]) {
+    /// Returns the zones that are ALREADY louder than their new ceiling, with the level to bring
+    /// them down to: a rule that starts while a zone is too loud must act at once, not wait for
+    /// the next change (there may never be one).
+    pub fn set_rules(&mut self, rules: &[Rule], now: Instant) -> Vec<(u8, u8)> {
         self.rules = [None; ZONES];
         for r in rules {
             if (1..=ZONES as u8).contains(&r.zone) {
                 self.rules[r.zone as usize - 1] = Some(*r);
             }
         }
+        let mut down = Vec::new();
+        for zone in 1..=ZONES as u8 {
+            let Some(c) = self.rule(zone).and_then(|r| r.ceiling) else { continue };
+            let Some(slot) = self.slot(zone, Field::Volume) else { continue };
+            if let Some(v) = slot.expected.filter(|v| *v < c) {
+                slot.expected = Some(c);
+                slot.stale = Some((v, now + STALE_FOR));
+                down.push((zone, c));
+            }
+        }
+        down
     }
 
     fn rule(&self, zone: u8) -> Option<Rule> {
@@ -129,6 +143,15 @@ impl Watch {
         let stale = slot.stale.is_some_and(|(v, t)| v == value && now < t);
         match slot.expected {
             None => {
+                // The first value we hear (after connecting or reconnecting) is accepted as it is,
+                // EXCEPT a volume louder than its ceiling: that may have been turned up while we
+                // weren't connected, and must come down now (hearing safety).
+                if let Some(c) = rule.and_then(|r| r.ceiling).filter(|c| field == Field::Volume && value < *c) {
+                    slot.restores.push(now);
+                    slot.stale = Some((value, now + STALE_FOR));
+                    slot.expected = Some(c);
+                    return Verdict::Foreign { from: c, restore: Some(c) };
+                }
                 slot.expected = Some(value);
                 Verdict::Fine
             }
@@ -209,7 +232,7 @@ mod tests {
     #[test]
     fn a_guarded_zone_is_put_back_but_not_forever() {
         let mut w = Watch::default();
-        w.set_rules(&[Rule { zone: 5, full: true, ..Default::default() }]);
+        w.set_rules(&[Rule { zone: 5, full: true, ..Default::default() }], t0());
         let now = t0();
         w.verdict(5, Field::Mute, 0, now);
         let mut restores = 0;
@@ -241,7 +264,7 @@ mod tests {
     #[test]
     fn reconnecting_starts_fresh_but_keeps_the_guard() {
         let mut w = Watch::default();
-        w.set_rules(&[Rule { zone: 3, full: true, ..Default::default() }]);
+        w.set_rules(&[Rule { zone: 3, full: true, ..Default::default() }], t0());
         let now = t0();
         w.verdict(3, Field::Input, 1, now);
         w.reset();
@@ -265,9 +288,44 @@ mod tests {
     }
 
     #[test]
+    fn a_zone_turned_up_while_we_were_disconnected_comes_down_on_reconnect() {
+        let mut w = Watch::default();
+        let now = t0();
+        w.set_rules(&[Rule { zone: 4, ceiling: Some(30), unlimited: true, ..Default::default() }], now);
+        w.verdict(4, Field::Volume, 30, now);
+        // Connection lost; meanwhile Touch 2 turns zone 4 up to -5 dB. We reconnect:
+        w.reset();
+        assert_eq!(w.verdict(4, Field::Volume, 5, now + Duration::from_secs(60)), Verdict::Foreign { from: 30, restore: Some(30) });
+        // The MTX confirms our correction; a late report of the old -5 is not a new fight.
+        assert_eq!(w.verdict(4, Field::Volume, 5, now + Duration::from_millis(60_300)), Verdict::Fine);
+        assert_eq!(w.verdict(4, Field::Volume, 30, now + Duration::from_millis(60_500)), Verdict::Fine);
+        // Quieter than the ceiling on reconnect is simply accepted.
+        w.reset();
+        assert_eq!(w.verdict(4, Field::Volume, 45, now + Duration::from_secs(120)), Verdict::Fine);
+        // Without a ceiling, a first value is never questioned.
+        w.reset();
+        assert_eq!(w.verdict(2, Field::Volume, 0, now + Duration::from_secs(130)), Verdict::Fine);
+    }
+
+    #[test]
+    fn a_ceiling_that_starts_while_a_zone_is_already_too_loud_acts_at_once() {
+        let mut w = Watch::default();
+        let now = t0();
+        w.verdict(3, Field::Volume, 6, now); // zone 3 is loud (-6 dB)
+        w.verdict(5, Field::Volume, 40, now); // zone 5 is quiet
+        let down = w.set_rules(&[
+            Rule { zone: 3, ceiling: Some(30), unlimited: true, ..Default::default() },
+            Rule { zone: 5, ceiling: Some(30), unlimited: true, ..Default::default() },
+        ], now);
+        assert_eq!(down, vec![(3, 30)], "only the zone louder than its ceiling");
+        assert_eq!(w.verdict(3, Field::Volume, 30, now + Duration::from_millis(200)), Verdict::Fine, "our correction lands");
+        assert!(w.set_rules(&[Rule { zone: 3, ceiling: Some(30), ..Default::default() }], now).is_empty(), "nothing to do twice");
+    }
+
+    #[test]
     fn hold_never_gives_up() {
         let mut w = Watch::default();
-        w.set_rules(&[Rule { zone: 1, full: true, unlimited: true, ..Default::default() }]);
+        w.set_rules(&[Rule { zone: 1, full: true, unlimited: true, ..Default::default() }], t0());
         let now = t0();
         w.verdict(1, Field::Input, 3, now);
         for i in 1..=20 {
@@ -281,7 +339,7 @@ mod tests {
     fn no_louder_than_the_ceiling_but_quieter_is_fine() {
         let mut w = Watch::default();
         // Scheduled at -30 dB: someone may turn it down, never up past -30.
-        w.set_rules(&[Rule { zone: 4, ceiling: Some(30), unlimited: true, ..Default::default() }]);
+        w.set_rules(&[Rule { zone: 4, ceiling: Some(30), unlimited: true, ..Default::default() }], t0());
         let now = t0();
         w.verdict(4, Field::Volume, 30, now);
         assert_eq!(w.verdict(4, Field::Volume, 40, now + Duration::from_secs(5)), Verdict::Foreign { from: 30, restore: None }, "quieter: reported, kept");
