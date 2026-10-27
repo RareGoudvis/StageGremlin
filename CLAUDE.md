@@ -78,7 +78,7 @@ explorer /select, WebView2 data dir, yt-dlp/ffmpeg) compiles but is untested.
   booth modes, print, full-page Settings grouped This laptop / This show / Tools (NL/EN, rebindable shortcuts),
   resume dialog. v2 layout is untested in the real app.
 - AUDAC MTX88 remote (outside the v1 brief, asked for by the owner): zones' input / volume / mute over TCP 5001,
-  holds the MTX's single connection; top-bar AUDAC button, Run dock tab, Settings › AUDAC. `scripts/fake-mtx.py`
+  reads the MTX's own names (GN1–GN30, found in its web portal), does not lock others out; top-bar AUDAC button, Run dock tab, Settings › AUDAC. `scripts/fake-mtx.py`
   stands in for the box. Schedule (Settings › Schedule): times per weekday that set zones and start a background
   playlist; runs while the app is open. AUDAC setup + schedule need the admin password (one per build, hash in the
   gitignored .env.local via scripts/make-admin-hash.mjs). Untested on the real MTX.

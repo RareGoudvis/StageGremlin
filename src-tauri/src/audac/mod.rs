@@ -1,9 +1,9 @@
 //! AUDAC MTX88 remote: the school's zone matrix (study hall, corridors…), controlled from the laptop
 //! so the operator doesn't need the Touch 2 app on a phone. Not connected to cues: it's a remote.
 //!
-//! The MTX accepts ONE network connection at a time. We hold it on purpose while connected: then
-//! nobody else (a colleague's Touch 2) can change the zones during the show. If someone else holds it
-//! first we can't push them off; we keep retrying every few seconds and get in as soon as it's free.
+//! Being connected does NOT lock others out: the manual says the MTX sends every change "to every
+//! client", and Touch 2, wall panels and the front panel keep working. We see their changes because
+//! the MTX reports them. If the connection is refused we keep retrying every few seconds.
 //!
 //! One thread ("audac") owns the socket. The UI sends commands through a channel and gets
 //! `audac://state` whenever something changes. Nothing here touches the audio engine.
@@ -20,7 +20,7 @@ use std::time::{Duration, Instant};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
-use protocol::{Update, MIN_VOLUME, ZONES};
+use protocol::{Update, MIN_VOLUME, NAMES, ZONES};
 
 const RETRY_EVERY: Duration = Duration::from_secs(3);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
@@ -65,6 +65,8 @@ pub struct AudacState {
     /// False until the MTX has told us its zones once.
     pub known: bool,
     pub zones: Vec<Zone>,
+    /// The names stored on the MTX (see protocol::NAMES); empty until it has told us.
+    pub names: Vec<String>,
 }
 
 enum Msg {
@@ -90,12 +92,13 @@ pub fn start(app: AppHandle) -> Audac {
         message: None,
         known: false,
         zones: vec![Zone { volume: MIN_VOLUME, input: 0, mute: false }; ZONES],
+        names: vec![String::new(); NAMES],
     }));
     let (tx, rx) = mpsc::channel();
     let shared = state.clone();
     std::thread::Builder::new()
         .name("audac".into())
-        .spawn(move || Link { app, state: shared, rx, stream: None, buf: Vec::new(), heard: false, got: [false; 3] }.run())
+        .spawn(move || Link { app, state: shared, rx, stream: None, buf: Vec::new(), heard: false, got: [false; 3], got_names: [false; NAMES] }.run())
         .expect("could not start the AUDAC thread");
     Audac { tx: Mutex::new(tx), state }
 }
@@ -111,6 +114,8 @@ struct Link {
     heard: bool,
     /// Answers received since connecting: [volumes, inputs, mutes] of all zones.
     got: [bool; 3],
+    /// Which of the MTX's names have arrived since connecting.
+    got_names: [bool; NAMES],
 }
 
 impl Link {
@@ -123,6 +128,8 @@ impl Link {
         let mut asks: std::collections::VecDeque<String> = Default::default();
         let mut next_ask = Instant::now();
         let mut last_reask = Instant::now();
+        // Names are asked again at most this many times (older firmware may not know GN).
+        let mut name_rounds = 0;
         // A slider sends many volumes; only the newest per zone goes out (see `flush`).
         let mut pending_volume: [Option<u8>; ZONES] = [None; ZONES];
 
@@ -191,7 +198,10 @@ impl Link {
                             last_poll = Instant::now();
                             last_heard = Instant::now();
                             self.got = [false; 3];
+                            self.got_names = [false; NAMES];
+                            name_rounds = 0;
                             asks = protocol::get_all().into_iter().collect();
+                            asks.extend((1..=NAMES as u8).map(protocol::get_name));
                             next_ask = Instant::now();
                             last_reask = Instant::now();
                             self.update(|s| {
@@ -212,10 +222,15 @@ impl Link {
             if self.stream.is_some() {
                 self.read();
                 // Ask the questions one at a time; re-ask what's still unanswered.
-                if self.got != [true; 3] && asks.is_empty() && last_reask.elapsed() >= REASK_EVERY {
+                let names_missing = name_rounds < 3 && self.got_names.contains(&false);
+                if (self.got != [true; 3] || names_missing) && asks.is_empty() && last_reask.elapsed() >= REASK_EVERY {
                     last_reask = Instant::now();
                     let all = protocol::get_all();
                     asks = (0..3).filter(|&i| !self.got[i]).map(|i| all[i].clone()).collect();
+                    if names_missing {
+                        name_rounds += 1;
+                        asks.extend((0..NAMES).filter(|&i| !self.got_names[i]).map(|i| protocol::get_name(i as u8 + 1)));
+                    }
                 }
                 if Instant::now() >= next_ask {
                     if let Some(l) = asks.pop_front() {
@@ -274,6 +289,7 @@ impl Link {
             Update::AllVolumes(_) => self.got[0] = true,
             Update::AllInputs(_) => self.got[1] = true,
             Update::AllMutes(_) => self.got[2] = true,
+            Update::Name(i, _) if (1..=NAMES as u8).contains(&i) => self.got_names[i as usize - 1] = true,
             _ => {}
         }
         // The panel opens as soon as we know the volumes: inputs and mutes follow (re-asked if dropped).
@@ -295,6 +311,11 @@ impl Link {
                 Update::AllInputs(v) => v.iter().zip(s.zones.iter_mut()).for_each(|(v, z)| z.input = *v),
                 Update::AllMutes(v) => {
                     v.iter().zip(s.zones.iter_mut()).for_each(|(v, z)| z.mute = *v);
+                }
+                Update::Name(i, name) => {
+                    if (1..=NAMES as u8).contains(&i) {
+                        s.names[i as usize - 1] = name;
+                    }
                 }
                 Update::Other => {}
             }

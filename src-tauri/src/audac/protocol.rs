@@ -38,6 +38,15 @@ pub fn set_input(zone: u8, input: u8) -> String {
 pub fn set_mute(zone: u8, mute: bool) -> String {
     line(&format!("SM0{zone}"), if mute { "1" } else { "0" })
 }
+/// How many names the MTX keeps (found in its own web portal, MTX.swf; not in the public manual):
+/// N01–N08 = zones 1–8, N09–N14 = inputs 1–6, then two per zone for inputs 7 and 8 (the wall-panel
+/// inputs: N15/N16 for zone 1, N17/N18 for zone 2, … N29/N30 for zone 8).
+pub const NAMES: usize = 30;
+/// Ask for one name (1–30), exactly as the web portal does: `GN1` … `GN30`. Answer: `N01` … `N30`.
+pub fn get_name(i: u8) -> String {
+    line(&format!("GN{i}"), "0")
+}
+
 /// Ask for everything once after connecting (answers: VALL, RALL, MALL).
 pub fn get_all() -> [String; 3] {
     [line("GVALL", "0"), line("GRALL", "0"), line("GMALL", "0")]
@@ -54,6 +63,8 @@ pub enum Update {
     AllMutes(Vec<bool>),
     /// One zone at once: volume, input, mute.
     Zone(u8, u8, u8, bool),
+    /// Name number 1–30 (see NAMES) and its text.
+    Name(u8, String),
     /// "Got your command" (`+`), version answers, bass/treble: nothing to show.
     Other,
 }
@@ -84,6 +95,12 @@ pub fn parse(raw: &str) -> Option<Update> {
             (Some(&vol), Some(&input), Some(&mute)) => Update::Zone(zone, vol, input, mute == 1),
             _ => Update::Other,
         });
+    }
+    // Names: "N01" … "N30" with the name as argument (may contain spaces).
+    if command.len() == 3 && command.starts_with('N') {
+        if let Ok(i) = command[1..].parse::<u8>() {
+            return Some(Update::Name(i, argument.to_string()));
+        }
     }
     if command.len() == 3 {
         if let Ok(zone) = command[1..].parse::<u8>() {
@@ -130,6 +147,15 @@ mod tests {
         assert_eq!(parse("#|web|X001| RALL|3^1^1^1^1^1^1^1|U|"), Some(Update::AllInputs(vec![3, 1, 1, 1, 1, 1, 1, 1])));
         assert_eq!(parse("#|web|X001| MALL|0^0^0^0^0^0^0^1|U|").map(|u| matches!(u, Update::AllMutes(m) if m[7])), Some(true));
         assert_eq!(parse("#|web|X001| ZI01|20^3^0^07^07|U|"), Some(Update::Zone(1, 20, 3, false)));
+    }
+
+    #[test]
+    fn reads_names_like_the_web_portal() {
+        assert_eq!(get_name(1), "#|X001|SG|GN1|0|U|\r\n");
+        assert_eq!(get_name(30), "#|X001|SG|GN30|0|U|\r\n");
+        assert_eq!(parse("#|SG|X001|N01|Gym|U|"), Some(Update::Name(1, "Gym".into())));
+        assert_eq!(parse("#|SG|X001|N12|CD - USB|U|"), Some(Update::Name(12, "CD - USB".into())));
+        assert_eq!(parse("#|SG|X001|N05||U|"), Some(Update::Name(5, String::new())));
     }
 
     #[test]
