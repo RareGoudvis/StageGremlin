@@ -7,6 +7,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { isTauri } from "./tauri";
 import { useSettings, type AudacSetup } from "../settingsStore";
+import { applyMtxNames, DEFAULT_INPUT_NAMES, DEFAULT_ZONE_NAMES, mtxNames } from "./audacNames";
 
 export type AudacStatus = "off" | "connecting" | "connected" | "retrying";
 
@@ -26,6 +27,8 @@ export interface AudacState {
   /** False until the MTX has reported its zones once. */
   known: boolean;
   zones: AudacZone[];
+  /** The 30 names stored on the MTX ("" until it has sent them; see lib/audacNames.ts). */
+  names?: string[];
 }
 
 export const MIN_VOLUME = 70;
@@ -86,6 +89,25 @@ export function useAudac(): AudacState | null {
   return state;
 }
 
+/**
+ * When the MTX sends its own names, fill in every zone and input that still has its factory name
+ * here ("Zone 3", "Line 4"). Names typed in StageGremlin are never overwritten (call once from App).
+ */
+export function useAudacNameFill() {
+  const st = useAudac();
+  const names = st?.names;
+  useEffect(() => {
+    const got = mtxNames(names);
+    if (!got) return;
+    const a = useSettings.getState().ui.audac;
+    const zones = applyMtxNames(a.zones, got.zones, DEFAULT_ZONE_NAMES, true);
+    const inputs = applyMtxNames(a.inputs, got.inputs, DEFAULT_INPUT_NAMES, true);
+    if (JSON.stringify(zones) !== JSON.stringify(a.zones) || JSON.stringify(inputs) !== JSON.stringify(a.inputs)) {
+      useSettings.getState().update({ audac: { ...a, zones, inputs } });
+    }
+  }, [names]);
+}
+
 /** Connect at start when this laptop is set up for it (call once from App). */
 export function useAudacAutoConnect() {
   const loaded = useSettings((s) => s.loaded);
@@ -111,7 +133,10 @@ const sim = (() => {
   let state: AudacState = {
     status: "off", host: "", port: 5001, message: null, known: false,
     zones: Array.from({ length: 8 }, (_, i) => ({ volume: 30, input: i === 0 ? 4 : 3, mute: false })),
+    names: Array.from({ length: 30 }, () => ""),
   };
+  const demoNames = ["Hall", "Stage", "Playground", "Corridor", "Canteen", "Office", "Gym", "Outside",
+    "Mic", "Streambox", "CD - USB", "Aux", "Line 5", "Line 6", ...Array.from({ length: 16 }, (_, i) => (i % 2 ? "Wall mic" : "Wall input"))];
   const subs = new Set<(s: AudacState) => void>();
   const set = (patch: Partial<AudacState>) => {
     state = { ...state, ...patch };
@@ -128,7 +153,7 @@ const sim = (() => {
         case "audac_get_state": return state;
         case "audac_connect":
           set({ status: "connecting", host: String(a.host), port: Number(a.port) });
-          setTimeout(() => set({ status: "connected", known: true }), 400);
+          setTimeout(() => set({ status: "connected", known: true, names: demoNames }), 400);
           return;
         case "audac_disconnect": return set({ status: "off", known: false });
         case "audac_set_volume": return zone(Number(a.zone), { volume: Number(a.db) });

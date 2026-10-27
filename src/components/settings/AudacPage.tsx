@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useSettings, type AudacSetup } from "../../settingsStore";
 import { useT } from "../../i18n";
 import { audac, audacConnectSaved, setAudacDemo, useAudac } from "../../lib/audac";
+import { applyMtxNames, DEFAULT_INPUT_NAMES, DEFAULT_ZONE_NAMES, mtxNames } from "../../lib/audacNames";
 import { Chips, Row } from "../controls";
 import { Card, PageTitle } from "./common";
 import { AdminGate } from "./AdminGate";
@@ -57,10 +58,37 @@ export function AudacPage() {
       </Card>
       {/* Admin only: the zone and input names, and which of them show. */}
       <AdminGate>
+      <MtxNamesCard names={st?.names} />
       <Names title={t("audac.inputs")} note={t("audac.inputsNote")} list={setup.inputs} onChange={(inputs) => save({ inputs })} />
       <Names title={t("audac.zones")} note={t("audac.zonesNote")} list={setup.zones} onChange={(zones) => save({ zones })} />
       </AdminGate>
     </>
+  );
+}
+
+/** The names stored on the MTX: shown, and one button to use them all here. */
+function MtxNamesCard({ names }: { names: string[] | undefined }) {
+  const t = useT();
+  const got = mtxNames(names);
+  const use = () => {
+    if (!got) return;
+    const a = useSettings.getState().ui.audac;
+    useSettings.getState().update({ audac: { ...a,
+      zones: applyMtxNames(a.zones, got.zones, DEFAULT_ZONE_NAMES, false),
+      inputs: applyMtxNames(a.inputs, got.inputs, DEFAULT_INPUT_NAMES, false) } });
+  };
+  return (
+    <Card title={t("audac.mtxNames")} note={t("audac.mtxNamesNote")}>
+      {got ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+          <span><b>{t("audac.zones")}:</b> {got.zones.map((z, i) => `${i + 1} ${z || "—"}`).join(" · ")}</span>
+          <span><b>{t("audac.inputs")}:</b> {got.inputs.map((z, i) => `${i + 1} ${z || "—"}`).join(" · ")}</span>
+          <div><button className="b btn" onClick={use}>{t("audac.useMtxNames")}</button></div>
+        </div>
+      ) : (
+        <span style={{ fontSize: 13, color: "var(--dim)" }}>{t("audac.mtxNamesNone")}</span>
+      )}
+    </Card>
   );
 }
 

@@ -4,12 +4,15 @@ Run:   python scripts/fake-mtx.py
 Then in StageGremlin: Settings > AUDAC > IP address 127.0.0.1, port 5001 > Connect.
 
 Like the real MTX it accepts ONE connection at a time (a second one is refused), answers the
-commands StageGremlin uses (SV, SVU, SVD, SR, SM, GVALL, GRALL, GMALL) and prints what it gets.
+commands StageGremlin uses (SV, SVU, SVD, SR, SM, GVALL, GRALL, GMALL, GN1-GN30) and prints what it gets.
 """
 
 import socket
 
 zones = [{"v": 30, "r": 4, "m": 0} for _ in range(8)]
+# 1-8 zones, 9-14 inputs 1-6, then two wall-panel input names per zone (inputs 7 and 8).
+NAMES = ["Turnzaal", "Lagere school", "Afdak lager", "Speelplaats lager", "Podium", "Kleuters", "Zone 7", "Zone 8",
+         "Micro", "Streambox", "CD - USB", "Aux kabel", "Line 5", "Line 6"] + ["WLI", "WMI"] * 8
 
 
 def handle(line: str) -> list[str]:
@@ -26,6 +29,9 @@ def handle(line: str) -> list[str]:
         return [out("RALL", "^".join(str(z["r"]) for z in zones))]
     if cmd == "GMALL":
         return [out("MALL", "^".join(str(z["m"]) for z in zones))]
+    if cmd.startswith("GN") and cmd[2:].isdigit():  # names, like the MTX's own web portal asks them
+        n = int(cmd[2:])
+        return [out(f"N{n:02}", NAMES[n - 1] if 1 <= n <= len(NAMES) else "")]
     for prefix, key, step in (("SVU0", "v", -3), ("SVD0", "v", 3)):
         if cmd.startswith(prefix):
             n = int(cmd[len(prefix):])
