@@ -168,6 +168,22 @@
     return null;
   }
 
+  // Spotify: the other device it plays on, from its "Playing on …" bar (null = this window, or can't tell).
+  function remoteDevice() {
+    if (location.hostname.indexOf("spotify.com") < 0) return null;
+    try {
+      var re = /^(playing on|listening on|afspelen op|luisteren op|speelt af op|bezig met afspelen op)\s+(.+)$/i;
+      var els = document.querySelectorAll("footer *, [data-testid*='connect'] *, [aria-live] *");
+      for (var i = 0; i < els.length; i++) {
+        var t = (els[i].textContent || "").trim();
+        if (t.length > 90) continue;
+        var m = re.exec(t);
+        if (m) return m[2].trim();
+      }
+    } catch (e) {}
+    return null;
+  }
+
   function report() {
     var t = window.__TAURI_INTERNALS__;
     if (!t || typeof t.invoke !== "function") return;
@@ -188,7 +204,8 @@
       url: location.href,
       tracks: tracks,
       signedIn: signedIn(),
-      connect: window.__cueplayConnect || null
+      connect: window.__cueplayConnect || null,
+      remote: remoteDevice()
     };
     try {
       var r = t.invoke("plugin:cueplay-bg|report", { report: payload });
@@ -206,7 +223,29 @@
       }
       setTimeout(report, 100);
     },
+    // Spotify: start the playlist this page shows with its own big play button, on the device Spotify
+    // is set to (the box after a move; this window otherwise). Falls back to plain play.
+    startList: function () {
+      var big = null;
+      if (location.hostname.indexOf("spotify.com") >= 0) {
+        var cands = document.querySelectorAll('[data-testid="action-bar-row"] [data-testid="play-button"], main [data-testid="play-button"]');
+        for (var i = 0; i < cands.length && !big; i++) if (cands[i].getClientRects().length) big = cands[i];
+      }
+      if (big) {
+        // Already playing this list: its button says "pause" then; leave it.
+        if (!/pause|pauzeer/i.test(big.getAttribute("aria-label") || "")) big.click();
+      } else {
+        window.__cueplayBg.play();
+      }
+      setTimeout(report, 300);
+    },
     pause: function () {
+      // Spotify playing on another device (the box): its own pause button pauses THERE; the page's
+      // media handlers only know this window.
+      if (location.hostname.indexOf("spotify.com") >= 0 && remoteDevice()) {
+        var pb = document.querySelector('[data-testid="control-button-playpause"]');
+        if (pb && /pause|pauzeer/i.test(pb.getAttribute("aria-label") || "")) { pb.click(); setTimeout(report, 300); return; }
+      }
       if (!callHandler("pause")) {
         var m = media();
         if (m) m.pause();

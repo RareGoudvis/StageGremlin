@@ -10,10 +10,10 @@ import { create } from "zustand";
 import { volumeFor } from "./audacGroups";
 import { useSettings, type ScheduleEntry } from "../settingsStore";
 import { useDoc } from "../store";
-import { toast } from "../uiStore";
 import { audac, audacConnectSaved } from "./audac";
 import { bg } from "../components/background/useBackground";
 import { connectText, spotifyToBox, streambox } from "./streambox";
+import { setProblem, slog } from "./scheduleLog";
 import { isTauri } from "./tauri";
 
 /** A background-player command that only exists in the app (not in a plain browser). */
@@ -35,13 +35,17 @@ export function usesBox(e: ScheduleEntry): boolean {
 
 /** Unmute the Streambox and set its volume: zones on its input hear nothing while it is at 0 or muted. */
 async function boxUp(e: ScheduleEntry) {
+  const level = e.music.boxVolume ?? BOX_VOLUME;
   try {
     await streambox.setMute(false);
-    await streambox.setVolume(e.music.boxVolume ?? BOX_VOLUME);
+    await streambox.setVolume(level);
+    slog(e.name, `Streambox unmuted, volume ${level}%`, "ok", false);
   } catch (err) {
-    toast(`Schedule “${e.name}”: couldn't turn the Streambox up (${err})`);
+    slog(e.name, `couldn't turn the Streambox up (${err})`, "bad");
   }
 }
+
+const sleep = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
 
 const CHECK_EVERY_MS = 10_000;
 /** Give the playlist page this long to load before pressing play. */
@@ -116,64 +120,119 @@ async function check() {
 
 async function start(e: ScheduleEntry) {
   if (!(await connected())) {
-    if (!warned.has(e.id)) toast(`Schedule “${e.name}”: can't reach the MTX. Trying again…`);
+    if (!warned.has(e.id)) slog(e.name, "can't reach the MTX. Trying again…", "bad");
     warned.add(e.id);
     return;
   }
+  warned.delete(e.id);
   started.set(e.id, e);
   publish();
+  setProblem(e.id, null);
+  slog(e.name, "started", "info", true);
   for (const z of e.zones) {
     await audac.setInput(z, e.input);
     await audac.setVolume(z, volumeFor(e, z));
     await audac.setMute(z, false);
   }
+  slog(e.name, `zones ${e.zones.join(", ")} on input ${e.input}, unmuted`, "ok", false);
   if (usesBox(e)) await boxUp(e);
-  if (e.music.source) {
-    try {
-      await bg.open(e.music.source, false, e.music.link || undefined);
-      window.setTimeout(() => void bg.command("play").catch(() => {}), PAGE_LOAD_MS);
-      // Shuffle / repeat (Spotify): right after play starts, before any move to the box.
-      if (e.music.source === "spotify" && (e.music.shuffle !== undefined || e.music.repeat)) {
-        window.setTimeout(() => void invokeBg("bg_shuffle_repeat", { shuffle: e.music.shuffle ?? null, repeat: e.music.repeat ?? null }), PAGE_LOAD_MS + 1_500);
-      }
-      // Not signed in: say so (the music won't play), with what to do.
-      window.setTimeout(() => {
-        void bg.getState().then((st) => {
-          const p = st.players?.find((x) => x.source === e.music.source);
-          if (p?.signedIn === false) toast(`Schedule “${e.name}”: ${e.music.source} isn't signed in on this laptop, so no music. Open Background, pick it and sign in once.`);
-        }).catch(() => {});
-      }, PAGE_LOAD_MS + 4_000);
-      // Spotify on the Streambox: a freshly loaded player claims the music for itself, so move it to
-      // the box after it starts (see toBox).
-      if (e.music.source === "spotify" && e.music.onBox) {
-        window.setTimeout(() => void toBox(e), PAGE_LOAD_MS + 3_000);
-      }
-    } catch (err) {
-      toast(`Schedule “${e.name}”: background music didn't start (${err})`);
-    }
-  }
-  toast(`Schedule: “${e.name}” started`);
+  if (e.music.source) void music(e);
 }
 
-/** Move Spotify to the box: try until Spotify's device list says it worked (a few times, the page may
- *  still be settling), then once more a little later, because a freshly loaded player sometimes takes
- *  the music back. Says how it went; a failure names what Spotify does list. */
-async function toBox(e: ScheduleEntry) {
-  let last = null;
-  for (let attempt = 0; attempt < 5 && started.has(e.id); attempt++) {
-    last = await spotifyToBox(true).catch(() => null);
-    if (last?.state === "ok") break;
-    await new Promise((r) => window.setTimeout(r, 5_000));
+/** Still the same run? (It may have ended, or the app restarted it.) */
+const running = (e: ScheduleEntry) => started.get(e.id) === e;
+
+/**
+ * The music for a scheduled time. Spotify on the box: MOVE FIRST, THEN PLAY, so the laptop never
+ * plays (Spotify plays where it was last set to, and that's this laptop). The Spotify window's own
+ * volume stays at silent meanwhile, as a safety net. Every step goes into the log.
+ */
+async function music(e: ScheduleEntry) {
+  const src = e.music.source;
+  if (!src) return;
+  const onBox = src === "spotify" && !!e.music.onBox;
+  try {
+    if (onBox) await bg.setFader("spotify", -60).catch(() => {});
+    await bg.open(src, false, e.music.link || undefined);
+    slog(e.name, `${src} opening${e.music.link ? " (playlist link)" : ""}`, "info", false);
+  } catch (err) {
+    slog(e.name, `background music didn't start (${err})`, "bad");
+    setProblem(e.id, `music didn't start: ${err}`);
+    return;
   }
-  if (!started.has(e.id)) return;
-  toast(`Schedule “${e.name}”: ${connectText(last, true)}`);
-  if (last?.state === "ok") window.setTimeout(() => void (started.has(e.id) && spotifyToBox(true).catch(() => null)), 12_000);
+  await sleep(PAGE_LOAD_MS);
+  if (!running(e)) return;
+  const p = (await bg.getState().catch(() => null))?.players?.find((x) => x.source === src);
+  if (p?.signedIn === false) {
+    slog(e.name, `${src} isn't signed in on this laptop, so no music. Open Background, pick it and sign in once.`, "bad");
+    setProblem(e.id, `${src} not signed in`);
+    return;
+  }
+
+  if (onBox) {
+    const moved = await toBox(e);
+    if (!running(e)) return;
+    if (moved) {
+      await invokeBg("bg_start_list", { source: "spotify" });
+      slog(e.name, "playlist started on the box", "info", false);
+    } else if (e.music.boxFallback === "laptop") {
+      await bg.setFader("spotify", 0).catch(() => {});
+      await bg.command("play").catch(() => {});
+      slog(e.name, "the box couldn't be reached: playing on the laptop instead (as set)", "bad");
+      setProblem(e.id, "played on the laptop: the box couldn't be reached");
+    } else {
+      await bg.command("pause", true).catch(() => {});
+      await bg.setFader("spotify", 0).catch(() => {});
+      slog(e.name, "the box couldn't be reached: no music (as set). See the lines above for why.", "bad");
+      setProblem(e.id, "no music: the box couldn't be reached");
+      return;
+    }
+  } else {
+    await bg.command("play").catch(() => {});
+    slog(e.name, "music started", "info", false);
+  }
+
+  // Shuffle / repeat (Spotify): once it plays.
+  if (src === "spotify" && (e.music.shuffle !== undefined || e.music.repeat)) {
+    await sleep(1_500);
+    await invokeBg("bg_shuffle_repeat", { shuffle: e.music.shuffle ?? null, repeat: e.music.repeat ?? null });
+  }
+
+  // Check: does Spotify say it plays on the box?
+  if (onBox) {
+    await sleep(6_000);
+    if (!running(e)) return;
+    const q = (await bg.getState().catch(() => null))?.players?.find((x) => x.source === "spotify");
+    if (q?.remote) slog(e.name, `Spotify says: playing on ${q.remote}`, "ok", true);
+    else if (q?.playing) {
+      slog(e.name, "Spotify plays in the laptop window, not on the box. Moving it again…", "bad");
+      if (await toBox(e)) slog(e.name, "moved to the box on the second go", "ok", true);
+      else setProblem(e.id, "Spotify stayed on the laptop");
+    } else slog(e.name, "Spotify doesn't show where it plays (can't confirm the box)", "info", true);
+  }
+}
+
+/** Move Spotify to the box: try until Spotify's device list says it worked (the page may still be
+ *  settling). Logs each try; a failure names what Spotify does list. */
+async function toBox(e: ScheduleEntry): Promise<boolean> {
+  for (let attempt = 1; attempt <= 5 && running(e); attempt++) {
+    const r = await spotifyToBox(true).catch(() => null);
+    const ok = r?.state === "ok";
+    slog(e.name, `move to the box, try ${attempt}: ${connectText(r, true)}`, ok ? "ok" : "info", false);
+    if (ok) return true;
+    await sleep(5_000);
+  }
+  return false;
 }
 
 async function end(e: ScheduleEntry, after: "release" | "keep") {
   started.delete(e.id);
   publish();
-  if (e.music.source) await bg.command("pause").catch(() => {});
+  if (e.music.source) {
+    await bg.command("pause", true).catch(() => {});
+    // The Spotify window was kept silent while it played on the box: give it its volume back.
+    if (e.music.source === "spotify" && e.music.onBox) window.setTimeout(() => void bg.setFader("spotify", 0).catch(() => {}), 1_500);
+  }
   const st = await audac.getState();
   if (st.status === "connected") {
     for (const z of e.zones) await audac.setMute(z, true);
@@ -183,7 +242,7 @@ async function end(e: ScheduleEntry, after: "release" | "keep") {
     // Give the mute commands a moment to leave before the link closes.
     window.setTimeout(() => void audac.disconnect(), 1500);
   }
-  toast(`Schedule: “${e.name}” ended`);
+  slog(e.name, "ended: music paused, zones muted", "info", true);
 }
 
 /** Connect if needed and wait (up to 20 s) until the MTX has reported its zones. */

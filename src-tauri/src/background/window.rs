@@ -304,6 +304,36 @@ pub fn hide(app: &AppHandle) {
     }
 }
 
+/// A hidden window's page counts as "not on screen": the browser engine stops drawing it, and Spotify
+/// then never opens its device list, so there is nothing to click. This tells the engine the page
+/// IS on screen for `secs` seconds without showing the window (nobody sees a thing), then puts it
+/// back, unless someone showed the window meanwhile.
+pub fn wake(app: &AppHandle, source: BgSource, secs: u64) {
+    let Some(win) = app.get_webview_window(&label(source)) else { return };
+    if win.is_visible().unwrap_or(false) {
+        return; // on screen already
+    }
+    set_engine_visible(&win, true);
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(secs));
+        if !win.is_visible().unwrap_or(false) {
+            set_engine_visible(&win, false);
+        }
+    });
+}
+
+fn set_engine_visible(win: &WebviewWindow, on: bool) {
+    let _ = win.with_webview(move |webview| {
+        #[cfg(windows)]
+        {
+            // SAFETY: a plain WebView2 COM call on the webview's own thread (with_webview runs there).
+            let _ = unsafe { webview.controller().SetIsVisible(on) };
+        }
+        #[cfg(not(windows))]
+        let _ = (webview, on);
+    });
+}
+
 /// Runs a line of JavaScript in one particular service's page (a deck).
 pub fn eval_on(app: &AppHandle, source: BgSource, js: &str) -> bool {
     app.get_webview_window(&label(source)).map(|w| w.eval(js).is_ok()).unwrap_or(false)

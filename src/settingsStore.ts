@@ -150,6 +150,8 @@ export interface ScheduleEntry {
     link: string;
     /** Spotify only: play it on the Streambox (Spotify Connect) instead of on the laptop. */
     onBox?: boolean;
+    /** Spotify on the box, when the box can't be reached: no music (default) or play on the laptop. */
+    boxFallback?: "silent" | "laptop";
     /** The Streambox's own volume (0–100) while this time runs; it is also unmuted. Default 80. */
     boxVolume?: number;
     /** Spotify only: shuffle on/off (undefined = leave as it is). */

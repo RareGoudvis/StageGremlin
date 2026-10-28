@@ -12,6 +12,7 @@ import { newId } from "../../types";
 import { Chips, Row } from "../controls";
 import { Card, PageTitle } from "./common";
 import { AdminGate } from "./AdminGate";
+import { clearScheduleLog, useScheduleLog } from "../../lib/scheduleLog";
 
 /** Monday first, as on a school timetable. Values are JavaScript's getDay (0 = Sunday). */
 const DAYS: { d: number; label: TKey }[] = [
@@ -62,7 +63,40 @@ export function SchedulePage() {
             remove={() => save({ schedule: setup.schedule.filter((x) => x.id !== e.id) })} />
         ))}
       </AdminGate>
+      <LogCard />
     </>
+  );
+}
+
+/** "What happened": every step of the scheduled times, newest first (lib/scheduleLog.ts). */
+function LogCard() {
+  const t = useT();
+  const lines = useScheduleLog((s) => s.lines);
+  const color = { ok: "var(--acc)", info: "var(--dim)", bad: "var(--redtx)" } as const;
+  return (
+    <Card title={t("sched.log")} note={t("sched.logNote")}>
+      {lines.length === 0 ? (
+        <span style={{ fontSize: 13, color: "var(--mute)" }}>{t("sched.logEmpty")}</span>
+      ) : (
+        <div className="scroll" style={{ maxHeight: 320, display: "flex", flexDirection: "column", gap: 3, fontSize: 12.5 }}>
+          {[...lines].reverse().map((l, i) => (
+            <div key={`${l.at}-${i}`} style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+              <span className="mono" style={{ color: "var(--mute)", flex: "none" }}>
+                {new Date(l.at).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              </span>
+              <b style={{ flex: "none" }}>{l.entry}</b>
+              <span style={{ color: color[l.level] }}>{l.text}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {lines.length > 0 && (
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="b btn" onClick={() => void navigator.clipboard?.writeText(lines.map((l) => `${new Date(l.at).toLocaleString()} · ${l.entry} · ${l.text}`).join("\n"))}>{t("audac.talkCopy")}</button>
+          <button className="b btn btn-ghost" onClick={clearScheduleLog}>{t("sched.logClear")}</button>
+        </div>
+      )}
+    </Card>
   );
 }
 
@@ -74,6 +108,7 @@ function EntryCard({ e, setup, set, remove }: { e: ScheduleEntry; setup: AudacSe
   // Re-render on Streambox settings changes too (its MTX input decides this).
   useSettings((s) => s.ui.streambox);
   const usesBox = entryUsesBox(e);
+  const problem = useScheduleLog((s) => s.problems[e.id]);
   const toggle = (list: number[], n: number) => (list.includes(n) ? list.filter((x) => x !== n) : [...list, n]);
 
   return (
@@ -161,6 +196,13 @@ function EntryCard({ e, setup, set, remove }: { e: ScheduleEntry; setup: AudacSe
           </button>
         </Row>
       )}
+      {e.music.source === "spotify" && e.music.onBox && (
+        <Row label={t("sched.fallback")}>
+          <Chips<"silent" | "laptop"> label={t("sched.fallback")} value={e.music.boxFallback ?? "silent"}
+            onChange={(boxFallback) => set({ music: { ...e.music, boxFallback } })}
+            options={[{ value: "silent", label: t("sched.fbSilent") }, { value: "laptop", label: t("sched.fbLaptop") }]} />
+        </Row>
+      )}
       {usesBox && (
         <Row label={t("sched.boxVolume")} hint={t("sched.boxVolumeHint")}>
           <input type="range" min={0} max={100} step={5} aria-label={t("sched.boxVolume")} value={e.music.boxVolume ?? BOX_VOLUME}
@@ -168,6 +210,7 @@ function EntryCard({ e, setup, set, remove }: { e: ScheduleEntry; setup: AudacSe
           <span className="mono" style={{ fontSize: 13, minWidth: 40 }}>{e.music.boxVolume ?? BOX_VOLUME}%</span>
         </Row>
       )}
+      {problem && <span style={{ fontSize: 12.5, color: "var(--redtx)", fontWeight: 700 }}>{t("sched.lastTime")} {problem}</span>}
       <span style={{ fontSize: 12.5, color: "var(--mute)", borderTop: "1px dashed var(--line)", paddingTop: 8 }}>
         {next ? `${t("sched.next")} ${next.toLocaleString(undefined, { weekday: "long", hour: "2-digit", minute: "2-digit" })}` : t("sched.never")}
       </span>

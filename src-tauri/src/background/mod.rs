@@ -165,6 +165,8 @@ pub struct PlayerState {
     pub signed_in: Option<bool>,
     /// Spotify: how the last move to another device went (None = not tried).
     pub connect: Option<ConnectResult>,
+    /// Spotify: the other device it plays on, as its "Playing on …" bar says (None = here / can't tell).
+    pub remote: Option<String>,
 }
 
 /// Spotify Connect: the outcome of the last click through Spotify's device list (inject.js, connect).
@@ -205,6 +207,8 @@ pub struct PageReport {
     pub signed_in: Option<bool>,
     /// See PlayerState::connect.
     pub connect: Option<ConnectResult>,
+    /// See PlayerState::remote.
+    pub remote: Option<String>,
 }
 
 /// Saved per machine in `<dataDir>/background.json` (later per show, under `show.background`).
@@ -263,6 +267,18 @@ pub fn bg_shuffle_repeat(app: AppHandle, state: State<'_, BgHandle>, shuffle: Op
     Ok(())
 }
 
+/// Spotify: start the playlist the page shows (its own play button), on whichever device Spotify is
+/// set to. A schedule uses it after moving Spotify to the box, so the laptop never plays first.
+#[tauri::command]
+pub fn bg_start_list(app: AppHandle, state: State<'_, BgHandle>, source: BgSource) -> Result<(), String> {
+    if app.get_webview_window(&window::label(source)).is_none() {
+        return Err("That service isn't open.".into());
+    }
+    window::wake(&app, source, 10);
+    state.lock().evals_on.push((source, "window.__cueplayBg && window.__cueplayBg.startList()".into()));
+    Ok(())
+}
+
 /// Spotify: play on another Spotify Connect device (`names`: the names it may have, best first), or
 /// back in the player window itself (empty). Clicks through Spotify's own device list (inject.js,
 /// connect); the outcome comes back in the player's `connect`.
@@ -271,6 +287,9 @@ pub fn bg_spotify_connect(app: AppHandle, state: State<'_, BgHandle>, names: Vec
     if app.get_webview_window(&window::label(BgSource::Spotify)).is_none() {
         return Err("Open Spotify in the background player first.".into());
     }
+    // Hidden (Run, a schedule, the app minimised): let the page draw for a while, or Spotify's
+    // device list never appears. The list is clicked within a few seconds; 15 s leaves room.
+    window::wake(&app, BgSource::Spotify, 15);
     let js = format!("window.__cueplayBg && window.__cueplayBg.connect({})", serde_json::to_string(&names).map_err(|e| e.to_string())?);
     state.lock().evals_on.push((BgSource::Spotify, js));
     Ok(())
@@ -372,6 +391,7 @@ impl Inner {
                         held: self.mixer.is_held(*src),
                         signed_in: p.signed_in,
                         connect: p.connect.clone(),
+                        remote: p.remote.clone(),
                     })
                 })
                 .collect(),

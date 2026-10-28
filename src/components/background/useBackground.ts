@@ -64,6 +64,8 @@ export interface PlayerState {
   signedIn?: boolean | null;
   /** Spotify: how the last move to another device went (null = not tried). */
   connect?: ConnectResult | null;
+  /** Spotify: the other device it plays on ("Playing on …"); null = this window or can't tell. */
+  remote?: string | null;
 }
 
 export interface BgTrack { title: string; artist: string | null }
