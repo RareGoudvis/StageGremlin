@@ -17,7 +17,7 @@ import { AudacPage } from "./settings/AudacPage";
 import { SchedulePage } from "./settings/SchedulePage";
 import { StreamboxPage } from "./settings/StreamboxPage";
 import { useAudac } from "../lib/audac";
-import { lockAdmin } from "../lib/admin";
+import { settingsOpen } from "../lib/admin";
 
 type Page = "audio" | "run" | "audac" | "streambox" | "schedule" | "look" | "shortcuts" | "levels" | "background" | "tools" | "about";
 
@@ -54,8 +54,11 @@ export function SettingsDialog() {
   const [page, setPageState] = useState<Page>(asked && asked in PAGES ? (asked as Page) : lastPage);
   const setPage = (p: Page) => { lastPage = p; setPageState(p); };
   const hints = useNavHints();
-  // Unlocking admin settings lasts only while Settings is open.
-  useEffect(() => lockAdmin, []);
+  // Admin stays unlocked between visits; half an hour with Settings closed locks it again.
+  useEffect(() => {
+    settingsOpen(true);
+    return () => settingsOpen(false);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

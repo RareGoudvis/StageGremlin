@@ -187,7 +187,8 @@
       hasMediaSession: Object.keys(handlers).length > 0,
       url: location.href,
       tracks: tracks,
-      signedIn: signedIn()
+      signedIn: signedIn(),
+      connect: window.__cueplayConnect || null
     };
     try {
       var r = t.invoke("plugin:cueplay-bg|report", { report: payload });
@@ -237,36 +238,57 @@
       })();
     },
     // Spotify only: play on another Spotify Connect device (e.g. the streambox) by clicking through
-    // the player's own device list, like a person would. `name`: part of the device's name; empty =
-    // back to this window ("This web browser"). Best effort: Spotify changes its page now and then.
-    connect: function (name) {
+    // the player's own device list, like a person would. `names`: names the device may have (the
+    // first one in the list that matches wins; spaces, underscores and capitals don't count);
+    // empty = back to this window ("This web browser"). Best effort: Spotify changes its page now
+    // and then. The outcome goes out with the next report (`connect`), so the app can say what happened.
+    connect: function (names) {
       if (location.hostname.indexOf("spotify.com") < 0) return;
-      var want = (name || "").toLowerCase();
+      var squash = function (s) { return String(s || "").toLowerCase().replace(/[^a-z0-9]/g, ""); };
+      var wants = (names || []).map(squash).filter(function (w) { return w.length >= 3; });
       var self = /this (web )?browser|deze (web)?browser|web ?player|webspeler/i;
+      var done = function (state, device, devices) {
+        window.__cueplayConnect = { state: state, device: device || null, devices: devices || [], at: Date.now() };
+        setTimeout(report, 50);
+      };
       var buttons = Array.prototype.slice.call(document.querySelectorAll("button[aria-label], [data-testid*='device'] button, button[data-testid*='device']"));
       var open = buttons.filter(function (b) {
         return /connect|verbind|apparaat|device/i.test((b.getAttribute("aria-label") || "") + " " + (b.getAttribute("data-testid") || ""));
       })[0];
-      if (!open) { window.__cueplayConnect = "no-button"; return; }
+      if (!open) { done("no-button"); return; }
       open.click();
       var tries = 0;
       (function pick() {
         tries++;
-        var items = Array.prototype.slice.call(document.querySelectorAll("[role='menuitem'], [role='option'], li button, li[role], [data-testid*='device'] li, [data-testid*='device'] button"));
-        var hit = items.filter(function (el) {
-          if (el === open || open.contains(el)) return false;
-          var t = (el.textContent || "").trim();
-          return want ? t.toLowerCase().indexOf(want) >= 0 : self.test(t);
-        })[0];
+        var items = Array.prototype.slice.call(document.querySelectorAll("[role='menuitem'], [role='option'], li button, li[role], [data-testid*='device'] li, [data-testid*='device'] button"))
+          .filter(function (el) { return el !== open && !open.contains(el) && (el.textContent || "").trim(); });
+        var hit = null;
+        if (wants.length) {
+          // Names in order of preference: the first name that any row matches wins.
+          for (var i = 0; i < wants.length && !hit; i++) {
+            for (var j = 0; j < items.length; j++) {
+              if (squash(items[j].textContent).indexOf(wants[i]) >= 0) { hit = items[j]; break; }
+            }
+          }
+        } else {
+          hit = items.filter(function (el) { return self.test(el.textContent || ""); })[0] || null;
+        }
         if (hit) {
           (hit.querySelector("button") || hit).click();
-          window.__cueplayConnect = "ok";
+          done("ok", (hit.textContent || "").trim().slice(0, 60));
           // Close the list again.
           setTimeout(function () { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); }, 400);
         } else if (tries < 12) {
           setTimeout(pick, 250); // the list fills in after a moment
         } else {
-          window.__cueplayConnect = "no-device";
+          // Say what Spotify does list, so the right name can be filled in.
+          var seen = [];
+          items.forEach(function (el) {
+            var t = (el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 60);
+            if (t && seen.indexOf(t) < 0 && seen.length < 8) seen.push(t);
+          });
+          done("no-device", null, seen);
+          document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
         }
       })();
     },

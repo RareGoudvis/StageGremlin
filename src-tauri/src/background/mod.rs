@@ -163,6 +163,22 @@ pub struct PlayerState {
     pub held: bool,
     /// Is someone signed in to the service in this player? None = can't tell (yet).
     pub signed_in: Option<bool>,
+    /// Spotify: how the last move to another device went (None = not tried).
+    pub connect: Option<ConnectResult>,
+}
+
+/// Spotify Connect: the outcome of the last click through Spotify's device list (inject.js, connect).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ConnectResult {
+    /// "ok", "no-button" (Spotify's device button not found) or "no-device" (no row matched).
+    pub state: String,
+    /// The row clicked.
+    pub device: Option<String>,
+    /// "no-device": what Spotify does list.
+    pub devices: Vec<String>,
+    /// When (page clock, ms): tells a fresh outcome from an old one.
+    pub at: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -187,6 +203,8 @@ pub struct PageReport {
     pub tracks: Option<Vec<BgTrack>>,
     /// See PlayerState::signed_in (inject.js, signedIn).
     pub signed_in: Option<bool>,
+    /// See PlayerState::connect.
+    pub connect: Option<ConnectResult>,
 }
 
 /// Saved per machine in `<dataDir>/background.json` (later per show, under `show.background`).
@@ -245,14 +263,15 @@ pub fn bg_shuffle_repeat(app: AppHandle, state: State<'_, BgHandle>, shuffle: Op
     Ok(())
 }
 
-/// Spotify: play on another Spotify Connect device (`name`, part of its name), or back in the
-/// player window itself (empty). Clicks through Spotify's own device list (inject.js, connect).
+/// Spotify: play on another Spotify Connect device (`names`: the names it may have, best first), or
+/// back in the player window itself (empty). Clicks through Spotify's own device list (inject.js,
+/// connect); the outcome comes back in the player's `connect`.
 #[tauri::command]
-pub fn bg_spotify_connect(app: AppHandle, state: State<'_, BgHandle>, name: String) -> Result<(), String> {
+pub fn bg_spotify_connect(app: AppHandle, state: State<'_, BgHandle>, names: Vec<String>) -> Result<(), String> {
     if app.get_webview_window(&window::label(BgSource::Spotify)).is_none() {
         return Err("Open Spotify in the background player first.".into());
     }
-    let js = format!("window.__cueplayBg && window.__cueplayBg.connect({})", serde_json::to_string(&name).map_err(|e| e.to_string())?);
+    let js = format!("window.__cueplayBg && window.__cueplayBg.connect({})", serde_json::to_string(&names).map_err(|e| e.to_string())?);
     state.lock().evals_on.push((BgSource::Spotify, js));
     Ok(())
 }
@@ -352,6 +371,7 @@ impl Inner {
                         level_db: self.mixer.level(*src),
                         held: self.mixer.is_held(*src),
                         signed_in: p.signed_in,
+                        connect: p.connect.clone(),
                     })
                 })
                 .collect(),

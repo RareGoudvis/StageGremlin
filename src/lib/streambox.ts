@@ -7,6 +7,8 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "./tauri";
 import { useSettings, type StreamboxSetup } from "../settingsStore";
+import { translate, type TKey } from "../i18n";
+import { bg, type BgState } from "../components/background/useBackground";
 
 export interface BoxStatus {
   volume: number;
@@ -50,16 +52,56 @@ export const streambox = {
   report: () => cmd<SendReport>("streambox_sending", {}),
 };
 
-/** The box's name in Spotify's device list: the setting, else its own name (unless that's only an ID), else "Stream_Box". */
+/** The first name tried in Spotify's device list (see connectNames). */
 export function connectName(): string {
-  const box = useSettings.getState().ui.streambox;
-  return box.connectName?.trim() || (box.name && !/^[0-9a-f-]{16,}$/i.test(box.name) ? box.name : "Stream_Box");
+  return connectNames()[0];
 }
 
-/** Spotify Connect: play Spotify on the box (true) or back in the background player (false). */
-export async function spotifyToBox(on: boolean): Promise<void> {
-  if (!isTauri) return;
-  await invoke("bg_spotify_connect", { name: on ? connectName() : "" });
+/** Names the box may have in Spotify's device list, best first: the name set in Settings, the
+ *  box's own name (as it answered when found), then the usual Pro-Ject names. Spaces, underscores
+ *  and capitals don't count when matching (inject.js, connect). */
+export function connectNames(): string[] {
+  const box = useSettings.getState().ui.streambox;
+  const looksLikeId = (n: string) => /^[0-9a-f-]{16,}$/i.test(n) || /^\d+\.\d+\.\d+\.\d+$/.test(n);
+  const list = [box.connectName ?? "", box.name && !looksLikeId(box.name) ? box.name : "", "Stream Box", "Streambox", "Pro-Ject"];
+  const out: string[] = [];
+  for (const n of list.map((x) => x.trim())) if (n && !out.some((o) => o.toLowerCase() === n.toLowerCase())) out.push(n);
+  return out;
+}
+
+/** How the last move through Spotify's device list went (inject.js, connect). */
+export interface ConnectResult {
+  state: "ok" | "no-button" | "no-device";
+  device: string | null;
+  devices: string[];
+  at: number;
+}
+
+const spotifyConnect = (st: BgState): ConnectResult | null => st.players?.find((p) => p.source === "spotify")?.connect ?? null;
+
+/** Spotify Connect: play Spotify on the box (true) or back in the background player (false).
+ *  Waits for Spotify's page to say how it went (null = the page didn't answer in time). */
+export async function spotifyToBox(on: boolean): Promise<ConnectResult | null> {
+  if (!isTauri) return { state: "ok", device: on ? "Stream Box" : "This web browser", devices: [], at: Date.now() };
+  const before = spotifyConnect(await bg.getState().catch(() => ({}) as BgState))?.at ?? 0;
+  await invoke("bg_spotify_connect", { names: on ? connectNames() : [] });
+  // The page tries for up to 3 s (longer when the window is hidden: timers slow down), then reports.
+  for (let i = 0; i < 24; i++) {
+    await new Promise((r) => window.setTimeout(r, 500));
+    const r = spotifyConnect(await bg.getState().catch(() => ({}) as BgState));
+    if (r && r.at !== before) return r;
+  }
+  return null;
+}
+
+/** The outcome in words, for a toast. */
+export function connectText(r: ConnectResult | null, on: boolean): string {
+  const tr = (k: TKey) => translate(useSettings.getState().ui.lang, k);
+  if (!r) return tr("sbx.connectNoAnswer");
+  if (r.state === "ok") return `${tr(on ? "sbx.connectOkBox" : "sbx.connectBack")}${on && r.device ? ` (${r.device})` : ""}`;
+  if (r.state === "no-button") return tr("sbx.connectNoButton");
+  if (r.devices.length === 0) return tr("sbx.connectEmpty");
+  return `${tr("sbx.connectNotListed")} ${r.devices.join(" · ")}. ${tr("sbx.connectFixName")}`;
 }
 
 /** Live status while mounted (null = not asked yet). `error` says why the box doesn't answer. */

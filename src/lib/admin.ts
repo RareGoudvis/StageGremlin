@@ -1,5 +1,6 @@
 // The admin password: guards settings a teacher using the app shouldn't change (the AUDAC setup:
-// address, zone and input names, which ones show). Unlocked lasts until Settings closes.
+// address, zone and input names, which ones show). Unlocked lasts until Lock is pressed, the app
+// closes, or Settings has stayed closed for half an hour (someone else may use the laptop by then).
 //
 // Where the password comes from:
 // - Builds made with scripts/release.ps1 carry ONE hash for every install, from VITE_ADMIN_HASH in
@@ -66,4 +67,17 @@ export async function unlockAdmin(password: string): Promise<boolean> {
   return ok;
 }
 
-export const lockAdmin = () => useAdmin.getState().setUnlocked(false);
+export const lockAdmin = () => {
+  window.clearTimeout(lockTimer);
+  useAdmin.getState().setUnlocked(false);
+};
+
+/** Settings stays closed this long → locked again. */
+const LOCK_AFTER_MS = 30 * 60_000;
+let lockTimer = 0;
+
+/** Settings opened: stay unlocked. Settings closed: lock after half an hour unless it opens again. */
+export function settingsOpen(open: boolean) {
+  window.clearTimeout(lockTimer);
+  if (!open && useAdmin.getState().unlocked) lockTimer = window.setTimeout(lockAdmin, LOCK_AFTER_MS);
+}

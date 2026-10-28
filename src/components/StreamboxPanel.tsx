@@ -5,7 +5,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSettings } from "../settingsStore";
-import { spotifyToBox, streambox, useStreambox, type SendReport } from "../lib/streambox";
+import { connectText, spotifyToBox, streambox, useStreambox, type SendReport } from "../lib/streambox";
 import { call } from "../lib/tauri";
 import { create } from "zustand";
 import { toast } from "../uiStore";
@@ -48,27 +48,30 @@ export function SourcePicker({ compact = false }: { compact?: boolean }) {
   );
 }
 
-// Whether we last asked Spotify to play on the box (Spotify itself doesn't tell us).
-const useConnect = create<{ onBox: boolean }>(() => ({ onBox: false }));
+// Whether Spotify last moved to the box (as far as its device list told us).
+const useConnect = create<{ onBox: boolean; busy: boolean }>(() => ({ onBox: false, busy: false }));
 
 /** Spotify Connect: play straight on the box (the laptop plays nothing), or back in the player. */
 function SpotifyConnect() {
   const t = useT();
-  const onBox = useConnect((s) => s.onBox);
+  const { onBox, busy } = useConnect();
   const go = async (toBox: boolean) => {
+    useConnect.setState({ busy: true });
     try {
-      await spotifyToBox(toBox);
-      useConnect.setState({ onBox: toBox });
-      toast(toBox ? t("sbx.connectAsked") : t("sbx.connectBack"));
+      const r = await spotifyToBox(toBox);
+      if (r?.state === "ok") useConnect.setState({ onBox: toBox });
+      toast(connectText(r, toBox));
     } catch (e) {
       toast(String(e));
+    } finally {
+      useConnect.setState({ busy: false });
     }
   };
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <span style={{ fontSize: 12, color: "var(--dim)", flex: 1 }} title={t("sbx.connectHint")}>{t("sbx.connect")}</span>
-      <button className="b chip" tabIndex={-1} aria-pressed={onBox} onClick={() => void go(!onBox)} title={t("sbx.connectHint")} style={{ height: 28, fontSize: 12 }}>
-        {onBox ? t("sbx.connectOn") : t("sbx.connectOff")}
+      <button className="b chip" tabIndex={-1} aria-pressed={onBox} disabled={busy} onClick={() => void go(!onBox)} title={t("sbx.connectHint")} style={{ height: 28, fontSize: 12 }}>
+        {busy ? "…" : onBox ? t("sbx.connectOn") : t("sbx.connectOff")}
       </button>
     </div>
   );

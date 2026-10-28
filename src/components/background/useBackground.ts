@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { isTauri } from "../../lib/tauri";
+import type { ConnectResult } from "../../lib/streambox";
 
 export type BgSource = "spotify" | "ytmusic" | "beatport" | "soundtrack" | "soundcloud" | "youtube";
 export type BgCmd = "duck" | "restore" | "play" | "pause" | "next" | "prev";
@@ -61,6 +62,8 @@ export interface PlayerState {
   held: boolean;
   /** Someone signed in to the service in this player? null = can't tell (yet). */
   signedIn?: boolean | null;
+  /** Spotify: how the last move to another device went (null = not tried). */
+  connect?: ConnectResult | null;
 }
 
 export interface BgTrack { title: string; artist: string | null }

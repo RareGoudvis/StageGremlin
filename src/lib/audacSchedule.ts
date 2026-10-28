@@ -13,7 +13,7 @@ import { useDoc } from "../store";
 import { toast } from "../uiStore";
 import { audac, audacConnectSaved } from "./audac";
 import { bg } from "../components/background/useBackground";
-import { spotifyToBox } from "./streambox";
+import { connectText, spotifyToBox } from "./streambox";
 import { isTauri } from "./tauri";
 
 /** A background-player command that only exists in the app (not in a plain browser). */
@@ -123,17 +123,30 @@ async function start(e: ScheduleEntry) {
         }).catch(() => {});
       }, PAGE_LOAD_MS + 4_000);
       // Spotify on the Streambox: a freshly loaded player claims the music for itself, so move it to
-      // the box after it starts, and once more a bit later in case the page was still settling.
+      // the box after it starts (see toBox).
       if (e.music.source === "spotify" && e.music.onBox) {
-        for (const wait of [PAGE_LOAD_MS + 3_000, PAGE_LOAD_MS + 15_000]) {
-          window.setTimeout(() => void spotifyToBox(true).catch(() => {}), wait);
-        }
+        window.setTimeout(() => void toBox(e), PAGE_LOAD_MS + 3_000);
       }
     } catch (err) {
       toast(`Schedule “${e.name}”: background music didn't start (${err})`);
     }
   }
   toast(`Schedule: “${e.name}” started`);
+}
+
+/** Move Spotify to the box: try until Spotify's device list says it worked (a few times, the page may
+ *  still be settling), then once more a little later, because a freshly loaded player sometimes takes
+ *  the music back. Says how it went; a failure names what Spotify does list. */
+async function toBox(e: ScheduleEntry) {
+  let last = null;
+  for (let attempt = 0; attempt < 5 && started.has(e.id); attempt++) {
+    last = await spotifyToBox(true).catch(() => null);
+    if (last?.state === "ok") break;
+    await new Promise((r) => window.setTimeout(r, 5_000));
+  }
+  if (!started.has(e.id)) return;
+  toast(`Schedule “${e.name}”: ${connectText(last, true)}`);
+  if (last?.state === "ok") window.setTimeout(() => void (started.has(e.id) && spotifyToBox(true).catch(() => null)), 12_000);
 }
 
 async function end(e: ScheduleEntry, after: "release" | "keep") {
