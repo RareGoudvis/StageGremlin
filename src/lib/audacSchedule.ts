@@ -13,6 +13,7 @@ import { useDoc } from "../store";
 import { toast } from "../uiStore";
 import { audac, audacConnectSaved } from "./audac";
 import { bg } from "../components/background/useBackground";
+import { spotifyToBox } from "./streambox";
 
 const CHECK_EVERY_MS = 10_000;
 /** Give the playlist page this long to load before pressing play. */
@@ -102,6 +103,13 @@ async function start(e: ScheduleEntry) {
     try {
       await bg.open(e.music.source, false, e.music.link || undefined);
       window.setTimeout(() => void bg.command("play").catch(() => {}), PAGE_LOAD_MS);
+      // Spotify on the Streambox: a freshly loaded player claims the music for itself, so move it to
+      // the box after it starts, and once more a bit later in case the page was still settling.
+      if (e.music.source === "spotify" && e.music.onBox) {
+        for (const wait of [PAGE_LOAD_MS + 3_000, PAGE_LOAD_MS + 15_000]) {
+          window.setTimeout(() => void spotifyToBox(true).catch(() => {}), wait);
+        }
+      }
     } catch (err) {
       toast(`Schedule “${e.name}”: background music didn't start (${err})`);
     }

@@ -145,7 +145,12 @@ export interface ScheduleEntry {
   input: number;
   volume: number;
   /** Optional: background music to start ("" = none) and a playlist link on that service. */
-  music: { source: "" | BgSource; link: string };
+  music: {
+    source: "" | BgSource;
+    link: string;
+    /** Spotify only: play it on the Streambox (Spotify Connect) instead of on the laptop. */
+    onBox?: boolean;
+  };
   /** Advanced: a volume per zone (zone number → dB below max) instead of one for all. */
   zoneVolumes?: Record<string, number>;
   /**
