@@ -251,44 +251,104 @@
         window.__cueplayConnect = { state: state, device: device || null, devices: devices || [], at: Date.now() };
         setTimeout(report, 50);
       };
-      var buttons = Array.prototype.slice.call(document.querySelectorAll("button[aria-label], [data-testid*='device'] button, button[data-testid*='device']"));
-      var open = buttons.filter(function (b) {
-        return /connect|verbind|apparaat|device/i.test((b.getAttribute("aria-label") || "") + " " + (b.getAttribute("data-testid") || ""));
-      })[0];
-      if (!open) { done("no-button"); return; }
-      open.click();
+      // A full press: Spotify's rows may listen for pointer/mouse down, not only click.
+      var press = function (el) {
+        var r = el.getBoundingClientRect();
+        var at = { bubbles: true, cancelable: true, view: window, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0 };
+        try { el.dispatchEvent(new PointerEvent("pointerdown", at)); } catch (e) {}
+        el.dispatchEvent(new MouseEvent("mousedown", at));
+        try { el.dispatchEvent(new PointerEvent("pointerup", at)); } catch (e) {}
+        el.dispatchEvent(new MouseEvent("mouseup", at));
+        el.click();
+      };
+      // The smallest element whose own text (or tooltip) names the device: the name itself, not a
+      // whole list that happens to contain it. Skips our own window's controls and hidden elements.
+      var findName = function (test, scope) {
+        var best = null;
+        var more = /more|meer|opties|options/i;
+        var all = (scope || document).querySelectorAll("span, div, p, button, li, a, [title], [aria-label]");
+        for (var i = 0; i < all.length; i++) {
+          var el = all[i];
+          var txt = (el.textContent || "").trim();
+          var label = (el.getAttribute("title") || "") + " " + (el.getAttribute("aria-label") || "");
+          if (!txt && !label.trim()) continue;
+          if (txt.length > 80 && !test(label)) continue;
+          if (!test(txt) && !test(label)) continue;
+          if (!el.getClientRects().length) continue;
+          if (more.test(el.getAttribute("aria-label") || "")) continue; // a row's "…" button
+          if (!best || best.contains(el)) best = el; // a deeper match is a better match
+        }
+        return best;
+      };
+      // The row to press for a name: its nearest clickable ancestor, but never a "…" / more button.
+      var rowOf = function (el) {
+        var row = el.closest("button, [role='button'], [role='menuitem'], [role='option'], [role='menuitemradio'], a, li") || el;
+        var aria = (row.getAttribute("aria-label") || "").toLowerCase();
+        if (/more|meer|opties|options/.test(aria)) row = row.parentElement || row;
+        return row;
+      };
+      var matchWant = function (want) { return function (t) { return squash(t).indexOf(want) >= 0; }; };
+      // The device list: around "This web browser", which Spotify always lists. Climbing up from it,
+      // the first box that holds a wanted name is the list; so a name elsewhere (the "Playing on …"
+      // bar, which would just open the list again) never wins.
+      var me = function () { return findName(function (t) { return self.test(t || ""); }); };
+      var lookup = function () {
+        var start = me();
+        if (!wants.length) return start;
+        if (!start) return null; // the list isn't showing
+        for (var i = 0; i < wants.length; i++) {
+          var box = start;
+          for (var k = 0; box && k < 12; k++) {
+            box = box.parentElement;
+            var el = box && findName(matchWant(wants[i]), box);
+            if (el) return el;
+          }
+        }
+        return null;
+      };
+      // What the device list shows (for the message when nothing matched).
+      var listed = function () {
+        // The biggest box around "This web browser" that's still only a short list (not the page).
+        var box = me(), list = null;
+        for (var k = 0; box && k < 12; k++) {
+          box = box.parentElement;
+          var n = box ? (box.innerText || "").split("\n").filter(function (l) { return l.trim(); }).length : 99;
+          if (n > 15) break;
+          list = box;
+        }
+        var seen = [];
+        ((list && list.innerText) || "").split("\n").forEach(function (line) {
+          var t = line.trim();
+          if (t && t.length < 60 && seen.indexOf(t) < 0 && seen.length < 8) seen.push(t);
+        });
+        return seen;
+      };
+      var opened = false;
+      var openList = function () {
+        var buttons = Array.prototype.slice.call(document.querySelectorAll("button[data-testid*='connect'], button[aria-label], [data-testid*='device'] button, button[data-testid*='device']"));
+        var b = buttons.filter(function (x) {
+          return /connect|verbind|apparaat|device/i.test((x.getAttribute("aria-label") || "") + " " + (x.getAttribute("data-testid") || ""));
+        })[0];
+        if (b) { press(b); opened = true; }
+        return !!b;
+      };
+      // Already showing the list (the side panel stays open)? Then don't press the button: that would close it.
+      if (!me() && !openList()) { done("no-button"); return; }
       var tries = 0;
       (function pick() {
         tries++;
-        var items = Array.prototype.slice.call(document.querySelectorAll("[role='menuitem'], [role='option'], li button, li[role], [data-testid*='device'] li, [data-testid*='device'] button"))
-          .filter(function (el) { return el !== open && !open.contains(el) && (el.textContent || "").trim(); });
-        var hit = null;
-        if (wants.length) {
-          // Names in order of preference: the first name that any row matches wins.
-          for (var i = 0; i < wants.length && !hit; i++) {
-            for (var j = 0; j < items.length; j++) {
-              if (squash(items[j].textContent).indexOf(wants[i]) >= 0) { hit = items[j]; break; }
-            }
-          }
-        } else {
-          hit = items.filter(function (el) { return self.test(el.textContent || ""); })[0] || null;
-        }
+        var hit = lookup();
         if (hit) {
-          (hit.querySelector("button") || hit).click();
-          done("ok", (hit.textContent || "").trim().slice(0, 60));
-          // Close the list again.
-          setTimeout(function () { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); }, 400);
+          var row = rowOf(hit);
+          press(row);
+          done("ok", (hit.getAttribute("title") || hit.textContent || "").trim().slice(0, 60));
+          // Close the list again if we opened it.
+          if (opened) setTimeout(function () { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); }, 400);
         } else if (tries < 12) {
           setTimeout(pick, 250); // the list fills in after a moment
         } else {
-          // Say what Spotify does list, so the right name can be filled in.
-          var seen = [];
-          items.forEach(function (el) {
-            var t = (el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 60);
-            if (t && seen.indexOf(t) < 0 && seen.length < 8) seen.push(t);
-          });
-          done("no-device", null, seen);
-          document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+          done("no-device", null, listed());
+          if (opened) document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
         }
       })();
     },

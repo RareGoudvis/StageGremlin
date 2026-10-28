@@ -5,7 +5,7 @@ import { volumeFor } from "../../lib/audacGroups";
 import { useSettings, type AudacSetup, type ScheduleEntry } from "../../settingsStore";
 import { useT, type TKey } from "../../i18n";
 import { MIN_VOLUME, visible } from "../../lib/audac";
-import { nextStart } from "../../lib/audacSchedule";
+import { BOX_VOLUME, nextStart, usesBox as entryUsesBox } from "../../lib/audacSchedule";
 import { bg, bgDo, useBackground, useEnabledSources } from "../background/useBackground";
 import { useEffect, useState } from "react";
 import { newId } from "../../types";
@@ -71,6 +71,9 @@ function EntryCard({ e, setup, set, remove }: { e: ScheduleEntry; setup: AudacSe
   const sources = useEnabledSources();
   const next = nextStart(e, new Date());
   const badTimes = e.to <= e.from;
+  // Re-render on Streambox settings changes too (its MTX input decides this).
+  useSettings((s) => s.ui.streambox);
+  const usesBox = entryUsesBox(e);
   const toggle = (list: number[], n: number) => (list.includes(n) ? list.filter((x) => x !== n) : [...list, n]);
 
   return (
@@ -156,6 +159,13 @@ function EntryCard({ e, setup, set, remove }: { e: ScheduleEntry; setup: AudacSe
           <button className="b chip" aria-pressed={!!e.music.onBox} onClick={() => set({ music: { ...e.music, onBox: !e.music.onBox } })} title={t("sched.onBoxHint")}>
             {e.music.onBox ? `✓ ${t("sched.onBox")}` : t("sched.onBox")}
           </button>
+        </Row>
+      )}
+      {usesBox && (
+        <Row label={t("sched.boxVolume")} hint={t("sched.boxVolumeHint")}>
+          <input type="range" min={0} max={100} step={5} aria-label={t("sched.boxVolume")} value={e.music.boxVolume ?? BOX_VOLUME}
+            onChange={(ev) => set({ music: { ...e.music, boxVolume: Number(ev.target.value) } })} style={{ flex: 1, maxWidth: 240 }} />
+          <span className="mono" style={{ fontSize: 13, minWidth: 40 }}>{e.music.boxVolume ?? BOX_VOLUME}%</span>
         </Row>
       )}
       <span style={{ fontSize: 12.5, color: "var(--mute)", borderTop: "1px dashed var(--line)", paddingTop: 8 }}>

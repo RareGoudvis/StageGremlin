@@ -13,7 +13,7 @@ import { useDoc } from "../store";
 import { toast } from "../uiStore";
 import { audac, audacConnectSaved } from "./audac";
 import { bg } from "../components/background/useBackground";
-import { connectText, spotifyToBox } from "./streambox";
+import { connectText, spotifyToBox, streambox } from "./streambox";
 import { isTauri } from "./tauri";
 
 /** A background-player command that only exists in the app (not in a plain browser). */
@@ -21,6 +21,26 @@ async function invokeBg(name: string, args: Record<string, unknown>) {
   if (!isTauri) return;
   const { invoke } = await import("@tauri-apps/api/core");
   await invoke(name, args).catch(() => {});
+}
+
+/** The Streambox's own volume during a scheduled time, unless the time says otherwise. */
+export const BOX_VOLUME = 80;
+
+/** Does this time play through the Streambox? Spotify moved to it, or zones on the box's MTX input. */
+export function usesBox(e: ScheduleEntry): boolean {
+  const box = useSettings.getState().ui.streambox;
+  if (!box.ip) return false;
+  return (e.music.source === "spotify" && !!e.music.onBox) || (box.audacInput > 0 && e.input === box.audacInput);
+}
+
+/** Unmute the Streambox and set its volume: zones on its input hear nothing while it is at 0 or muted. */
+async function boxUp(e: ScheduleEntry) {
+  try {
+    await streambox.setMute(false);
+    await streambox.setVolume(e.music.boxVolume ?? BOX_VOLUME);
+  } catch (err) {
+    toast(`Schedule “${e.name}”: couldn't turn the Streambox up (${err})`);
+  }
 }
 
 const CHECK_EVERY_MS = 10_000;
@@ -107,6 +127,7 @@ async function start(e: ScheduleEntry) {
     await audac.setVolume(z, volumeFor(e, z));
     await audac.setMute(z, false);
   }
+  if (usesBox(e)) await boxUp(e);
   if (e.music.source) {
     try {
       await bg.open(e.music.source, false, e.music.link || undefined);
