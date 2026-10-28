@@ -3,9 +3,11 @@
 import { useEffect } from "react";
 import type { YtTool } from "../types";
 import { hasTool, TOOL_NAME, useTools } from "../lib/tools";
+import { useT } from "../i18n";
 
 export function ToolInstall({ what, why }: { what: YtTool; why: string }) {
   const status = useTools((s) => s.status);
+  const t = useT();
   const pct = useTools((s) => s.installing[what]);
   const install = useTools((s) => s.install);
 
@@ -17,7 +19,7 @@ export function ToolInstall({ what, why }: { what: YtTool; why: string }) {
   const busy = pct !== undefined;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10, background: "var(--ambbg)", border: "1px solid var(--amb)", color: "var(--ambtx)" }}>
-      <span style={{ fontSize: 13, flex: 1 }}>{TOOL_NAME[what]} is not installed. {why}</span>
+      <span style={{ fontSize: 13, flex: 1 }}>{t("m.tool.missing", { tool: TOOL_NAME[what] })} {why}</span>
       {busy ? (
         <span style={{ display: "flex", alignItems: "center", gap: 8, width: 160 }}>
           <span style={{ flex: 1, height: 6, borderRadius: 3, background: "var(--p3)", overflow: "hidden" }}>
@@ -27,7 +29,7 @@ export function ToolInstall({ what, why }: { what: YtTool; why: string }) {
         </span>
       ) : (
         <button className="b btn" onClick={() => void install(what)} style={{ background: "var(--amb)", color: "var(--onamb)", fontWeight: 800 }}>
-          Install {TOOL_NAME[what]}
+          {t("m.tool.install", { tool: TOOL_NAME[what] })}
         </button>
       )}
     </div>

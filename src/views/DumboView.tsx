@@ -1,6 +1,6 @@
 // Dumbo mode ("Dumbo-modus"): a Run screen for someone who has never run sound.
-// One huge GO, what plays now (big remaining time), what's next with its sound note,
-// and STOP ALL. Optionally one row of pads. Only GO, Stop all (twice = Panic) and pad keys work.
+// Only four things: what plays now (timeline + big time left), what's next (its length, its sound note,
+// "starts by itself" when it follows), one huge GO and STOP ALL. Pads only when switched on in Settings. Only GO, Stop all (twice = Panic) and pad keys work.
 // Leaving: hold the small corner button for 3 s, or type the PIN when one is set in Settings.
 
 import { useEffect, useRef, useState } from "react";
@@ -9,11 +9,12 @@ import { useDoc } from "../store";
 import { useEngine } from "../engineStore";
 import { useUi } from "../uiStore";
 import { useSettings, isAction } from "../settingsStore";
-import { useT } from "../i18n";
+import { tr, useT } from "../i18n";
 import { findCue } from "../lib/showOps";
 import { mainRunning } from "../lib/showMath";
 import { firePad, firePadByKey, go, panic, stopAll } from "../lib/runActions";
 import { fmtTime } from "../lib/format";
+import { trimmedLen } from "../types";
 
 const DOUBLE_ESC_MS = 500;
 const HOLD_MS = 3000;
@@ -69,21 +70,29 @@ export function DumboView() {
 
   const leave = () => {
     useSettings.getState().update({ dumbo: false });
-    useUi.getState().showToast("Dumbo mode is off");
+    useUi.getState().showToast(tr("i.dumbo.off"));
   };
 
+  // Next starts by itself when what plays now has a follow: then the helper must NOT press GO.
+  const autoNext = !!now && !!next && now.follow.kind !== "none";
+  const nextLen = next ? trimmedLen(next) : null;
+
   return (
-    <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.25fr)", gridTemplateRows: `minmax(0, 1fr)${pads.length ? " auto" : ""}`, gap: 18, padding: 18 }}>
+    <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(0, 1.3fr) minmax(0, 1fr)", gridTemplateRows: `minmax(0, 1fr)${pads.length ? " auto" : ""}`, gap: 18, padding: 18 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 18, minHeight: 0 }}>
-        <section style={{ flex: 1, borderRadius: 20, background: "var(--p1)", border: `2px solid ${run ? "var(--acc)" : "var(--line)"}`, padding: "22px 26px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 10, minHeight: 0 }}>
+        {/* What plays now: name, a big timeline, and the time left. */}
+        <section style={{ flex: 1, borderRadius: 20, background: "var(--p1)", border: `2px solid ${run ? "var(--acc)" : "var(--line)"}`, padding: "24px 28px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 14, minHeight: 0 }}>
           <span className="k" style={{ fontSize: 14, color: run ? "var(--acc)" : undefined }}>{run ? t("dumbo.now") : t("dumbo.nothing")}</span>
-          {now && <span className="cond clamp1" style={{ fontSize: 44, fontWeight: 800, lineHeight: 1.05 }}>{now.name}</span>}
-          {run && <span className="mono" style={{ fontSize: 96, fontWeight: 600, lineHeight: 1 }}>−{fmtTime(run.remaining)}</span>}
+          {now && <span className="cond clamp1" style={{ fontSize: 48, fontWeight: 800, lineHeight: 1.05 }}>{now.name}</span>}
+          {run && <Timeline position={run.position} length={run.length} big />}
         </section>
-        <section style={{ flex: 1, borderRadius: 20, background: "var(--p2)", padding: "22px 26px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 10, minHeight: 0 }}>
+        {/* What GO plays next, its length as an empty timeline, and its sound note. */}
+        <section style={{ flex: 1, borderRadius: 20, background: "var(--p2)", padding: "24px 28px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 14, minHeight: 0 }}>
           <span className="k" style={{ fontSize: 14, color: "var(--acc)" }}>{t("dumbo.next")}</span>
-          <span className="cond" style={{ fontSize: 48, fontWeight: 800, lineHeight: 1.05 }}>{next ? next.name : t("dumbo.end")}</span>
-          {next?.notes.sound && <span style={{ fontSize: 28, lineHeight: 1.25, color: "var(--ambtx)" }}>{next.notes.sound}</span>}
+          <span className="cond clamp1" style={{ fontSize: 48, fontWeight: 800, lineHeight: 1.05 }}>{next ? next.name : t("dumbo.end")}</span>
+          {next && nextLen != null && <Timeline position={0} length={nextLen} />}
+          {autoNext && <span style={{ fontSize: 22, fontWeight: 700, color: "var(--acc)" }}>{t("i.dumbo.auto")}</span>}
+          {next?.notes.sound && <span style={{ fontSize: 26, lineHeight: 1.25, color: "var(--ambtx)" }}>{next.notes.sound}</span>}
         </section>
       </div>
 
@@ -91,10 +100,10 @@ export function DumboView() {
         <button className="b" tabIndex={-1} onClick={() => void go()}
           style={{ flex: 1, borderRadius: 26, background: next ? "var(--gobg)" : "var(--p3)", color: next ? "var(--ongo)" : "var(--mute)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
           <span className="cond" style={{ fontSize: "min(22vh, 220px)", fontWeight: 800, lineHeight: 0.85 }}>{t("go")}</span>
-          <span style={{ fontSize: 22, fontWeight: 700 }}>{t("dumbo.hint")}</span>
+          <span style={{ fontSize: 22, fontWeight: 700, padding: "0 16px", textAlign: "center" }}>{t("dumbo.hint")}</span>
         </button>
         <button className="b cond" tabIndex={-1} onClick={stopAll}
-          style={{ height: 110, borderRadius: 18, background: "var(--redbg)", border: "2px solid var(--red)", color: "var(--redtx)", fontSize: 40, fontWeight: 800, letterSpacing: ".04em" }}>
+          style={{ height: 120, borderRadius: 18, background: "var(--redbg)", border: "2px solid var(--red)", color: "var(--redtx)", fontSize: 40, fontWeight: 800, letterSpacing: ".04em" }}>
           {t("stopAll")}
           <span className="mono" style={{ display: "block", fontSize: 13, fontWeight: 400, letterSpacing: 0 }}>Esc</span>
         </button>
@@ -117,6 +126,23 @@ export function DumboView() {
       )}
 
       <LeaveButton onLeave={leave} pin={pin} askPin={askPin} setAskPin={setAskPin} />
+    </div>
+  );
+}
+
+/** A cue's timeline: a bar that fills as it plays, time played on the left, time left on the right. */
+function Timeline({ position, length, big }: { position: number; length: number; big?: boolean }) {
+  const pct = length > 0 ? Math.min(100, Math.max(0, (position / length) * 100)) : 0;
+  const left = Math.max(0, length - position);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ height: big ? 22 : 12, borderRadius: 11, background: "var(--p3)", overflow: "hidden" }}>
+        <div style={{ width: `${pct}%`, height: "100%", background: "var(--acc)", transition: "width .1s linear" }} />
+      </div>
+      <div className="mono" style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", color: "var(--dim)", fontSize: big ? 22 : 18 }}>
+        <span>{fmtTime(position)}</span>
+        <span style={big ? { fontSize: 88, fontWeight: 600, lineHeight: 1, color: "var(--text)" } : undefined}>{big ? `−${fmtTime(left)}` : fmtTime(length)}</span>
+      </div>
     </div>
   );
 }

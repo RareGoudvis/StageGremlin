@@ -12,6 +12,7 @@ import { findAnyCue, updateAnyCue } from "./showOps";
 import { analyseCue } from "./fileActions";
 import { absolutePath, basename, call, dirname, isAudioPath, pickAudioFiles } from "./tauri";
 import { filesSignature, runGate, type CheckState, type GateResult } from "./runGate";
+import { tr } from "../i18n";
 
 interface MediaStore {
   /** cue id → true when its file is not on disk. */
@@ -127,11 +128,13 @@ export async function locateCue(cueId: string) {
     const found = await call("file_exists", { paths: candidates }).catch(() => candidates.map(() => false));
     const hits = others.filter((_, i) => found[i]);
     if (hits.length) {
+      const files = hits.map((c) => basename(c.file)).slice(0, 5).join(", ") + (hits.length > 5 ? "…" : "");
+      const many = hits.length > 1;
       const ok = await ask({
-        title: `Found ${hits.length} more missing file${hits.length > 1 ? "s" : ""}`,
-        body: `The same folder also has ${hits.map((c) => basename(c.file)).slice(0, 5).join(", ")}${hits.length > 5 ? "…" : ""}. Relink ${hits.length > 1 ? "them" : "it"} too?`,
-        confirmLabel: "Relink all",
-        cancelLabel: "Only this one",
+        title: many ? tr("b.media.foundN", { n: hits.length }) : tr("b.media.found1"),
+        body: many ? tr("b.media.foundNBody", { files }) : tr("b.media.found1Body", { files }),
+        confirmLabel: tr("b.media.relinkAll"),
+        cancelLabel: tr("b.media.onlyThis"),
       });
       if (ok) hits.forEach((c) => patches.push([c.id, `${dir}${sep}${basename(c.file)}`]));
     }
@@ -148,7 +151,7 @@ export async function replaceCueFile(cueId: string) {
 /** One undo step for all relinks, then re-check and re-analyse. */
 function relink(patches: [string, string][]) {
   useDoc.getState().edit((s) => patches.reduce((acc, [id, file]) => updateAnyCue(acc, id, { file, loudness: null }), s));
-  toast(patches.length > 1 ? `Relinked ${patches.length} files` : `Relinked ${basename(patches[0][1])}`);
+  toast(patches.length > 1 ? tr("b.media.relinkedN", { n: patches.length }) : tr("b.media.relinked1", { file: basename(patches[0][1]) }));
   void checkFiles();
   for (const [id] of patches) void analyseCue(id);
 }
@@ -162,7 +165,7 @@ export async function reloadCue(cueId: string) {
 export async function showInFolder(cueId: string) {
   const cue = findAnyCue(useDoc.getState().show, cueId);
   if (!cue) return;
-  await call("show_in_folder", { path: absolutePath(cue.file, useDoc.getState().path) }).catch((e) => toast(`Can't open the folder: ${e}`));
+  await call("show_in_folder", { path: absolutePath(cue.file, useDoc.getState().path) }).catch((e) => toast(tr("b.media.folderFailed", { e: String(e) })));
 }
 
 /**
@@ -174,7 +177,7 @@ export function canEnterRun(): boolean {
   if (g.ok) return true;
   const m = useMedia.getState();
   if (m.checkState !== "checking") void checkFiles();
-  toast(`Run is blocked: ${g.reason} (see Preflight).`);
+  toast(tr("b.media.runBlocked", { reason: g.reason }));
   useDoc.getState().setMode("preflight");
   return false;
 }
@@ -192,7 +195,7 @@ export function enableDumbo(): boolean {
     if (useMedia.getState().checkState !== "checking") void checkFiles();
     useUi.getState().closeDialog();
     useDoc.getState().setMode("preflight");
-    toast(ui.ui.lang === "nl" ? `Eerst oplossen, dan Dumbo-modus: ${g.reason}` : `Fix this first, then Dumbo mode: ${g.reason}`);
+    toast(tr("b.media.dumboFix", { reason: g.reason }));
     return false;
   }
   useMedia.setState({ dumboBlocked: false });

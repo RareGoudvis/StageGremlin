@@ -7,6 +7,7 @@ import { toast } from "../uiStore";
 import type { Cue } from "../types";
 import { allCues, newId } from "../types";
 import { insertCues, locate, removeCues } from "./showOps";
+import { tr } from "../i18n";
 
 let clip: Cue[] = [];
 
@@ -30,7 +31,7 @@ function cloneGroup(cues: Cue[]): Cue[] {
 
 export function copyCues() {
   clip = selectedCues().map((c) => structuredClone(c));
-  if (clip.length) toast(`Copied ${clip.length} cue${clip.length > 1 ? "s" : ""}`);
+  if (clip.length) toast(clip.length > 1 ? tr("b.clip.copiedN", { n: clip.length }) : tr("b.clip.copied1"));
 }
 
 export function cutCues() {
@@ -43,7 +44,7 @@ export function cutCues() {
 
 /** Paste after the last selected cue (or at the end of the show). */
 export function pasteCues() {
-  if (!clip.length) return toast("Nothing copied yet");
+  if (!clip.length) return toast(tr("b.clip.nothing"));
   insertAfterSelection(cloneGroup(clip));
 }
 

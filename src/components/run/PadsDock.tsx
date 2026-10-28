@@ -4,9 +4,11 @@ import { useDoc } from "../../store";
 import { useEngine } from "../../engineStore";
 import { firePad } from "../../lib/runActions";
 import { PAD_MODES } from "../../lib/showOps";
+import { useT } from "../../i18n";
 
 export function PadsDock() {
   const pads = useDoc((s) => s.show.pads);
+  const t = useT();
   // A joined string keeps this selector stable between 30 Hz updates.
   const playingIds = useEngine((s) => s.state?.running.filter((r) => r.padId).map((r) => r.padId).join(",") ?? "");
   const playing = new Set(playingIds.split(",").filter(Boolean));
@@ -14,7 +16,7 @@ export function PadsDock() {
   if (!pads.length) {
     return (
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, textAlign: "center", color: "var(--mute)", fontSize: 13.5 }}>
-        No pads in this show. Add them in Build › Pads.
+        {t("r.pads.none")}
       </div>
     );
   }
@@ -41,7 +43,7 @@ export function PadsDock() {
           >
             <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span className="mono" style={{ fontSize: 13, fontWeight: 600, padding: "1px 6px", borderRadius: 5, background: on ? "rgba(0,0,0,.18)" : "var(--p3)" }}>{p.hotkey || "–"}</span>
-              {p.mode !== "oneShot" && <span className="k" style={{ fontSize: 9.5, color: on ? "var(--oncue)" : "var(--mute)" }}>{p.mode === "loop" ? "LOOP" : "TOGGLE"}</span>}
+              {p.mode !== "oneShot" && <span className="k" style={{ fontSize: 9.5, color: on ? "var(--oncue)" : "var(--mute)" }}>{p.mode === "loop" ? t("r.pads.loop") : t("r.pads.toggle")}</span>}
             </span>
             <span className="clamp1" style={{ fontSize: 14, fontWeight: 700 }}>{p.cue.name}</span>
           </button>

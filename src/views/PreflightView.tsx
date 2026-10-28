@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useDoc } from "../store";
-import { useT } from "../i18n";
+import { tr, useT } from "../i18n";
 import { useEngine } from "../engineStore";
 import { usePreflight, type Check } from "../lib/preflight";
 import { call, type AudioOutput } from "../lib/tauri";
@@ -24,10 +24,10 @@ export function PreflightView() {
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(0, 1fr) 400px" }}>
-      <section aria-label="Preflight checks" className="scroll" style={{ padding: "26px 40px", display: "flex", flexDirection: "column", gap: 6, borderRight: "1px solid var(--line)" }}>
+      <section aria-label={t("r.pre.checks")} className="scroll" style={{ padding: "26px 40px", display: "flex", flexDirection: "column", gap: 6, borderRight: "1px solid var(--line)" }}>
         <span className="cond" style={{ fontSize: 40, fontWeight: 800, letterSpacing: ".02em" }}>{t("pre.title")}</span>
         <span style={{ fontSize: 15, color: "var(--dim)", marginBottom: 14, maxWidth: 640 }}>
-          The app checks what it can by itself; tick the rest yourself. Nothing here blocks you, but it's better to see a problem now than during the show.
+          {t("r.pre.intro")}
         </span>
         {dumboBlocked && missingCount > 0 && (
           <div role="alert" style={{ padding: "10px 14px", borderRadius: 10, background: "var(--ambbg)", border: "1px solid var(--amb)", color: "var(--ambtx)", fontSize: 15, fontWeight: 600 }}>
@@ -43,7 +43,7 @@ export function PreflightView() {
       </section>
 
       <aside className="scroll" style={{ padding: "26px 30px", display: "flex", flexDirection: "column", gap: 14 }}>
-        <span className="k">Status</span>
+        <span className="k">{t("r.pre.status")}</span>
         <span className="cond" style={{ fontSize: 30, fontWeight: 800, color: allOk ? "var(--acc)" : "var(--amb)" }}>
           {allOk ? t("pre.ready") : `${checks.length - passed} ${t("pre.open")}`}
         </span>
@@ -58,7 +58,7 @@ export function PreflightView() {
           {t("pre.goRun")}
         </button>
         <span style={{ fontSize: 13, color: "var(--mute)" }}>
-          Run switches to black, locks editing and turns Space into GO. Leave it with Ctrl+1 pressed twice, or hold Build for a second.
+          {t("r.pre.runHint")}
         </span>
         <CalibrationCard />
         <OutputPicker />
@@ -69,6 +69,7 @@ export function PreflightView() {
 }
 
 function CheckRow({ check, onToggle }: { check: Check; onToggle?: () => void }) {
+  const t = useT();
   const content = (
     <>
       <span
@@ -87,20 +88,20 @@ function CheckRow({ check, onToggle }: { check: Check; onToggle?: () => void }) 
       </span>
       {check.key === "missing" && check.fixId && (
         <span role="button" tabIndex={0} className="b btn" onClick={() => void locateCue(check.fixId!)} onKeyDown={(e) => e.key === "Enter" && void locateCue(check.fixId!)}
-          style={{ background: "var(--red)", color: "var(--onred)", fontWeight: 700 }}>Locate…</span>
+          style={{ background: "var(--red)", color: "var(--onred)", fontWeight: 700 }}>{t("r.pre.locate")}</span>
       )}
       {check.key === "bgRoute" && !check.ok && (
         <span role="button" tabIndex={0} className="b btn" onClick={openSoundSettings} onKeyDown={(e) => e.key === "Enter" && openSoundSettings()}>
-          Open Windows sound settings
+          {t("r.pre.soundSettings")}
         </span>
       )}
       {check.key === "verify" && !check.ok && (
         <span role="button" tabIndex={0} className="b btn" onClick={() => void checkFiles()} onKeyDown={(e) => e.key === "Enter" && void checkFiles()}>
-          Check again
+          {t("r.pre.checkAgain")}
         </span>
       )}
       {check.key === "saved" && !check.ok && (
-        <span role="button" tabIndex={0} className="b btn" onClick={() => void fileSave()} onKeyDown={(e) => e.key === "Enter" && void fileSave()}>Save now</span>
+        <span role="button" tabIndex={0} className="b btn" onClick={() => void fileSave()} onKeyDown={(e) => e.key === "Enter" && void fileSave()}>{t("r.pre.saveNow")}</span>
       )}
     </>
   );
@@ -126,26 +127,27 @@ export function CalibrationCard() {
   const [tone, setTone] = useState<ToneKind | null>(null);
   const [hz, setHz] = useState(1000);
   const target = useDoc((s) => s.show.settings.targetLufs);
+  const t = useT();
   const play = async (kind: ToneKind | null, freq = hz) => {
     try {
       await call("engine_tone", { kind, hz: freq });
       setTone(kind);
     } catch (e) {
-      toast(`Tone failed: ${e}`);
+      toast(tr("r.cal.failed", { e: String(e) }));
     }
   };
   // Leaving Preflight stops the tone.
   useEffect(() => () => void call("engine_tone", { kind: null }).catch(() => {}), []);
   return (
     <div style={{ padding: 14, borderRadius: 12, border: "1px solid var(--line)", background: "var(--p1)", display: "flex", flexDirection: "column", gap: 8 }}>
-      <span className="k">Calibrate the desk</span>
+      <span className="k">{t("r.cal.title")}</span>
       <span style={{ fontSize: 12.5, color: "var(--dim)" }}>
-        Pink noise plays at {target} LUFS, the level every cue is matched to. Set the desk's USB channel gain so its meter reads 0 at unity fader.
+        {t("r.cal.explain", { lufs: target })}
       </span>
       <div style={{ display: "flex", gap: 6 }}>
-        <button className="b chip" aria-pressed={tone === "pink"} onClick={() => void play("pink")} style={{ height: 36, flex: 1 }}>Pink noise</button>
-        <button className="b chip" aria-pressed={tone === "line"} onClick={() => void play("line")} style={{ height: 36, flex: 1 }}>Sine {fmtHz(hz)} −20 dBFS</button>
-        <button className="b btn" disabled={!tone} onClick={() => void play(null)} style={{ height: 36 }}>Stop</button>
+        <button className="b chip" aria-pressed={tone === "pink"} onClick={() => void play("pink")} style={{ height: 36, flex: 1 }}>{t("r.cal.pink")}</button>
+        <button className="b chip" aria-pressed={tone === "line"} onClick={() => void play("line")} style={{ height: 36, flex: 1 }}>{t("r.cal.sine", { hz: fmtHz(hz) })}</button>
+        <button className="b btn" disabled={!tone} onClick={() => void play(null)} style={{ height: 36 }}>{t("r.stop")}</button>
       </div>
       {/* Sine frequency: a preset, or type one. A playing sine follows straight away. */}
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
@@ -153,7 +155,7 @@ export function CalibrationCard() {
           <button key={f} className="b chip" aria-pressed={hz === f} onClick={() => { setHz(f); if (tone === "line") void play("line", f); }}
             style={{ height: 28, fontSize: 12, padding: "0 8px" }}>{fmtHz(f)}</button>
         ))}
-        <input className="input mono" aria-label="Sine frequency in Hz" type="number" min={20} max={20000} step={1} value={hz}
+        <input className="input mono" aria-label={t("r.cal.hzAria")} type="number" min={20} max={20000} step={1} value={hz}
           onChange={(e) => setHz(Math.max(20, Math.min(20000, Number(e.target.value) || 1000)))}
           onBlur={() => tone === "line" && void play("line")} onKeyDown={(e) => e.key === "Enter" && void play("line")}
           style={{ width: 90, height: 28 }} />
@@ -176,13 +178,14 @@ export function OutputPicker({ preview = false }: { preview?: boolean }) {
   const output = useEngine((s) => s.output);
   const [list, setList] = useState<AudioOutput[]>([]);
   const [busy, setBusy] = useState(false);
+  const t = useT();
 
   const refresh = useCallback(async () => {
     setBusy(true);
     try {
       setList(await call("audio_list_outputs"));
     } catch (e) {
-      toast(`Could not list outputs: ${e}`);
+      toast(tr("r.out.listFailed", { e: String(e) }));
     } finally {
       setBusy(false);
     }
@@ -199,16 +202,16 @@ export function OutputPicker({ preview = false }: { preview?: boolean }) {
       // Mid-show the operator should know what they're about to do.
       if (useDoc.getState().mode === "run") {
         const ok = await ask({
-          title: "Switch the show output now?",
-          body: "Switching restarts the audio engine: there is a short silence on the output. Only do this if the sound is already gone.",
-          confirmLabel: "Switch output",
+          title: tr("r.out.switchTitle"),
+          body: tr("r.out.switchBody"),
+          confirmLabel: tr("r.out.switchConfirm"),
           danger: true,
         });
         if (!ok) return;
       }
       await call("audio_set_output", { name: name || null });
     } catch (e) {
-      toast(`Could not switch output: ${e}`);
+      toast(tr("r.out.switchFailed", { e: String(e) }));
     }
   };
 
@@ -219,26 +222,26 @@ export function OutputPicker({ preview = false }: { preview?: boolean }) {
 
   return (
     <div style={{ marginTop: 10, padding: 14, borderRadius: 12, border: "1px solid var(--line)", background: "var(--p1)", display: "flex", flexDirection: "column", gap: 8 }}>
-      <span className="k">{preview ? "Headphone preview output" : "Show output"}</span>
+      <span className="k">{preview ? t("r.out.preview") : t("r.out.show")}</span>
       <span style={{ fontSize: 12.5, color: "var(--mute)" }}>
         {preview
-          ? "Where Preview (H) plays. Pick the laptop's headphone jack, never the desk."
-          : "Switching restarts the audio engine (a short silence). In Run it asks first."}
+          ? t("r.out.previewHint")
+          : t("r.out.showHint")}
       </span>
       <div style={{ display: "flex", gap: 6 }}>
-        <select className="select" aria-label="Audio output" value={preferred} onChange={(e) => void choose(e.target.value)} style={{ flex: 1, height: 36 }}>
-          <option value="">Windows default{list.find((o) => o.isDefault) ? ` (${list.find((o) => o.isDefault)!.name})` : ""}</option>
+        <select className="select" aria-label={t("r.out.aria")} value={preferred} onChange={(e) => void choose(e.target.value)} style={{ flex: 1, height: 36 }}>
+          <option value="">{t("r.out.winDefault")}{list.find((o) => o.isDefault) ? ` (${list.find((o) => o.isDefault)!.name})` : ""}</option>
           {names.map((n) => (
-            <option key={n} value={n}>{n}{list.some((o) => o.name === n) ? "" : " — not connected"}</option>
+            <option key={n} value={n}>{n}{list.some((o) => o.name === n) ? "" : t("r.out.notConnected")}</option>
           ))}
         </select>
-        <button className="b btn" disabled={busy} onClick={() => void refresh()} style={{ height: 36 }}>Refresh</button>
+        <button className="b btn" disabled={busy} onClick={() => void refresh()} style={{ height: 36 }}>{t("r.out.refresh")}</button>
       </div>
       {preview && previewChoice && previewChoice === output?.outputName && (
-        <span className="tag tag-red" style={{ alignSelf: "flex-start" }}>SAME AS THE SHOW OUTPUT: PREVIEW WOULD PLAY IN THE HALL</span>
+        <span className="tag tag-red" style={{ alignSelf: "flex-start" }}>{t("r.out.sameAsShow")}</span>
       )}
       {!preview && <span style={{ fontSize: 12.5, color: output?.outputFound === false ? "var(--redtx)" : "var(--dim)" }}>
-        {output ? (output.outputFound ? `Playing on ${output.outputName}.` : `${output.preferred} isn't connected — playing on ${output.outputName} until it is.`) : "Waiting for the engine…"}
+        {output ? (output.outputFound ? t("r.out.playingOn", { name: output.outputName }) : t("r.out.notConnectedLong", { pref: output.preferred ?? "", name: output.outputName })) : t("r.out.waiting")}
       </span>}
     </div>
   );

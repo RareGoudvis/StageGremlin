@@ -158,7 +158,7 @@ export function StreamboxPanel() {
             setDrag(v);
             sendVolume(v);
           }} style={{ flex: 1 }} />
-        <span className="mono" style={{ width: 34, textAlign: "right", fontSize: 12 }}>{status?.muted ? "MUTE" : vol}</span>
+        <span className="mono" style={{ width: 34, textAlign: "right", fontSize: 12 }}>{status?.muted ? t("s.muteTag") : vol}</span>
         <button className="b chip" tabIndex={-1} disabled={!status} aria-pressed={!!status?.muted} onClick={() => run(streambox.setMute(!status?.muted))}
           style={{ height: 28, background: status?.muted ? "var(--red)" : undefined, color: status?.muted ? "var(--onred)" : undefined }}>
           {t("audac.mute")}

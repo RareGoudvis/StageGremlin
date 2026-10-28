@@ -18,7 +18,7 @@ import { InRun } from "./components/RunDialogHost";
 import { useSettings } from "./settingsStore";
 import { DumboView } from "./views/DumboView";
 import { useMedia } from "./lib/media";
-import { useT } from "./i18n";
+import { tr, useT } from "./i18n";
 import { useAudacAutoConnect, useAudacNameFill } from "./lib/audac";
 import { useAudacChangeToasts, useAudacGuardSync } from "./lib/audacWatch";
 import { useAudacSchedule } from "./lib/audacSchedule";
@@ -125,10 +125,12 @@ function useWindowTitle() {
   const name = useDoc((s) => s.show.name);
   const path = useDoc((s) => s.path);
   const dirty = useDirty();
+  // The language is a dependency too: "Untitled" follows it.
+  const lang = useSettings((s) => s.ui.lang);
   useEffect(() => {
-    const shown = name || (path ? basename(path) : "Untitled");
+    const shown = name || (path ? basename(path) : tr("m.untitled"));
     void setWindowTitle(`${shown}${dirty ? " •" : ""} — StageGremlin`);
-  }, [name, path, dirty]);
+  }, [name, path, dirty, lang]);
 }
 
 /** Every 30 s in Build: save if the show has a file and unsaved changes. */

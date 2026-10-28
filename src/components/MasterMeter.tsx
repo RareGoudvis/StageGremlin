@@ -4,6 +4,7 @@
 import { useRef } from "react";
 import { useEngine } from "../engineStore";
 import { linToDb } from "../lib/format";
+import { useT } from "../i18n";
 
 const FLOOR_DB = -48;
 const HOLD_MS = 1500;
@@ -14,6 +15,7 @@ const pos = (db: number) => Math.max(0, Math.min(1, (db - FLOOR_DB) / -FLOOR_DB)
 
 export function MasterMeter() {
   const meter = useEngine((s) => s.state?.meter);
+  const t = useT();
   const hold = useRef({ l: FLOOR_DB, r: FLOOR_DB, lAt: 0, rAt: 0, clipAt: 0 });
   const now = performance.now();
   const dbL = linToDb(meter?.peakL ?? 0);
@@ -48,7 +50,7 @@ export function MasterMeter() {
   );
 
   return (
-    <div aria-label="Master meter" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <div aria-label={t("m.meter.aria")} style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
         {bar(dbL, h.l, "L")}
         {bar(dbR, h.r, "R")}
@@ -63,10 +65,10 @@ export function MasterMeter() {
         >
           CLIP
         </span>
-        <span className="mono" title="Short-term loudness (last 3 s), LUFS" style={{ fontSize: 10.5, color: lufsS !== null && lufsS > -10 ? "var(--amb)" : "var(--dim)" }}>
+        <span className="mono" title={t("m.meter.lufs")} style={{ fontSize: 10.5, color: lufsS !== null && lufsS > -10 ? "var(--amb)" : "var(--dim)" }}>
           {lufsS !== null && lufsS > -70 ? `${lufsS.toFixed(1)} LUFS` : "– LUFS"}
         </span>
-        <span className="mono" title="Limiter gain reduction" style={{ fontSize: 10.5, color: gr > 0.5 ? "var(--amb)" : "var(--mute)" }}>
+        <span className="mono" title={t("m.meter.gr")} style={{ fontSize: 10.5, color: gr > 0.5 ? "var(--amb)" : "var(--mute)" }}>
           GR {gr > 0.05 ? "−" + gr.toFixed(1) : "0.0"}
         </span>
       </div>

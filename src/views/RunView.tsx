@@ -28,6 +28,7 @@ import { Dock } from "../components/run/Dock";
 import { bg, bgDo } from "../components/background/useBackground";
 import { setLocalOverlay } from "../lib/emergencyKeys";
 import { RunDialogArea } from "../components/RunDialogHost";
+import { tr, useT } from "../i18n";
 
 const DOUBLE_ESC_MS = 500;
 
@@ -194,24 +195,25 @@ function RehearsalStrip() {
   const measuredCount = useEngine((s) => Object.keys(s.measured).length);
   const hasPlan = useEngine((s) => s.plan !== null);
   const { setRehearsal, adoptPlan, clearPlan } = useEngine.getState();
+  const t = useT();
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px 0", flexWrap: "wrap" }}>
       <button className="b chip" tabIndex={-1} aria-pressed={on} onClick={() => setRehearsal(!on)}
         style={on ? { background: "var(--amb)", color: "var(--onamb)" } : undefined}>
-        {on ? "REHEARSAL ON" : "Rehearsal"}
+        {on ? t("r.reh.on") : t("r.reh.off")}
       </button>
       {on && (
         <span style={{ fontSize: 13, color: "var(--ambtx)" }}>
-          Start any cue from its start or a marker; the log marks these lines REH and the real durations are measured.
+          {t("r.reh.explain")}
         </span>
       )}
       {!on && measuredCount > 0 && (
         <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 13, color: "var(--dim)" }}>{measuredCount} cue{measuredCount > 1 ? "s" : ""} measured in rehearsal.</span>
-          <button className="b btn" tabIndex={-1} style={{ height: 28 }} onClick={() => { adoptPlan(); toast("Rehearsal times are now the plan"); }}>Use measured times as plan</button>
+          <span style={{ fontSize: 13, color: "var(--dim)" }}>{measuredCount > 1 ? t("r.reh.measuredN", { n: measuredCount }) : t("r.reh.measured1")}</span>
+          <button className="b btn" tabIndex={-1} style={{ height: 28 }} onClick={() => { adoptPlan(); toast(tr("r.reh.adopted")); }}>{t("r.reh.adopt")}</button>
         </span>
       )}
-      {hasPlan && <button className="b btn btn-ghost" tabIndex={-1} style={{ height: 28 }} onClick={clearPlan}>Forget plan</button>}
+      {hasPlan && <button className="b btn btn-ghost" tabIndex={-1} style={{ height: 28 }} onClick={clearPlan}>{t("r.reh.forget")}</button>}
     </div>
   );
 }
@@ -219,13 +221,14 @@ function RehearsalStrip() {
 /** Big mode: only GO, what's playing and what's next, as large as possible. */
 function BigRun({ run, playhead }: { run: ReturnType<typeof mainRunning>; playhead: string | null }) {
   const show = useDoc((s) => s.show);
+  const t = useT();
   const now = run ? findCue(show, run.cueId) : null;
   const next = findCue(show, playhead);
   return (
     <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(0, 1fr) 420px", gap: 16, padding: 16 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 16, minHeight: 0 }}>
         <div style={{ flex: 1, borderRadius: 18, background: "var(--p1)", border: `1px solid ${run ? "var(--acc)" : "var(--line)"}`, padding: "24px 28px", display: "flex", flexDirection: "column", gap: 14, justifyContent: "center", minHeight: 0 }}>
-          <span className="k" style={{ color: run ? "var(--acc)" : undefined }}>{run ? "Now playing" : "Silence"}</span>
+          <span className="k" style={{ color: run ? "var(--acc)" : undefined }}>{run ? t("run.nowPlaying") : t("r.silence")}</span>
           <span className="cond clamp1" style={{ fontSize: 72, fontWeight: 800, lineHeight: 1 }}>
             <span className="mono" style={{ color: "var(--acc)", fontSize: 56 }}>{now?.number ?? ""}</span> {now?.name ?? "—"}
           </span>
@@ -233,29 +236,30 @@ function BigRun({ run, playhead }: { run: ReturnType<typeof mainRunning>; playhe
           {now?.notes.sound && <span style={{ fontSize: 26, color: "var(--ambtx)" }}>{now.notes.sound}</span>}
         </div>
         <div style={{ borderRadius: 18, background: "var(--p2)", padding: "18px 24px", display: "flex", flexDirection: "column", gap: 6 }}>
-          <span className="k" style={{ color: "var(--acc)" }}>Standby</span>
-          <span className="cond clamp1" style={{ fontSize: 40, fontWeight: 800 }}><span className="mono" style={{ fontSize: 30 }}>{next?.number ?? ""}</span> {next?.name ?? "End of show"}</span>
+          <span className="k" style={{ color: "var(--acc)" }}>{t("run.standby")}</span>
+          <span className="cond clamp1" style={{ fontSize: 40, fontWeight: 800 }}><span className="mono" style={{ fontSize: 30 }}>{next?.number ?? ""}</span> {next?.name ?? t("run.endOfShow")}</span>
           {next?.notes.sound && <span style={{ fontSize: 20, color: "var(--ambtx)" }}>{next.notes.sound}</span>}
           {next?.notes.lx && <span style={{ fontSize: 18, color: "var(--lx)" }}>LX · {next.notes.lx}</span>}
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <BigGo ready={!!next} />
-        <span className="mono" style={{ fontSize: 12, color: "var(--mute)", textAlign: "center" }}>Ctrl+B leaves Big mode</span>
+        <span className="mono" style={{ fontSize: 12, color: "var(--mute)", textAlign: "center" }}>{t("r.big.leave")}</span>
       </div>
     </div>
   );
 }
 
 function BigGo({ ready }: { ready: boolean }) {
+  const t = useT();
   return (
     <>
       <button className="b" tabIndex={-1} onClick={() => void go()}
         style={{ flex: 1, borderRadius: 22, background: ready ? "var(--gobg)" : "var(--p3)", color: ready ? "var(--ongo)" : "var(--mute)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <span className="cond" style={{ fontSize: 150, fontWeight: 800, lineHeight: 0.9 }}>GO</span>
+        <span className="cond" style={{ fontSize: 150, fontWeight: 800, lineHeight: 0.9 }}>{t("go")}</span>
       </button>
-      <button className="b cond" tabIndex={-1} onClick={stopAll} style={{ height: 90, borderRadius: 14, background: "var(--p3)", color: "var(--amb)", fontSize: 26, fontWeight: 800 }}>STOP ALL</button>
-      <button className="b cond" tabIndex={-1} onClick={panic} style={{ height: 90, borderRadius: 14, background: "var(--redbg)", border: "2px solid var(--red)", color: "var(--redtx)", fontSize: 26, fontWeight: 800 }}>PANIC</button>
+      <button className="b cond" tabIndex={-1} onClick={stopAll} style={{ height: 90, borderRadius: 14, background: "var(--p3)", color: "var(--amb)", fontSize: 26, fontWeight: 800 }}>{t("stopAll")}</button>
+      <button className="b cond" tabIndex={-1} onClick={panic} style={{ height: 90, borderRadius: 14, background: "var(--redbg)", border: "2px solid var(--red)", color: "var(--redtx)", fontSize: 26, fontWeight: 800 }}>{t("panic")}</button>
     </>
   );
 }

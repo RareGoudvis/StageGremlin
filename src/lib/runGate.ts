@@ -5,6 +5,8 @@
 // hadn't finished, had failed, or a file that exists but can't be decoded, still let you in.
 // Pure function, so it can be tested without the app around it.
 
+import { tr } from "../i18n";
+
 export type CheckState = "idle" | "checking" | "ok" | "failed";
 
 export interface GateInput {
@@ -29,12 +31,12 @@ export interface GateResult {
 }
 
 export function runGate(i: GateInput): GateResult {
-  if (i.checkState === "failed") return { ok: false, reason: `The file check failed: ${i.checkError || "unknown error"}. Check again in Preflight.` };
-  if (i.checkState !== "ok" || !i.checkedCurrent) return { ok: false, reason: "Still checking the files…" };
-  if (i.missing.length) return { ok: false, reason: `${i.missing.length} file${i.missing.length > 1 ? "s are" : " is"} missing.` };
-  if (i.unreadable.length) return { ok: false, reason: `${i.unreadable.length} file${i.unreadable.length > 1 ? "s" : ""} can't be played (could not be read).` };
-  if (i.analysing.length) return { ok: false, reason: `Still analysing ${i.analysing.length} file${i.analysing.length > 1 ? "s" : ""}…` };
-  return { ok: true, reason: "All files verified." };
+  if (i.checkState === "failed") return { ok: false, reason: tr("r.gate.failed", { e: i.checkError || tr("r.gate.unknown") }) };
+  if (i.checkState !== "ok" || !i.checkedCurrent) return { ok: false, reason: tr("r.gate.checking") };
+  if (i.missing.length) return { ok: false, reason: i.missing.length > 1 ? tr("r.gate.missingN", { n: i.missing.length }) : tr("r.gate.missing1") };
+  if (i.unreadable.length) return { ok: false, reason: i.unreadable.length > 1 ? tr("r.gate.unreadableN", { n: i.unreadable.length }) : tr("r.gate.unreadable1") };
+  if (i.analysing.length) return { ok: false, reason: i.analysing.length > 1 ? tr("r.gate.analysingN", { n: i.analysing.length }) : tr("r.gate.analysing1") };
+  return { ok: true, reason: tr("r.gate.ok") };
 }
 
 /** A fingerprint of which files the show uses, so a check result can be matched to the show it was made for. */

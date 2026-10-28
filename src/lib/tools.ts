@@ -5,6 +5,7 @@ import { create } from "zustand";
 import type { YtInstallProgress, YtStatus, YtTool } from "../types";
 import { call } from "./tauri";
 import { toast } from "../uiStore";
+import { tr } from "../i18n";
 
 interface ToolsStore {
   status: YtStatus | null;
@@ -34,15 +35,15 @@ export const useTools = create<ToolsStore>((set, get) => ({
     try {
       await call("yt_install", { what });
     } catch (e) {
-      toast(`Installing ${TOOL_NAME[what]} failed: ${e}`);
+      toast(tr("m.tool.failed", { tool: TOOL_NAME[what], e: String(e) }));
       set((s) => ({ installing: { ...s.installing, [what]: undefined } }));
     }
   },
   onProgress: (p) => {
     if (p.done || p.error) {
       set((s) => ({ installing: { ...s.installing, [p.what]: undefined } }));
-      if (p.error) toast(`Installing ${TOOL_NAME[p.what]} failed: ${p.error}`);
-      else toast(`${TOOL_NAME[p.what]} installed`);
+      if (p.error) toast(tr("m.tool.failed", { tool: TOOL_NAME[p.what], e: p.error }));
+      else toast(tr("m.tool.installed", { tool: TOOL_NAME[p.what] }));
       void get().refresh();
     } else {
       set((s) => ({ installing: { ...s.installing, [p.what]: p.percent } }));

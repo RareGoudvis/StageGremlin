@@ -79,7 +79,14 @@ body { background: #000; overflow: hidden; }
    background and text used the same token; never set both to the same variable.) */
 .chip { height: 30px; padding: 0 10px; border-radius: 7px; font-size: 12.5px; font-weight: 700; background: var(--p3); color: var(--text); white-space: nowrap; }
 .chip[aria-pressed="true"] { background: var(--hl); color: var(--bg); }
-.chips { display: flex; gap: 4px; flex-wrap: wrap; }
+/* A group of chips (one choice of several) is one joined, segmented control: a soft track with
+   the chosen option raised. `.chips-fill` stretches it to the full width with equal segments. */
+.chips { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--p2); flex-wrap: wrap; max-width: 100%; }
+.chips > .chip { background: transparent; height: 28px; border-radius: 7px; color: var(--dim); }
+.chips > .chip:hover { color: var(--text); }
+.chips > .chip[aria-pressed="true"] { background: var(--hl); color: var(--bg); }
+.chips-fill { display: flex; width: 100%; flex-wrap: nowrap; }
+.chips-fill > .chip { flex: 1 1 0; min-width: 0; padding: 0 6px; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- inputs ---- */
 .input, .select, .textarea {
@@ -94,6 +101,13 @@ input[type=range] { accent-color: var(--acc); width: 100%; margin: 0; }
 input[type=checkbox] { accent-color: var(--acc); width: 18px; height: 18px; margin: 0; }
 
 .scroll { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+
+/* Settings: left menu items */
+.set-nav { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 1px; min-height: 42px; padding: 6px 12px; border-radius: 9px; background: transparent; color: var(--text); text-align: left; border: 1px solid transparent; }
+.set-nav > span { max-width: 100%; }
+.set-nav:hover { background: var(--p3); filter: none; }
+.th-light .set-nav:hover { filter: none; }
+.set-nav[aria-selected="true"] { background: var(--p1); border-color: var(--line); box-shadow: 0 1px 2px rgba(0, 0, 0, .06); }
 
 /* small tags in cue rows */
 .tag { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; padding: 2px 6px; border-radius: 5px; white-space: nowrap; background: var(--p3); color: var(--dim); }

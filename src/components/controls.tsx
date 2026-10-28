@@ -2,8 +2,19 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 
-/** A labelled row: label on the left, control(s) on the right. */
-export function Row({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
+/**
+ * A labelled row: label on the left, control(s) on the right.
+ * `stack`: label above, control on the full width below (for choices that don't fit next to a label).
+ */
+export function Row({ label, children, hint, stack }: { label: string; children: ReactNode; hint?: string; stack?: boolean }) {
+  if (stack) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }} title={hint}>
+        <span style={{ fontSize: 13, color: "var(--dim)" }}>{label}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexWrap: "wrap" }}>{children}</div>
+      </div>
+    );
+  }
   return (
     <div style={{ display: "grid", gridTemplateColumns: "92px minmax(0, 1fr)", alignItems: "center", gap: 8 }} title={hint}>
       <span style={{ fontSize: 13, color: "var(--dim)" }}>{label}</span>
@@ -25,15 +36,19 @@ export function Group({ title, color, children, right }: { title: string; color?
   );
 }
 
-/** Toggle chips: one of several options. Pressed chips are inverted (see .chip in styles.css). */
-export function Chips<T>({ options, value, onChange, label }: {
+/**
+ * Toggle chips: one of several options, drawn as one segmented control (see .chips in styles.css).
+ * `fill`: stretch to the full width, every option the same width (never wraps).
+ */
+export function Chips<T>({ options, value, onChange, label, fill }: {
   options: { value: T; label: string; title?: string }[];
   value: T;
   onChange: (v: T) => void;
   label: string;
+  fill?: boolean;
 }) {
   return (
-    <div role="group" aria-label={label} className="chips">
+    <div role="group" aria-label={label} className={fill ? "chips chips-fill" : "chips"}>
       {options.map((o) => (
         <button key={String(o.value)} className="b chip" aria-pressed={o.value === value} title={o.title} onClick={() => onChange(o.value)}>
           {o.label}

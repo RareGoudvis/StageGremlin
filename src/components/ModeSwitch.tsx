@@ -15,6 +15,7 @@ const SHOW_MODES: { mode: Mode; n: string }[] = [
 
 export function ModeSwitch({ preflightOk }: { preflightOk: boolean }) {
   const mode = useDoc((s) => s.mode);
+  const t = useT();
   const [holding, setHolding] = useState<Mode | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -36,7 +37,7 @@ export function ModeSwitch({ preflightOk }: { preflightOk: boolean }) {
   );
 
   return (
-    <nav aria-label="Workflow" style={{ display: "flex", gap: 10 }}>
+    <nav aria-label={t("m.mode.aria")} style={{ display: "flex", gap: 10 }}>
       <div style={group}>{SHOW_MODES.map((x) => button(x.mode, x.n))}</div>
       <div style={group}>{button("background", "4")}</div>
       <style>{`@keyframes holdfill { from { width: 0 } to { width: 100% } }`}</style>
@@ -58,7 +59,7 @@ function ModeButton({ m, n, mode, holding, startHold, endHold, preflightOk }: {
       onPointerDown={() => startHold(m)}
       onPointerUp={endHold}
       onPointerLeave={endHold}
-      title={mode === "run" && !active ? "Hold to leave Run" : `${t(`mode.${m}` as TKey)} · Ctrl+${n}`}
+      title={mode === "run" && !active ? t("m.mode.hold") : `${t(`mode.${m}` as TKey)} · Ctrl+${n}`}
       style={{
         position: "relative", overflow: "hidden",
         height: 34, padding: "0 14px", borderRadius: 7, fontSize: 14, fontWeight: 800, letterSpacing: ".06em",

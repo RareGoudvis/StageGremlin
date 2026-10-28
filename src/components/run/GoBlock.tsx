@@ -27,18 +27,18 @@ export function GoBlock({ standbyId }: { standbyId: string | null }) {
         <span className="clamp1" style={{ fontSize: 15, fontWeight: 700, maxWidth: "100%" }}>
           {standby ? `${standby.number} ${standby.name}` : t("run.endOfShow")}
         </span>
-        <span className="mono" style={{ fontSize: 11, opacity: 0.7 }}>SPACE · ENTER</span>
+        <span className="mono" style={{ fontSize: 11, opacity: 0.7 }}>{t("r.go.keys")}</span>
       </button>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <button className="b cond" tabIndex={-1} onClick={stopAll}
           style={{ flex: 1, borderRadius: 12, background: "var(--p3)", color: "var(--amb)", fontSize: 18, fontWeight: 800, letterSpacing: ".04em" }}>
           {t("stopAll")}
-          <span className="mono" style={{ display: "block", fontSize: 10.5, fontWeight: 400, color: "var(--dim)", letterSpacing: 0 }}>fade {stopFade} s · Esc</span>
+          <span className="mono" style={{ display: "block", fontSize: 10.5, fontWeight: 400, color: "var(--dim)", letterSpacing: 0 }}>{t("r.go.fade", { s: stopFade })}</span>
         </button>
         <button className="b cond" tabIndex={-1} onClick={panic}
           style={{ flex: 1, borderRadius: 12, background: "var(--redbg)", border: "1px solid var(--red)", color: "var(--redtx)", fontSize: 18, fontWeight: 800, letterSpacing: ".04em" }}>
           {t("panic")}
-          <span className="mono" style={{ display: "block", fontSize: 10.5, fontWeight: 400, letterSpacing: 0 }}>cut · Esc Esc</span>
+          <span className="mono" style={{ display: "block", fontSize: 10.5, fontWeight: 400, letterSpacing: 0 }}>{t("r.go.cut")}</span>
         </button>
       </div>
     </div>

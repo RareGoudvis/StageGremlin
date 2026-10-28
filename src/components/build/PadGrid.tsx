@@ -7,8 +7,11 @@ import { importPadsDialog } from "../../lib/fileActions";
 import { fmtTime } from "../../lib/format";
 import { openMenu } from "../ContextMenu";
 import { padMenu } from "../../lib/menus";
+import { padModeLabel } from "../../lib/labels";
+import { useT } from "../../i18n";
 
 export function PadGrid() {
+  const t = useT();
   const pads = useDoc((s) => s.show.pads);
   const selected = useDoc((s) => s.selectedPad);
   const analysis = useDoc((s) => s.analysis);
@@ -19,9 +22,9 @@ export function PadGrid() {
     <div className="scroll" data-drop-pads style={{ flex: 1, minHeight: 0, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 13.5, color: "var(--dim)", flex: 1 }}>
-          Pads are short sounds you fire in Run with keys 1–9 and 0. They use the same sound settings as cues.
+          {t("b.pads.intro")}
         </span>
-        <button className="b btn btn-go" onClick={() => void importPadsDialog()}>+ Import pads</button>
+        <button className="b btn btn-go" onClick={() => void importPadsDialog()}>{t("b.pads.import")}</button>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 10 }}>
         {pads.map((p) => {
@@ -49,21 +52,21 @@ export function PadGrid() {
                   {p.hotkey || "–"}
                 </span>
                 <span style={{ flex: 1 }} />
-                <span className="k">{PAD_MODES.find((m) => m.value === p.mode)?.label}</span>
+                <span className="k">{padModeLabel(t, p.mode, PAD_MODES.find((m) => m.value === p.mode)?.label ?? "")}</span>
               </span>
-              <span className="clamp1" style={{ fontSize: 18, fontWeight: 700, paddingLeft: 6 }}>{p.cue.name || "(no name)"}</span>
+              <span className="clamp1" style={{ fontSize: 18, fontWeight: 700, paddingLeft: 6 }}>{p.cue.name || t("b.noName")}</span>
               <span className="mono" style={{ fontSize: 12, color: "var(--dim)", paddingLeft: 6, display: "flex", gap: 6, alignItems: "center" }}>
                 {len != null ? fmtTime(len) : "–:––"}
-                {!p.cue.duckBg && <span className="tag">NO DUCK</span>}
-                {st?.state === "busy" && <span className="tag pulse">ANALYSING…</span>}
-                {st?.state === "error" && <span className="tag tag-red">{st.unsupported ? "CONVERT" : "MISSING"}</span>}
+                {!p.cue.duckBg && <span className="tag">{t("b.tag.noDuck")}</span>}
+                {st?.state === "busy" && <span className="tag pulse">{t("b.tag.analysing")}</span>}
+                {st?.state === "error" && <span className="tag tag-red">{st.unsupported ? t("b.tag.convert") : t("b.tag.missing")}</span>}
               </span>
             </button>
           );
         })}
         {pads.length === 0 && (
           <div style={{ gridColumn: "1 / -1", padding: 24, borderRadius: 14, border: "1px dashed var(--line)", color: "var(--mute)", fontSize: 14 }}>
-            No pads yet. Import a few sound effects (applause, drum roll, gong).
+            {t("b.pads.empty")}
           </div>
         )}
       </div>

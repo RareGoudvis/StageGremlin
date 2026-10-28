@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
 import { useDoc } from "../store";
 import { useSettings } from "../settingsStore";
 import { useUi } from "../uiStore";
-import { translate, type TKey } from "../i18n";
+import { translate, type TKey, type TVars } from "../i18n";
 import { audac, useAudac } from "./audac";
 import { describeChange, guardRules, type GuardRule } from "./audacGroups";
 import { useScheduleRunning } from "./audacSchedule";
@@ -52,11 +52,11 @@ export function useAudacChangeToasts() {
 /** A change in the operator's words and language. */
 export function changeText(c: Parameters<typeof describeChange>[0]): string {
   const ui = useSettings.getState().ui;
-  const t = (k: TKey) => translate(ui.lang, k);
+  const t = (k: TKey, vars?: TVars) => translate(ui.lang, k, vars);
   return `${t("audac.someoneElse")} ${describeChange(
     c,
-    (n) => ui.audac.zones[n - 1]?.name || `Zone ${n}`,
+    (n) => ui.audac.zones[n - 1]?.name || t("s.audac.zoneN", { n }),
     (n) => ui.audac.inputs[n - 1]?.name || `${n}`,
-    { volume: t("audac.wVolume"), input: t("audac.wInput"), mute: t("audac.mute"), on: t("audac.wOn"), off: t("audac.wOff"), putBack: t("audac.putBack") },
+    { volume: t("audac.wVolume"), input: t("audac.wInput"), mute: t("audac.mute"), on: t("audac.wOn"), off: t("audac.wOff"), putBack: t("audac.putBack"), volOff: t("audac.wOff") },
   )}`;
 }

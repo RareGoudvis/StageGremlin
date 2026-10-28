@@ -4,7 +4,7 @@
 
 import { useState } from "react";
 import { useSettings, type StreamboxSetup } from "../../settingsStore";
-import { useT } from "../../i18n";
+import { useT, type TKey } from "../../i18n";
 import { call, isTauri } from "../../lib/tauri";
 import { visible } from "../../lib/audac";
 import { Chips, Row } from "../controls";
@@ -13,11 +13,12 @@ import { Card, PageTitle } from "./common";
 
 interface Found { ip: string; name: string; model: string | null; kinds: string[]; dlnaUrl: string | null }
 
-/** What we know about each model. Only the S2 Ultra is checked against its spec sheets. */
-export const STREAMBOX_MODELS: { id: string; label: string; kinds: string; checked: boolean }[] = [
-  { id: "s2ultra", label: "Pro-Ject Stream Box S2 Ultra", kinds: "AirPlay, DLNA/UPnP, Roon Ready, Spotify/TIDAL/Qobuz built in", checked: true },
-  { id: "projectOther", label: "Other Pro-Ject Stream Box", kinds: "probably AirPlay and DLNA", checked: false },
-  { id: "other", label: "Other network player", kinds: "whatever the search finds", checked: false },
+/** What we know about each model. Only the S2 Ultra is checked against its spec sheets.
+ *  `label` and `note` are translation keys (src/lang/settings.ts), turned into text when shown. */
+export const STREAMBOX_MODELS: { id: string; label: TKey; note: TKey; checked: boolean }[] = [
+  { id: "s2ultra", label: "s.sbx.mS2", note: "s.sbx.mS2Note", checked: true },
+  { id: "projectOther", label: "s.sbx.mProject", note: "s.sbx.mProjectNote", checked: false },
+  { id: "other", label: "s.sbx.mOther", note: "s.sbx.mOtherNote", checked: false },
 ];
 
 export function StreamboxPage() {
@@ -58,9 +59,9 @@ export function StreamboxPage() {
   return (
     <>
       <PageTitle note={t("set.storedLaptop")}>{t("set.streambox")}</PageTitle>
-      <Card title={t("sbx.model")} note={model.checked ? `${t("sbx.speaks")}: ${model.kinds}.` : `${model.kinds} (${t("sbx.notChecked")}).`}>
+      <Card title={t("sbx.model")} note={t(model.note)}>
         <select className="select" aria-label={t("sbx.model")} value={box.model} onChange={(e) => save({ model: e.target.value })} style={{ maxWidth: 360 }}>
-          {STREAMBOX_MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+          {STREAMBOX_MODELS.map((m) => <option key={m.id} value={m.id}>{t(m.label)}</option>)}
         </select>
       </Card>
 

@@ -8,38 +8,40 @@ import { BackgroundDock } from "../background/BackgroundDock";
 import { AudacPanel } from "../audac/AudacPanel";
 import { useAudac, useAudacConfigured } from "../../lib/audac";
 import { useSettings } from "../../settingsStore";
+import { useT } from "../../i18n";
 
 type Tab = "pads" | "bg" | "audac" | "log";
 
 export function Dock() {
   const [tab, setTab] = useState<Tab>("pads");
+  const t = useT();
   // Hidden in Run when this laptop says so (Settings › AUDAC › In Run).
   const audacOn = useAudacConfigured() && useSettings((s) => s.ui.audac.inRun) !== "hide";
   // "!" on the tab while another app (Touch 2) is on the MTX.
   const othersOn = !!useAudac()?.others?.length;
   const tabs: { id: Tab; label: string }[] = [
-    { id: "pads", label: "PADS" },
-    { id: "bg", label: "BACKGROUND" },
+    { id: "pads", label: t("r.dock.pads") },
+    { id: "bg", label: t("r.dock.bg") },
     ...(audacOn ? [{ id: "audac" as const, label: othersOn ? "AUDAC !" : "AUDAC" }] : []),
-    { id: "log", label: "LOG" },
+    { id: "log", label: t("r.dock.log") },
   ];
   return (
-    <section aria-label="Dock" style={{ flex: 1, minHeight: 160, display: "flex", flexDirection: "column", borderRadius: 12, overflow: "hidden", background: "var(--p1)", border: "1px solid var(--line)" }}>
-      <div role="tablist" aria-label="Dock" style={{ display: "flex", gap: 2, padding: 4, borderBottom: "1px solid var(--line)" }}>
-        {tabs.map((t) => (
+    <section aria-label={t("r.dock")} style={{ flex: 1, minHeight: 160, display: "flex", flexDirection: "column", borderRadius: 12, overflow: "hidden", background: "var(--p1)", border: "1px solid var(--line)" }}>
+      <div role="tablist" aria-label={t("r.dock")} style={{ display: "flex", gap: 2, padding: 4, borderBottom: "1px solid var(--line)" }}>
+        {tabs.map((x) => (
           <button
-            key={t.id}
+            key={x.id}
             role="tab"
             tabIndex={-1}
-            aria-selected={tab === t.id}
+            aria-selected={tab === x.id}
             className="b cond"
-            onClick={() => setTab(t.id)}
+            onClick={() => setTab(x.id)}
             style={{
               flex: 1, height: 32, borderRadius: 7, fontSize: 12, fontWeight: 800, letterSpacing: ".08em",
-              background: tab === t.id ? "var(--hl)" : "transparent", color: tab === t.id ? "var(--bg)" : "var(--dim)",
+              background: tab === x.id ? "var(--hl)" : "transparent", color: tab === x.id ? "var(--bg)" : "var(--dim)",
             }}
           >
-            {t.label}
+            {x.label}
           </button>
         ))}
       </div>
@@ -58,6 +60,7 @@ const KIND_COLOR: Record<string, string> = {
 
 function Log() {
   const log = useEngine((s) => s.log);
+  const t = useT();
   const ref = useRef<HTMLDivElement>(null);
   // Keep the newest line in view.
   useEffect(() => {
@@ -65,7 +68,7 @@ function Log() {
   }, [log.length]);
   return (
     <div ref={ref} className="scroll" style={{ flex: 1, minHeight: 0, padding: "8px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
-      {log.length === 0 && <span style={{ fontSize: 13, color: "var(--mute)" }}>Every GO, stop and skip is written here with the time.</span>}
+      {log.length === 0 && <span style={{ fontSize: 13, color: "var(--mute)" }}>{t("r.log.empty")}</span>}
       {log.map((l, i) => <LogLine key={i} entry={l} />)}
     </div>
   );

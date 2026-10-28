@@ -14,7 +14,7 @@
 // Commands it doesn't handle (YouTube, preview, resume, …) go to the simulator (mockEngine.ts).
 
 import type { Analysis, Cue, Curve, EngineState, LogEntry, PendingInfo, PendingKind, RunningInfo, Show, ToneKind } from "../types";
-import { allCues, goQueue, normGain } from "../types";
+import { allCues, goQueue, normGain, upgradeShow } from "../types";
 import { mockInvoke, mockListen } from "./mockEngine";
 import { downloadText, fileFor, isBrowserKey } from "./browserFiles";
 
@@ -310,9 +310,11 @@ function startSound(cue: Cue, parent: number | null, pad: string | null, from: n
 
   const startAt = from > start ? Math.min(from, end) : start;
   const now = ctx.currentTime;
-  if (cue.fadeIn > 0 && from <= start) {
+  // A crossfade cue fades in over the crossfade time (GO/follow cues only, not attached cues or pads).
+  const fadeIn = cue.exclusive === "crossfade" && parent == null && pad == null ? Math.max(cue.fadeIn, cue.exclusiveSecs) : cue.fadeIn;
+  if (fadeIn > 0 && from <= start) {
     fade.gain.setValueAtTime(0, now);
-    fadeTo(fade.gain, 1, cue.fadeIn, cue.curve);
+    fadeTo(fade.gain, 1, fadeIn, cue.curve);
   }
 
   const vamping = !!cue.vamp?.on && cue.vamp.b > cue.vamp.a;
@@ -361,8 +363,10 @@ function goCue(id: string, kind: string) {
   const cue = findCue(id);
   if (!cue) return;
   eng.playhead = nextInQueue(id)?.id ?? null;
-  if (cue.fadeGo != null) {
-    for (const r of eng.running) stopRunning(r, cue.fadeGo, r.cue.curve);
+  // Exclusive cue: what is already playing stops or fades, and its timers are cancelled.
+  const fade = cue.exclusive === "stop" ? 0.02 : cue.exclusive === "fade" || cue.exclusive === "crossfade" ? Math.max(0.02, cue.exclusiveSecs) : null;
+  if (fade != null) {
+    for (const r of eng.running) stopRunning(r, fade, r.cue.curve);
     eng.pending = [];
   }
   log(kind, cue, `${cue.number} ${cue.name}`);
@@ -793,7 +797,7 @@ export async function webInvoke(cmd: string, args?: Record<string, unknown>): Pr
     case "show_open": {
       const f = fileFor(String(args?.path));
       if (!f) throw new Error("pick the .sg file again");
-      return JSON.parse(await f.text()) as Show;
+      return upgradeShow(JSON.parse(await f.text()) as Show);
     }
     case "app_info":
       return { version: "browser", portable: false, dataDir: "(browser)" };

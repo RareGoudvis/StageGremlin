@@ -1,7 +1,9 @@
-// The file box in the inspector and cue editor: path, loudness, analysis state,
-// and "Convert to M4A" for formats the decoder can't play.
+// The cue's file: path, loudness, analysis state, and the file actions
+// (reload, replace, show in folder, "Convert to M4A" for formats the decoder can't play).
+// Lives on the inspector's File tab and in the cue editor. It only turns red when something is wrong
+// with the file; then Basics shows it too (see `fileProblem`), so a problem is never hidden on a tab.
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useDoc } from "../../store";
 import type { Cue } from "../../types";
 import { normGain } from "../../types";
@@ -9,9 +11,18 @@ import { convertCue } from "../../lib/fileActions";
 import { locateCue, reloadCue, replaceCueFile, showInFolder, useMedia } from "../../lib/media";
 import { isTauri } from "../../lib/tauri";
 import { fmtDb, fmtTime } from "../../lib/format";
+import { useT } from "../../i18n";
 import { ToolInstall } from "../ToolInstall";
 
+/** True when the cue's file is missing or can't be read: worth showing outside the File tab. */
+export function useFileProblem(cue: Cue): boolean {
+  const status = useDoc((s) => s.analysis[cue.id]);
+  const missing = useMedia((s) => !!s.missing[cue.id]);
+  return missing || status?.state === "error";
+}
+
 export function FileStatus({ cue }: { cue: Cue }) {
+  const t = useT();
   const status = useDoc((s) => s.analysis[cue.id]);
   const settings = useDoc((s) => s.show.settings);
   const [needFfmpeg, setNeedFfmpeg] = useState(false);
@@ -24,50 +35,61 @@ export function FileStatus({ cue }: { cue: Cue }) {
     const ok = await convertCue(cue.id);
     setNeedFfmpeg(!ok);
   };
+  const small = { height: 30, fontSize: 12.5 } as const;
+  const strong = { ...small, background: "var(--red)", color: "var(--onred)", fontWeight: 700 } as const;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: 10, borderRadius: 10, background: bad ? "var(--redbg)" : "var(--p2)", border: `1px solid ${bad ? "var(--red)" : "var(--line)"}` }}>
-      <span className="mono" style={{ fontSize: 12, wordBreak: "break-all", userSelect: "text" }}>{cue.file || "(no file)"}</span>
-      {cue.swappedFrom && (
-        <span className="mono" style={{ fontSize: 11.5, color: "var(--ambtx)", wordBreak: "break-all" }}>swapped from {cue.swappedFrom}</span>
-      )}
-      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-        {status?.state === "busy" && <span className="tag pulse">ANALYSING…</span>}
-        {status?.state === "converting" && <span className="tag pulse">CONVERTING TO M4A…</span>}
-        {missing && <span className="tag tag-red">FILE MISSING</span>}
-        {unsupported && <span className="tag tag-red">CAN'T PLAY THIS FORMAT</span>}
-        {!missing && status?.state === "error" && !unsupported && <span className="tag tag-red" title={status.message}>CAN'T READ FILE</span>}
-        {cue.loudness && !bad && (
-          <>
-            <span className="mono" style={{ fontSize: 12, color: "var(--dim)" }}>
-              {cue.loudness.lufs.toFixed(1)} LUFS · peak {cue.loudness.truePeakDb.toFixed(1)} dBTP · {fmtTime(cue.loudness.duration)}
-            </span>
-            <span className={`tag ${norm.peakLimited ? "tag-amb" : "tag-ok"}`} title={norm.peakLimited ? `Boost capped so the loudest peak stays under ${settings.peakCeilingDb} dBTP` : `Matched to ${settings.targetLufs} LUFS`}>
-              {fmtDb(norm.gainDb)}{norm.peakLimited ? " · PEAK-LIMITED" : ""}
-            </span>
-          </>
-        )}
-        {!cue.loudness && !status && <span className="tag tag-amb">NOT ANALYSED</span>}
-        <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-          {unsupported && (
-            <button className="b btn" style={{ height: 26, fontSize: 12, background: "var(--red)", color: "var(--onred)", fontWeight: 700 }} onClick={() => void convert()}>
-              Convert to M4A
-            </button>
-          )}
-          {missing && (
-            <button className="b btn" style={{ height: 26, fontSize: 12, background: "var(--red)", color: "var(--onred)", fontWeight: 700 }} onClick={() => void locateCue(cue.id)}>Locate…</button>
-          )}
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, ...(bad ? { padding: 12, borderRadius: 10, background: "var(--redbg)", border: "1px solid var(--red)" } : {}) }}>
+      {bad && (
+        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--redtx)" }}>
+          {missing ? t("i.file.missing") : unsupported ? t("i.file.unsupported") : t("i.file.unreadable")}
         </span>
-      </div>
-      {/* File actions: reload after editing the file elsewhere, swap in another file (keeps settings), open its folder. */}
+      )}
+      <Fact label={t("i.file.path")}>
+        <span className="mono" style={{ fontSize: 12, wordBreak: "break-all", userSelect: "text" }}>{cue.file || t("i.file.none")}</span>
+      </Fact>
+      {cue.swappedFrom && (
+        <Fact label={t("i.file.swappedFrom")}>
+          <span className="mono" style={{ fontSize: 12, color: "var(--ambtx)", wordBreak: "break-all" }}>{cue.swappedFrom}</span>
+        </Fact>
+      )}
+      {status?.state === "busy" && <span className="tag pulse" style={{ alignSelf: "flex-start" }}>{t("i.file.analysing")}</span>}
+      {status?.state === "converting" && <span className="tag pulse" style={{ alignSelf: "flex-start" }}>{t("i.file.converting")}</span>}
+      {cue.loudness && !bad && (
+        <>
+          <Fact label={t("i.file.length")}><span className="mono">{fmtTime(cue.loudness.duration)}</span></Fact>
+          <Fact label={t("i.file.loudness")}><span className="mono">{cue.loudness.lufs.toFixed(1)} LUFS</span></Fact>
+          <Fact label={t("i.file.peak")}><span className="mono">{cue.loudness.truePeakDb.toFixed(1)} dBTP</span></Fact>
+          <Fact label={t("i.file.gain")}>
+            <span className="mono" title={norm.peakLimited ? t("i.file.peakLimitedHint", { db: settings.peakCeilingDb }) : t("i.file.matchedHint", { lufs: settings.targetLufs })}>
+              {fmtDb(norm.gainDb)}
+            </span>
+            {norm.peakLimited && <span className="tag tag-amb">{t("i.file.peakLimited")}</span>}
+          </Fact>
+        </>
+      )}
+      {!cue.loudness && !status && <span className="tag tag-amb" style={{ alignSelf: "flex-start" }}>{t("i.file.notAnalysed")}</span>}
+      {!missing && status?.state === "error" && status.message && <span style={{ fontSize: 12, color: "var(--redtx)" }}>{status.message}</span>}
+      {missing && <span style={{ fontSize: 12.5, color: "var(--redtx)", lineHeight: 1.4 }}>{t("i.file.missingHelp")}</span>}
+
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {!unsupported && !missing && <button className="b btn" style={{ height: 26, fontSize: 12 }} onClick={() => void reloadCue(cue.id)}>Reload from disk</button>}
-        <button className="b btn" style={{ height: 26, fontSize: 12 }} onClick={() => void replaceCueFile(cue.id)}>Replace…</button>
-        {isTauri && !missing && <button className="b btn" style={{ height: 26, fontSize: 12 }} onClick={() => void showInFolder(cue.id)}>Show in folder</button>}
+        {unsupported && <button className="b btn" style={strong} onClick={() => void convert()}>{t("i.file.convert")}</button>}
+        {missing && <button className="b btn" style={strong} onClick={() => void locateCue(cue.id)}>{t("i.file.locate")}</button>}
+        {!unsupported && !missing && <button className="b btn" style={small} onClick={() => void reloadCue(cue.id)}>{t("i.file.reload")}</button>}
+        <button className="b btn" style={small} onClick={() => void replaceCueFile(cue.id)}>{t("i.file.replace")}</button>
+        {isTauri && !missing && <button className="b btn" style={small} onClick={() => void showInFolder(cue.id)}>{t("i.file.showInFolder")}</button>}
       </div>
-      {missing && <span style={{ fontSize: 12, color: "var(--redtx)" }}>This file isn't on disk any more. Locate it, or pick a replacement. Run stays blocked until it's fixed.</span>}
-      {!missing && status?.state === "error" && <span style={{ fontSize: 12, color: "var(--redtx)" }}>{status.message}</span>}
-      {needFfmpeg && <ToolInstall what="ffmpeg" why="It's needed to convert this file." />}
+      {needFfmpeg && <ToolInstall what="ffmpeg" why={t("i.file.needFfmpeg")} />}
+    </div>
+  );
+}
+
+/** One labelled fact about the file: label on the left, value on the right. */
+function Fact({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "92px minmax(0, 1fr)", alignItems: "baseline", gap: 8 }}>
+      <span style={{ fontSize: 13, color: "var(--dim)" }}>{label}</span>
+      <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, minWidth: 0 }}>{children}</span>
     </div>
   );
 }

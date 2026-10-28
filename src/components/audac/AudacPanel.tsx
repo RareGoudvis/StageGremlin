@@ -77,7 +77,7 @@ export function AudacPanel({ big = false, inRun = false }: { big?: boolean; inRu
             </button>
           </div>
           {selecting && picked.length > 0 && (
-            <SetRow title={`${picked.length} ${t("audac.selected")}`} members={picked} st={st} inputs={inputs} big={big} accent />
+            <SetRow title={t("s.audac.nSelected", { n: picked.length })} members={picked} st={st} inputs={inputs} big={big} accent />
           )}
           {/* Save the ticked zones as a group (or change the group being edited). Not in Run. */}
           {selecting && !inRun && (
@@ -145,13 +145,14 @@ function InputSelect({ label, value, inputs, big, mixed = false, onChange }: {
   mixed?: boolean;
   onChange: (input: number) => void;
 }) {
+  const t = useT();
   const allNames = useSettings((s) => s.ui.audac.inputs);
   const known = inputs.some((i) => i.n === value);
   return (
     <select className="select" tabIndex={-1} aria-label={label} value={known ? value : 0}
       onChange={(e) => { const v = Number(e.target.value); if (v) onChange(v); }}
       style={{ width: big ? 190 : 150, height: big ? 32 : 28, fontSize: big ? 13 : 12.5, fontWeight: 600, flex: "none" }}>
-      {!known && <option value={0}>{mixed ? "—" : value ? (allNames[value - 1]?.name || `Input ${value}`) : "—"}</option>}
+      {!known && <option value={0}>{mixed ? "—" : value ? (allNames[value - 1]?.name || t("s.audac.inputN", { n: value })) : "—"}</option>}
       {inputs.map((i) => <option key={i.n} value={i.n}>{i.name}</option>)}
     </select>
   );
@@ -188,7 +189,7 @@ function SetRow({ title, subtitle, members, st, inputs, big, accent = false, onE
             style={{ height: h, width: h, justifyContent: "center", padding: 0 }}>✎</button>
         )}
         <span className="mono" style={{ width: 62, textAlign: "right", fontSize: 12.5, color: sum.mute ? "var(--redtx)" : "var(--text)" }}>
-          {sum.mute ? "MUTE" : shown >= MIN_VOLUME ? "off" : `−${shown} dB`}
+          {sum.mute ? t("s.muteTag") : shown >= MIN_VOLUME ? t("audac.wOff") : `−${shown} dB`}
         </span>
         <button className="b btn" tabIndex={-1} aria-label={`${title}: ${t("audac.down")}`} onClick={() => each((z) => audac.step(z, false))} style={{ height: h, width: h, justifyContent: "center", padding: 0 }}>−</button>
         <button className="b btn" tabIndex={-1} aria-label={`${title}: ${t("audac.up")}`} onClick={() => each((z) => audac.step(z, true))} style={{ height: h, width: h, justifyContent: "center", padding: 0 }}>+</button>
@@ -198,13 +199,13 @@ function SetRow({ title, subtitle, members, st, inputs, big, accent = false, onE
         </button>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <input type="range" tabIndex={-1} aria-label={`${title} volume`} min={0} max={MIN_VOLUME} step={1} value={MIN_VOLUME - shown}
+        <input type="range" tabIndex={-1} aria-label={t("s.audac.volumeOf", { name: title })} min={0} max={MIN_VOLUME} step={1} value={MIN_VOLUME - shown}
           onChange={(e) => {
             const db = MIN_VOLUME - Number(e.target.value);
             setDrag(db);
             each((z) => audac.setVolume(z, db));
           }} style={{ flex: 1, minWidth: 60 }} />
-        <InputSelect label={`${title} input`} value={sum.input} inputs={inputs} big={big} mixed={sum.input === 0} onChange={(i) => each((z) => audac.setInput(z, i))} />
+        <InputSelect label={t("s.audac.inputOf", { name: title })} value={sum.input} inputs={inputs} big={big} mixed={sum.input === 0} onChange={(i) => each((z) => audac.setInput(z, i))} />
       </div>
     </div>
   );
@@ -267,7 +268,7 @@ function ZoneRow({ n, name, zone, inputs, big, rule, pick }: {
           )}
         </span>
         <span className="mono" style={{ width: 62, textAlign: "right", fontSize: 12.5, color: zone?.mute ? "var(--redtx)" : "var(--text)" }}>
-          {zone?.mute ? "MUTE" : shown >= MIN_VOLUME ? "off" : `−${shown} dB`}
+          {zone?.mute ? t("s.muteTag") : shown >= MIN_VOLUME ? t("audac.wOff") : `−${shown} dB`}
         </span>
         <button className="b btn" tabIndex={-1} aria-label={`${name}: ${t("audac.down")}`} onClick={() => void audac.step(n, false)} style={{ height: h, width: h, justifyContent: "center", padding: 0 }}>−</button>
         <button className="b btn" tabIndex={-1} aria-label={`${name}: ${t("audac.up")}`} onClick={() => void audac.step(n, true)} style={{ height: h, width: h, justifyContent: "center", padding: 0 }}>+</button>
@@ -278,13 +279,13 @@ function ZoneRow({ n, name, zone, inputs, big, rule, pick }: {
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         {/* Right = louder. The MTX counts dB below maximum, so the slider is turned around. */}
-        <input type="range" tabIndex={-1} aria-label={`${name} volume`} min={0} max={MIN_VOLUME} step={1} value={MIN_VOLUME - shown}
+        <input type="range" tabIndex={-1} aria-label={t("s.audac.volumeOf", { name })} min={0} max={MIN_VOLUME} step={1} value={MIN_VOLUME - shown}
           onChange={(e) => {
             const db = MIN_VOLUME - Number(e.target.value);
             setDrag(db);
             void audac.setVolume(n, db);
           }} style={{ flex: 1, minWidth: 60 }} />
-        <InputSelect label={`${name} input`} value={zone?.input ?? 0} inputs={inputs} big={big} onChange={(i) => void audac.setInput(n, i)} />
+        <InputSelect label={t("s.audac.inputOf", { name })} value={zone?.input ?? 0} inputs={inputs} big={big} onChange={(i) => void audac.setInput(n, i)} />
       </div>
     </div>
   );

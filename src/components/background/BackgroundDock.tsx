@@ -6,12 +6,14 @@
 import { useEffect, useRef, useState } from "react";
 import { bg, bgDo, useBackground, useEnabledSources, type BgCmd, type BgSource } from "./useBackground";
 import "./showSync"; // keeps the core's settings in step with show.background
+import { useT } from "../../i18n";
 
 const HOLD_MS = 1000;
 /** Re-lock by itself after this long without a touch, so it is never left open by accident. */
 const RELOCK_MS = 30_000;
 
 export function BackgroundDock() {
+  const t = useT();
   const st = useBackground();
   const sources = useEnabledSources();
   const [locked, setLocked] = useState(true);
@@ -41,16 +43,16 @@ export function BackgroundDock() {
     <div style={{ flex: 1, minHeight: 0, margin: 6, borderRadius: 10, border: "2px solid var(--cyline)", background: "var(--cybg)", color: "var(--cytx)", display: "flex", flexDirection: "column", gap: 8, padding: 10 }} className="scroll">
       {/* Header: source + lock */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span className="k" style={{ color: "var(--cy)" }}>Background</span>
+        <span className="k" style={{ color: "var(--cy)" }}>{t("top.background")}</span>
         <select
           className="select"
-          aria-label="Background source"
+          aria-label={t("s.dock.source")}
           disabled={locked}
           value={st?.source ?? ""}
           onChange={(e) => { touch(); bgDo(bg.open(e.target.value as BgSource, false), setErr); }}
           style={{ height: 28, fontSize: 12.5, flex: 1, minWidth: 0 }}
         >
-          <option value="" disabled>Pick a source…</option>
+          <option value="" disabled>{t("s.dock.pick")}</option>
           {sources.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
         </select>
         <LockButton locked={locked} onUnlock={() => { touch(); setLocked(false); }} onLock={() => setLocked(true)} />
@@ -59,10 +61,10 @@ export function BackgroundDock() {
       {/* Now playing */}
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <div className="clamp1" style={{ fontSize: 15, fontWeight: 700, color: "var(--cytx)" }}>
-          {st?.title ?? (st?.open ? "Nothing playing" : "Player not open")}
+          {st?.title ?? (st?.open ? t("bgv.nothing") : t("s.dock.notOpen"))}
         </div>
         <div className="clamp1" style={{ fontSize: 12.5, color: "var(--cydim)" }}>
-          {st?.artist ?? (st?.open ? "" : "Open it in Build › Background, or pick a source here")}
+          {st?.artist ?? (st?.open ? "" : t("s.dock.openHint"))}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span className="mono" style={{ fontSize: 12, color: "var(--cydim)" }}>{fmt(pos)}</span>
@@ -72,33 +74,33 @@ export function BackgroundDock() {
           <span className="mono" style={{ fontSize: 12, color: "var(--cydim)" }}>{fmt(dur)}</span>
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <span className="tag tag-cy">{st?.playing ? "PLAYING" : "PAUSED"}</span>
-          {st?.ducked && <span className="tag tag-amb">DUCKED</span>}
+          <span className="tag tag-cy">{st?.playing ? t("s.dock.playing") : t("s.dock.paused")}</span>
+          {st?.ducked && <span className="tag tag-amb">{t("s.dock.ducked")}</span>}
         </div>
       </div>
 
       {/* Buttons */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
         <CyButton disabled={locked} onClick={(e) => run(st?.ducked ? "restore" : "duck", e)} strong>
-          {st?.ducked ? "Restore" : "Duck"}
+          {st?.ducked ? t("bgv.restore") : t("bgv.duck")}
         </CyButton>
         <CyButton disabled={locked} onClick={(e) => run(st?.playing ? "pause" : "play", e)}>
-          {st?.playing ? "Pause" : "Play"}
+          {st?.playing ? t("sbx.pause") : t("sbx.play")}
         </CyButton>
-        <CyButton disabled={locked} onClick={(e) => run("prev", e)}>◀◀ Prev</CyButton>
-        <CyButton disabled={locked} onClick={(e) => run("next", e)}>Next ▶▶</CyButton>
+        <CyButton disabled={locked} onClick={(e) => run("prev", e)}>◀◀ {t("bgv.prev")}</CyButton>
+        <CyButton disabled={locked} onClick={(e) => run("next", e)}>{t("bgv.next")} ▶▶</CyButton>
       </div>
 
       {/* Level */}
       <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5 }}>
-        <span style={{ color: "var(--cydim)", width: 38 }}>Level</span>
+        <span style={{ color: "var(--cydim)", width: 38 }}>{t("bgv.level")}</span>
         <input
           type="range" min={-40} max={0} step={0.5}
           disabled={locked}
           value={st?.levelDb ?? 0}
           onChange={(e) => { touch(); bgDo(bg.setLevel(Number(e.target.value)), setErr); }}
           style={{ accentColor: "var(--cy)" }}
-          aria-label="Background level"
+          aria-label={t("s.dock.level")}
         />
         <span className="mono" style={{ width: 52, textAlign: "right" }}>{(st?.levelDb ?? 0).toFixed(1)} dB</span>
       </label>
@@ -106,23 +108,23 @@ export function BackgroundDock() {
       {/* Track list: rows the web player shows (playlist or queue). Tap = play that row. */}
       {st?.open && (
         <div style={{ display: "flex", flexDirection: "column", gap: 2, minHeight: 0 }}>
-          <span className="k" style={{ color: "var(--cydim)" }}>Tracks</span>
-          {st.tracks == null && <span style={{ fontSize: 12, color: "var(--cydim)" }}>Not available for this source.</span>}
-          {st.tracks?.length === 0 && <span style={{ fontSize: 12, color: "var(--cydim)" }}>Open a playlist in the player (Build › Background) to see its tracks here.</span>}
-          {st.tracks?.map((t, i) => {
-            const current = t.title === st.title;
+          <span className="k" style={{ color: "var(--cydim)" }}>{t("s.dock.tracks")}</span>
+          {st.tracks == null && <span style={{ fontSize: 12, color: "var(--cydim)" }}>{t("s.dock.noTracks")}</span>}
+          {st.tracks?.length === 0 && <span style={{ fontSize: 12, color: "var(--cydim)" }}>{t("s.dock.tracksHint")}</span>}
+          {st.tracks?.map((tr, i) => {
+            const current = tr.title === st.title;
             return (
               <button
                 key={i}
                 className="b"
                 tabIndex={-1}
                 disabled={locked}
-                onClick={() => { touch(); bgDo(bg.playTrack(i, t.title), setErr); }}
+                onClick={() => { touch(); bgDo(bg.playTrack(i, tr.title), setErr); }}
                 style={{ display: "flex", gap: 8, alignItems: "baseline", textAlign: "left", padding: "4px 6px", borderRadius: 6, background: current ? "var(--cybtn)" : "transparent", color: "var(--cytx)", fontSize: 12.5 }}
               >
                 <span className="mono" style={{ width: 22, flex: "none", color: "var(--cydim)" }}>{current ? "▶" : i + 1}</span>
-                <span className="clamp1" style={{ flex: 1, fontWeight: current ? 700 : 500 }}>{t.title}</span>
-                {t.artist && <span className="clamp1" style={{ maxWidth: "40%", color: "var(--cydim)" }}>{t.artist}</span>}
+                <span className="clamp1" style={{ flex: 1, fontWeight: current ? 700 : 500 }}>{tr.title}</span>
+                {tr.artist && <span className="clamp1" style={{ maxWidth: "40%", color: "var(--cydim)" }}>{tr.artist}</span>}
               </button>
             );
           })}
@@ -131,7 +133,7 @@ export function BackgroundDock() {
 
       {st?.open && !st.sessionFound && (
         <div style={{ fontSize: 12, padding: "6px 8px", borderRadius: 6, background: "var(--ambbg)", color: "var(--ambtx)" }}>
-          Windows volume control not found yet: Duck and fades won't work until the player has played a few seconds.
+          {t("s.dock.noSession")}
         </div>
       )}
       {error && (
@@ -142,6 +144,7 @@ export function BackgroundDock() {
 }
 
 function LockButton({ locked, onUnlock, onLock }: { locked: boolean; onUnlock: () => void; onLock: () => void }) {
+  const t = useT();
   const [progress, setProgress] = useState(0);
   const timer = useRef<number | null>(null);
   const start = useRef(0);
@@ -168,11 +171,11 @@ function LockButton({ locked, onUnlock, onLock }: { locked: boolean; onUnlock: (
       onPointerDown={begin}
       onPointerUp={cancel}
       onPointerLeave={cancel}
-      title={locked ? "Hold 1 s to unlock" : "Lock"}
+      title={locked ? t("s.dock.holdHint") : t("admin.lock")}
       style={{ position: "relative", overflow: "hidden", height: 28, fontSize: 12, background: locked ? "var(--cybtn)" : "var(--cy)", color: locked ? "var(--cytx)" : "var(--oncy)", fontWeight: 800 }}
     >
       <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${progress * 100}%`, background: "var(--cy)", opacity: 0.45 }} />
-      <span style={{ position: "relative" }}>{locked ? "Hold to unlock" : "Lock"}</span>
+      <span style={{ position: "relative" }}>{locked ? t("s.dock.hold") : t("admin.lock")}</span>
     </button>
   );
 }

@@ -39,9 +39,9 @@ async function boxUp(e: ScheduleEntry) {
   try {
     await streambox.setMute(false);
     await streambox.setVolume(level);
-    slog(e.name, `Streambox unmuted, volume ${level}%`, "ok", false);
+    slog(e.name, { key: "s.log.boxUp", vars: { level } }, "ok", false);
   } catch (err) {
-    slog(e.name, `couldn't turn the Streambox up (${err})`, "bad");
+    slog(e.name, { key: "s.log.boxUpFailed", vars: { err: String(err) } }, "bad");
   }
 }
 
@@ -120,7 +120,7 @@ async function check() {
 
 async function start(e: ScheduleEntry) {
   if (!(await connected())) {
-    if (!warned.has(e.id)) slog(e.name, "can't reach the MTX. Trying again…", "bad");
+    if (!warned.has(e.id)) slog(e.name, { key: "s.log.noMtx" }, "bad");
     warned.add(e.id);
     return;
   }
@@ -128,13 +128,13 @@ async function start(e: ScheduleEntry) {
   started.set(e.id, e);
   publish();
   setProblem(e.id, null);
-  slog(e.name, "started", "info", true);
+  slog(e.name, { key: "s.log.started" }, "info", true);
   for (const z of e.zones) {
     await audac.setInput(z, e.input);
     await audac.setVolume(z, volumeFor(e, z));
     await audac.setMute(z, false);
   }
-  slog(e.name, `zones ${e.zones.join(", ")} on input ${e.input}, unmuted`, "ok", false);
+  slog(e.name, { key: "s.log.zonesOn", vars: { zones: e.zones.join(", "), input: e.input } }, "ok", false);
   if (usesBox(e)) await boxUp(e);
   if (e.music.source) void music(e);
 }
@@ -154,18 +154,18 @@ async function music(e: ScheduleEntry) {
   try {
     if (onBox) await bg.setFader("spotify", -60).catch(() => {});
     await bg.open(src, false, e.music.link || undefined);
-    slog(e.name, `${src} opening${e.music.link ? " (playlist link)" : ""}`, "info", false);
+    slog(e.name, { key: e.music.link ? "s.log.openingLink" : "s.log.opening", vars: { src } }, "info", false);
   } catch (err) {
-    slog(e.name, `background music didn't start (${err})`, "bad");
-    setProblem(e.id, `music didn't start: ${err}`);
+    slog(e.name, { key: "s.log.musicFailed", vars: { err: String(err) } }, "bad");
+    setProblem(e.id, { key: "s.prob.musicFailed", vars: { err: String(err) } });
     return;
   }
   await sleep(PAGE_LOAD_MS);
   if (!running(e)) return;
   const p = (await bg.getState().catch(() => null))?.players?.find((x) => x.source === src);
   if (p?.signedIn === false) {
-    slog(e.name, `${src} isn't signed in on this laptop, so no music. Open Background, pick it and sign in once.`, "bad");
-    setProblem(e.id, `${src} not signed in`);
+    slog(e.name, { key: "s.log.notSignedIn", vars: { src } }, "bad");
+    setProblem(e.id, { key: "s.prob.notSignedIn", vars: { src } });
     return;
   }
 
@@ -174,22 +174,22 @@ async function music(e: ScheduleEntry) {
     if (!running(e)) return;
     if (moved) {
       await invokeBg("bg_start_list", { source: "spotify" });
-      slog(e.name, "playlist started on the box", "info", false);
+      slog(e.name, { key: "s.log.listOnBox" }, "info", false);
     } else if (e.music.boxFallback === "laptop") {
       await bg.setFader("spotify", 0).catch(() => {});
       await bg.command("play").catch(() => {});
-      slog(e.name, "the box couldn't be reached: playing on the laptop instead (as set)", "bad");
-      setProblem(e.id, "played on the laptop: the box couldn't be reached");
+      slog(e.name, { key: "s.log.fbLaptop" }, "bad");
+      setProblem(e.id, { key: "s.prob.fbLaptop" });
     } else {
       await bg.command("pause", true).catch(() => {});
       await bg.setFader("spotify", 0).catch(() => {});
-      slog(e.name, "the box couldn't be reached: no music (as set). See the lines above for why.", "bad");
-      setProblem(e.id, "no music: the box couldn't be reached");
+      slog(e.name, { key: "s.log.fbSilent" }, "bad");
+      setProblem(e.id, { key: "s.prob.fbSilent" });
       return;
     }
   } else {
     await bg.command("play").catch(() => {});
-    slog(e.name, "music started", "info", false);
+    slog(e.name, { key: "s.log.musicStarted" }, "info", false);
   }
 
   // Shuffle / repeat (Spotify): once it plays.
@@ -203,12 +203,12 @@ async function music(e: ScheduleEntry) {
     await sleep(6_000);
     if (!running(e)) return;
     const q = (await bg.getState().catch(() => null))?.players?.find((x) => x.source === "spotify");
-    if (q?.remote) slog(e.name, `Spotify says: playing on ${q.remote}`, "ok", true);
+    if (q?.remote) slog(e.name, { key: "s.log.onBoxSays", vars: { device: q.remote } }, "ok", true);
     else if (q?.playing) {
-      slog(e.name, "Spotify plays in the laptop window, not on the box. Moving it again…", "bad");
-      if (await toBox(e)) slog(e.name, "moved to the box on the second go", "ok", true);
-      else setProblem(e.id, "Spotify stayed on the laptop");
-    } else slog(e.name, "Spotify doesn't show where it plays (can't confirm the box)", "info", true);
+      slog(e.name, { key: "s.log.onLaptop" }, "bad");
+      if (await toBox(e)) slog(e.name, { key: "s.log.movedSecond" }, "ok", true);
+      else setProblem(e.id, { key: "s.prob.stayedLaptop" });
+    } else slog(e.name, { key: "s.log.whereUnknown" }, "info", true);
   }
 }
 
@@ -218,7 +218,7 @@ async function toBox(e: ScheduleEntry): Promise<boolean> {
   for (let attempt = 1; attempt <= 5 && running(e); attempt++) {
     const r = await spotifyToBox(true).catch(() => null);
     const ok = r?.state === "ok";
-    slog(e.name, `move to the box, try ${attempt}: ${connectText(r, true)}`, ok ? "ok" : "info", false);
+    slog(e.name, { key: "s.log.moveTry", vars: { n: attempt, result: connectText(r, true) } }, ok ? "ok" : "info", false);
     if (ok) return true;
     await sleep(5_000);
   }
@@ -242,7 +242,7 @@ async function end(e: ScheduleEntry, after: "release" | "keep") {
     // Give the mute commands a moment to leave before the link closes.
     window.setTimeout(() => void audac.disconnect(), 1500);
   }
-  slog(e.name, "ended: music paused, zones muted", "info", true);
+  slog(e.name, { key: "s.log.ended" }, "info", true);
 }
 
 /** Connect if needed and wait (up to 20 s) until the MTX has reported its zones. */

@@ -37,14 +37,14 @@ export function demoShow(): Show {
       notes: { sound: "Intro loopt tot alle kinderen staan, dan Release.", lx: "Kleurenchase op het refrein.", stage: "Klas 3A komt links op." },
     }),
     newCue({
-      name: "Dans 3B — Medley", file: "C:/Schoolfeest/medley-3b.m4a", color: "#C6F432", fadeOut: 3, fadeGo: 4,
+      name: "Dans 3B — Medley", file: "C:/Schoolfeest/medley-3b.m4a", color: "#C6F432", fadeOut: 3, exclusive: "fade", exclusiveSecs: 4,
       follow: { kind: "afterEnd" }, comp: { on: true, thresholdDb: -20, ratio: 3, attackMs: 8, releaseMs: 120, makeupDb: 0 },
       notes: { sound: "Luid refrein vanaf 2:10. Loopt automatisch door.", lx: "Strobe uit! Warme wash.", stage: "Klas 3B rechts op." },
     }),
     newCue({ name: "Applaus-stinger", file: "C:/Schoolfeest/missing/applaus.wav", color: "#FFB224", preWait: 0.5, notes: { sound: "Volgt automatisch.", lx: "Zaal 30% voor buiging.", stage: "" } }),
   ];
   mic.cues = [
-    newCue({ name: "Open mic — beat 1", file: "C:/Schoolfeest/beat-1.m4a", color: "#C9A2FF", fadeIn: 1, fadeOut: 3, fadeGo: 2, playCount: 0, notes: { sound: "Alleen als er een act klaarstaat.", lx: "Spot op de micro.", stage: "" } }),
+    newCue({ name: "Open mic — beat 1", file: "C:/Schoolfeest/beat-1.m4a", color: "#C9A2FF", fadeIn: 1, fadeOut: 3, exclusive: "crossfade", exclusiveSecs: 2, playCount: 0, notes: { sound: "Alleen als er een act klaarstaat.", lx: "Spot op de micro.", stage: "" } }),
     newCue({ name: "Open mic — beat 2", file: "C:/Schoolfeest/beat-2.m4a", color: "#C9A2FF", fadeIn: 1, fadeOut: 3, notes: { sound: "Rustiger tempo.", lx: "", stage: "" } }),
     newCue({ name: "Karaoke instrumentaal", file: "C:/Schoolfeest/karaoke-instr.m4a", color: "#C9A2FF", notes: { sound: "Tekst op scherm via de beamer.", lx: "Beamer aan, frontlicht 40%.", stage: "" } }),
   ];

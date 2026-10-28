@@ -68,11 +68,12 @@ export function describeChange(
   c: AudacChange,
   zoneName: (n: number) => string,
   inputName: (n: number) => string,
-  words: { volume: string; input: string; mute: string; on: string; off: string; putBack: string },
+  // volOff: a volume at the bottom of the range ("off"; left out = English).
+  words: { volume: string; input: string; mute: string; on: string; off: string; putBack: string; volOff?: string },
 ): string {
   const time = new Date(c.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
   const value = (v: number) =>
-    c.what === "input" ? (v ? inputName(v) : "—") : c.what === "mute" ? (v ? words.on : words.off) : v >= 70 ? "off" : `−${v} dB`;
+    c.what === "input" ? (v ? inputName(v) : "—") : c.what === "mute" ? (v ? words.on : words.off) : v >= 70 ? (words.volOff ?? "off") : `−${v} dB`;
   const what = c.what === "input" ? words.input : c.what === "mute" ? words.mute : words.volume;
   return `${time} · ${zoneName(c.zone)}: ${what} ${value(c.from)} → ${value(c.to)}${c.restored ? ` (${words.putBack})` : ""}`;
 }

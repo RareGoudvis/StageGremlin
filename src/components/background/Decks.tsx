@@ -109,7 +109,7 @@ function DeckCard({ i, st }: { i: 0 | 1; st: BgState | null }) {
       </div>
       <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--dim)" }}>
         {t("deck.source")}
-        <select className="select" value={src ?? ""} onChange={(e) => choose(e.target.value)} aria-label={`Deck ${letter} ${t("deck.source")}`} style={{ flex: 1, height: 30 }}>
+        <select className="select" value={src ?? ""} onChange={(e) => choose(e.target.value)} aria-label={t("s.deck.sourceOf", { l: letter })} style={{ flex: 1, height: 30 }}>
           <option value="">{t("deck.empty")}</option>
           {sources.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
         </select>
@@ -134,11 +134,11 @@ function DeckCard({ i, st }: { i: 0 | 1; st: BgState | null }) {
             </button>
             <button className="b btn" aria-label={t("bgv.next")} onClick={() => cmd("next")} style={{ width: 40, height: 40, justifyContent: "center" }}>⏭</button>
             <span style={{ flex: 1 }} />
-            <span className="mono" style={{ fontSize: 12 }}>{(player?.levelDb ?? 0) <= -60 ? "off" : `${(player?.levelDb ?? 0).toFixed(0)} dB`}</span>
+            <span className="mono" style={{ fontSize: 12 }}>{(player?.levelDb ?? 0) <= -60 ? t("audac.wOff") : `${(player?.levelDb ?? 0).toFixed(0)} dB`}</span>
           </div>
           {/* The deck's own fader. Low spec mode has one engine for everything: no separate faders. */}
           <input type="range" min={-60} max={0} step={1} value={player?.levelDb ?? 0} disabled={st?.lowSpec}
-            title={st?.lowSpec ? t("deck.noFaderLowSpec") : undefined} aria-label={`Deck ${letter} level`}
+            title={st?.lowSpec ? t("deck.noFaderLowSpec") : undefined} aria-label={t("s.deck.levelOf", { l: letter })}
             onChange={(e) => bgDo(bg.setFader(src, Number(e.target.value)))} style={{ width: "100%", accentColor: color.solid }} />
         </>
       )}

@@ -82,15 +82,15 @@ export function SettingsDialog() {
         )}
       </header>
       <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
-        <nav role="tablist" aria-orientation="vertical" aria-label={t("top.settings")} style={{ width: 280, flex: "none", padding: "18px 14px", borderRight: "1px solid var(--line)", display: "flex", flexDirection: "column", gap: 4, background: "var(--p1)" }}>
+        {/* Left menu: soft panel; the open page is a raised white card. The grey hint sits under the label. */}
+        <nav role="tablist" aria-orientation="vertical" aria-label={t("top.settings")} className="scroll" style={{ width: 270, flex: "none", padding: "14px 12px 20px", borderRight: "1px solid var(--line)", display: "flex", flexDirection: "column", gap: 2, background: "var(--p2)" }}>
           {NAV.map((x) =>
             "head" in x ? (
-              <span key={x.head} style={{ padding: "14px 12px 6px", fontSize: 11, fontWeight: 700, letterSpacing: ".1em", color: "var(--mute)" }}>{t(x.head)}</span>
+              <span key={x.head} className="k" style={{ padding: "16px 12px 6px", fontSize: 10.5 }}>{t(x.head)}</span>
             ) : (
-              <button key={x.id} role="tab" aria-selected={page === x.id} className="b" onClick={() => setPage(x.id)}
-                style={{ display: "flex", alignItems: "center", gap: 8, height: 44, padding: "0 12px", borderRadius: 10, fontSize: 15, fontWeight: 600, background: page === x.id ? "var(--hl)" : "transparent", color: page === x.id ? "var(--bg)" : "var(--text)" }}>
-                <span style={{ flex: 1, textAlign: "left" }}>{t(x.label)}</span>
-                <span className="clamp1" style={{ fontSize: 12, fontWeight: 400, opacity: 0.7, maxWidth: 110 }}>{hints[x.id] ?? ""}</span>
+              <button key={x.id} role="tab" aria-selected={page === x.id} className="b set-nav" onClick={() => setPage(x.id)}>
+                <span className="clamp1" style={{ fontSize: 14.5, fontWeight: page === x.id ? 700 : 600 }}>{t(x.label)}</span>
+                {hints[x.id] && <span className="clamp1" style={{ fontSize: 12, color: "var(--mute)" }}>{hints[x.id]}</span>}
               </button>
             ),
           )}
@@ -124,10 +124,10 @@ function useNavHints(): Partial<Record<Page, string>> {
   const mtx = useAudac();
   const timesOn = useSettings((s) => s.ui.audac.schedule.filter((e) => e.on).length);
   return {
-    schedule: timesOn ? `${timesOn} on` : undefined,
+    schedule: timesOn ? t("i.nav.timesOn", { n: timesOn }) : undefined,
     audac: mtx?.status === "connected" ? `● ${mtx.host}` : mtx?.status === "retrying" ? "○ …" : undefined,
     audio: output ? `${output.outputFound ? "●" : "○"} ${output.outputName}` : undefined,
-    run: dumbo ? t("set.dumboOn") : "Dumbo mode",
+    run: dumbo ? t("set.dumboOn") : t("i.nav.dumboOff"),
     levels: `${lufs} LUFS`.replace("-", "−"),
     tools: "yt-dlp, ffmpeg",
   };

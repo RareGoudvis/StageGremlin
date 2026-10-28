@@ -39,8 +39,8 @@ export function AudacPage() {
         <Row label={t("audac.ip")}>
           <input className="input mono" aria-label={t("audac.ip")} placeholder="192.168.1.50" value={host} disabled={setup.demo}
             onChange={(e) => setHost(e.target.value)} onBlur={() => save({ host: host.trim() })} style={{ width: 180 }} />
-          <input className="input mono" aria-label="Port" value={setup.port} inputMode="numeric" disabled={setup.demo}
-            onChange={(e) => save({ port: Number(e.target.value.replace(/\D/g, "")) || 5001 })} style={{ width: 70 }} title="Port (5001 on the MTX)" />
+          <input className="input mono" aria-label={t("s.audac.port")} value={setup.port} inputMode="numeric" disabled={setup.demo}
+            onChange={(e) => save({ port: Number(e.target.value.replace(/\D/g, "")) || 5001 })} style={{ width: 70 }} title={t("s.audac.portHint")} />
         </Row>
         <Row label={t("audac.atStart")}>
           <button className="b chip" aria-pressed={setup.autoConnect} onClick={() => save({ autoConnect: !setup.autoConnect })}>
@@ -193,7 +193,7 @@ function TalkCard() {
         <div style={{ fontSize: 13, display: "flex", flexDirection: "column", gap: 2 }}>
           <b>{t("audac.others")}</b>
           {report.others.length ? report.others.map((o) => (
-            <span key={o.name} className="mono">{o.name === "web" ? "web (Touch 2)" : o.name} · {Math.round(o.agoMs / 1000)} s {t("audac.ago")} · {o.lines} {t("audac.linesWord")}</span>
+            <span key={o.name} className="mono">{o.name === "web" ? "web (Touch 2)" : o.name} · {t("s.audac.otherSeen", { s: Math.round(o.agoMs / 1000), n: o.lines })}</span>
           )) : <span style={{ color: "var(--dim)" }}>{t("audac.othersNone")}</span>}
           <span style={{ color: "var(--mute)", fontSize: 12 }}>{t("audac.othersNote")} {report.vuLines ? `(${report.vuLines} VU)` : ""}</span>
         </div>

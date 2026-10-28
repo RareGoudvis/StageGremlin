@@ -15,7 +15,7 @@ import { useUi } from "../../uiStore";
 import { keyFor } from "../../settingsStore";
 import { openMenu } from "../ContextMenu";
 import { Plus } from "../Icons";
-import { useT } from "../../i18n";
+import { useT, type TKey } from "../../i18n";
 
 type Filter = "all" | "used" | "unused" | "problems";
 
@@ -94,6 +94,13 @@ export function MediaBin() {
     useDoc.getState().setSelection([cue.id]);
   };
 
+  /** The problems are kept in English (the filter checks them); shown in the chosen language. */
+  const problemText = (p: string) => {
+    const wide = /^wide range (\d+) LU$/.exec(p);
+    if (wide) return t("i.media.wide", { lu: wide[1] });
+    const keys: Record<string, TKey> = { missing: "i.media.missing", "can't play format": "i.media.cantPlay", "can't decode": "i.media.cantRead", "not analysed": "i.media.notAnalysed", "peak-limited": "i.media.peakLimited" };
+    return keys[p] ? t(keys[p]) : p;
+  };
   const filterLabel = { all: t("media.all"), used: t("media.used"), unused: t("media.unused"), problems: t("media.problems") };
 
   return (
@@ -108,13 +115,14 @@ export function MediaBin() {
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span className="k" style={{ flex: 1 }}>{t("rail.media")} · {byFile.size}</span>
         </div>
-        <div role="group" aria-label="Filter" className="chips">
+        {/* Four filters in a 2×2 grid: the sidebar is too narrow for them on one line (in Dutch). */}
+        <div role="group" aria-label="Filter" className="chips" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", width: "100%" }}>
           {(["all", "used", "unused", "problems"] as Filter[]).map((f) => (
             <button key={f} className="b chip" aria-pressed={filter === f} onClick={() => setFilter(f)} style={{ height: 26, fontSize: 11.5, padding: "0 8px" }}>{filterLabel[f]}</button>
           ))}
         </div>
       </div>
-      <div className="scroll" style={{ flex: 1, minHeight: 0, padding: 6, display: "flex", flexDirection: "column", gap: 2 }}>
+      <div className="scroll" style={{ flex: 1, minHeight: 0, padding: 8, display: "flex", flexDirection: "column", gap: 6, background: "var(--bg)" }}>
         {items.map((i) => (
           <div key={i.file} onPointerDown={onDown(i.file)} onPointerMove={onMove} onPointerUp={onUp}
             onDoubleClick={() => addToShow(i.file)}
@@ -123,14 +131,16 @@ export function MediaBin() {
               { label: t("media.addPad"), onClick: () => importPadFiles([i.file]) },
             ])}
             title={i.hint ?? t("media.dragHint")}
-            style={{ padding: "7px 8px", borderRadius: 8, cursor: "grab", background: i.problems.includes("missing") ? "var(--redbg)" : "transparent", display: "flex", flexDirection: "column", gap: 2 }}>
+            style={{ padding: "8px 10px", borderRadius: 9, cursor: "grab", display: "flex", flexDirection: "column", gap: 3,
+              // One small card per file, like the cue rows; a missing file turns red.
+              background: i.problems.includes("missing") ? "var(--redbg)" : "var(--p1)", border: `1px solid ${i.problems.includes("missing") ? "var(--red)" : "var(--line)"}` }}>
             <span className="mono clamp1" style={{ fontSize: 12 }}>{fileDisplay === "path" ? i.file : basename(i.file)}</span>
             <span style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
               <span style={{ fontSize: 11, color: "var(--mute)" }}>
-                {i.users.length ? i.users.map((u) => u.number || "pad").join(", ") : t("media.notUsed")}{i.duration ? ` · ${fmtTime(i.duration)}` : ""}
+                {i.users.length ? i.users.map((u) => u.number || t("i.media.pad")).join(", ") : t("media.notUsed")}{i.duration ? ` · ${fmtTime(i.duration)}` : ""}
               </span>
               {i.problems.map((p) => (
-                <span key={p} className={`tag ${p === "missing" || p.startsWith("can't") ? "tag-red" : "tag-amb"}`} style={{ fontSize: 9.5 }}>{p.toUpperCase()}</span>
+                <span key={p} className={`tag ${p === "missing" || p.startsWith("can't") ? "tag-red" : "tag-amb"}`} style={{ fontSize: 9.5 }}>{problemText(p).toUpperCase()}</span>
               ))}
             </span>
           </div>

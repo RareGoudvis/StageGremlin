@@ -13,24 +13,24 @@ export function LevelsPage() {
   return (
     <>
       <PageTitle note={t("set.storedShow")}>{t("set.levels")}</PageTitle>
-      <Card title="Loudness">
-        <Row label="Target"><NumField label="Loudness target" unit="LUFS" value={settings.targetLufs} min={-30} max={-6} step={0.5} onChange={(v) => set({ targetLufs: v })} /></Row>
-        <Help>Every cue is levelled to this.</Help>
-        <Row label="Peak ceiling"><NumField label="Peak ceiling" unit="dBTP" value={settings.peakCeilingDb} min={-12} max={0} step={0.5} onChange={(v) => set({ peakCeilingDb: v })} /></Row>
-        <Help>Levelling never pushes a cue's loudest peak above this.</Help>
+      <Card title={t("s.lvl.loudness")}>
+        <Row label={t("s.lvl.target")}><NumField label={t("s.lvl.targetLabel")} unit="LUFS" value={settings.targetLufs} min={-30} max={-6} step={0.5} onChange={(v) => set({ targetLufs: v })} /></Row>
+        <Help>{t("s.lvl.targetHelp")}</Help>
+        <Row label={t("s.lvl.peak")}><NumField label={t("s.lvl.peak")} unit="dBTP" value={settings.peakCeilingDb} min={-12} max={0} step={0.5} onChange={(v) => set({ peakCeilingDb: v })} /></Row>
+        <Help>{t("s.lvl.peakHelp")}</Help>
       </Card>
-      <Card title="Stopping and riding">
-        <Row label="Stop all fade"><NumField label="Stop all fade" unit="s" value={settings.stopAllFade} min={0} max={10} onChange={(v) => set({ stopAllFade: v })} /></Row>
-        <Help>Esc fades everything out over this time.</Help>
-        <Row label="Under level"><NumField label="Under level" unit="dB" value={settings.underDb} min={-40} max={0} step={1} digits={0} onChange={(v) => set({ underDb: v })} /></Row>
-        <Help>How far U drops a song while someone talks (cues can have their own).</Help>
-        <Row label="Under fade"><NumField label="Under fade" unit="s" value={settings.underFade} min={0} max={5} onChange={(v) => set({ underFade: v })} /></Row>
+      <Card title={t("s.lvl.stopping")}>
+        <Row label={t("s.lvl.stopFade")}><NumField label={t("s.lvl.stopFade")} unit="s" value={settings.stopAllFade} min={0} max={10} onChange={(v) => set({ stopAllFade: v })} /></Row>
+        <Help>{t("s.lvl.stopFadeHelp")}</Help>
+        <Row label={t("s.lvl.under")}><NumField label={t("s.lvl.under")} unit="dB" value={settings.underDb} min={-40} max={0} step={1} digits={0} onChange={(v) => set({ underDb: v })} /></Row>
+        <Help>{t("s.lvl.underHelp")}</Help>
+        <Row label={t("s.lvl.underFade")}><NumField label={t("s.lvl.underFade")} unit="s" value={settings.underFade} min={0} max={5} onChange={(v) => set({ underFade: v })} /></Row>
       </Card>
-      <Card title="Safety">
-        <Row label="Double GO">
-          <NumField label="Double-GO guard" unit="ms" value={settings.doubleGoMs} min={0} max={2000} step={50} digits={0} onChange={(v) => set({ doubleGoMs: Math.round(v) })} />
+      <Card title={t("s.lvl.safety")}>
+        <Row label={t("s.lvl.doubleGo")}>
+          <NumField label={t("s.lvl.doubleGoLabel")} unit="ms" value={settings.doubleGoMs} min={0} max={2000} step={50} digits={0} onChange={(v) => set({ doubleGoMs: Math.round(v) })} />
         </Row>
-        <Help>A second GO within this time is ignored (a nervous double tap).</Help>
+        <Help>{t("s.lvl.doubleGoHelp")}</Help>
       </Card>
     </>
   );

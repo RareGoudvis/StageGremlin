@@ -9,7 +9,7 @@ import { renumber, allCues } from "../../types";
 import { addSection, locate } from "../../lib/showOps";
 import { isTauri, basename } from "../../lib/tauri";
 import { loadDemoShow } from "../../lib/demo";
-import { useT } from "../../i18n";
+import { tr, useT } from "../../i18n";
 import type { Cue } from "../../types";
 import { toggleMenuBelow, type MenuItem } from "../ContextMenu";
 import { Caret, Plus, RedoIcon, Search, UndoIcon } from "../Icons";
@@ -98,10 +98,10 @@ function viewMenu(t: ReturnType<typeof useT>): MenuItem[] {
 function addSectionHere() {
   const s = useDoc.getState();
   const at = s.primary ? locate(s.show, s.primary)?.section.id : null;
-  s.edit((show) => addSection(show, "New section", at));
+  s.edit((show) => addSection(show, tr("add.newSection"), at));
 }
 
 async function renumberAll() {
-  const ok = await ask({ title: "Renumber all cues?", body: "Every cue gets a new number in show order (1, 2, 3…; attached cues 1.1, 1.2…). Your own numbers like 2.5 are replaced. Undo brings them back.", confirmLabel: "Renumber all" });
+  const ok = await ask({ title: tr("b.renumber.title"), body: tr("b.renumber.body"), confirmLabel: tr("b.renumber.ok") });
   if (ok) useDoc.getState().edit(renumber);
 }

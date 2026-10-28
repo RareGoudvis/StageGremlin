@@ -12,6 +12,7 @@ import { openMenu } from "../ContextMenu";
 import { nowPlayingMenu } from "../../lib/menus";
 import { useUi } from "../../uiStore";
 import { undoSwap } from "./SwapDialog";
+import { useT } from "../../i18n";
 
 const WARN_SECS = 10;
 
@@ -21,6 +22,7 @@ export function NowPlaying({ run, standbyId, onFocus }: {
   onFocus: (instance: number) => void;
 }) {
   const show = useDoc((s) => s.show);
+  const t = useT();
   const others = showRunning(useEngine((s) => s.state?.running));
   const pending = useEngine((s) => s.state?.pending) ?? [];
   const paused = useEngine((s) => !!s.state?.paused);
@@ -32,7 +34,7 @@ export function NowPlaying({ run, standbyId, onFocus }: {
   const frac = run && run.length > 0 ? run.position / run.length : 0;
 
   return (
-    <section aria-label="Now playing" onContextMenu={(e) => run && openMenu(e, nowPlayingMenu(run))} style={{ position: "relative",
+    <section aria-label={t("run.nowPlaying")} onContextMenu={(e) => run && openMenu(e, nowPlayingMenu(run))} style={{ position: "relative",
       flex: "none", borderRadius: 16, background: "var(--p1)", border: `1px solid ${run ? "var(--acc)" : "var(--line)"}`,
       padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10,
     }}>
@@ -40,37 +42,37 @@ export function NowPlaying({ run, standbyId, onFocus }: {
         // Across the whole card: impossible to miss in a dark booth.
         <div role="alert" onClick={() => pauseAll()} style={{ position: "absolute", inset: 0, zIndex: 5, borderRadius: 16, background: "rgba(0,0,0,.55)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
           <span className="cond" style={{ padding: "14px 28px", borderRadius: 12, background: "var(--amb)", color: "var(--onamb)", fontSize: 40, fontWeight: 800, letterSpacing: ".06em" }}>
-            PAUSED · P to resume
+            {t("r.np.paused")}
           </span>
         </div>
       )}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", minHeight: 34 }}>
-        <span className="k" style={{ color: run ? "var(--acc)" : "var(--mute)" }}>{run ? "Now playing" : "Silence · GO plays"}</span>
+        <span className="k" style={{ color: run ? "var(--acc)" : "var(--mute)" }}>{run ? t("run.nowPlaying") : t("run.silence")}</span>
         {run && (
           <span className="mono" style={{ fontSize: 13, color: "var(--dim)" }}>
-            {run.playCount === 0 ? `loop · pass ${run.pass}` : `pass ${run.pass} / ${run.playCount}`}
+            {run.playCount === 0 ? t("r.np.loopPass", { n: run.pass }) : t("r.np.pass", { n: run.pass, of: run.playCount })}
           </span>
         )}
-        {run?.under && <span className="tag tag-amb">UNDER {underDb} dB</span>}
-        {run?.vamping && <span className="tag tag-cy">VAMPING</span>}
-        {run?.stopping && <span className="tag tag-amb">STOPPING</span>}
+        {run?.under && <span className="tag tag-amb">{t("r.np.under", { db: underDb })}</span>}
+        {run?.vamping && <span className="tag tag-cy">{t("r.np.vamping")}</span>}
+        {run?.stopping && <span className="tag tag-amb">{t("r.np.stopping")}</span>}
         {cue?.swappedFrom && (
-          <span className="tag tag-amb" title={`Original: ${cue.swappedFrom}`} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-            SWAPPED FILE
-            <button className="b" tabIndex={-1} onClick={() => undoSwap(cue.id)} style={{ background: "transparent", color: "inherit", fontSize: 10.5, fontWeight: 800, textDecoration: "underline", padding: 0 }}>UNDO</button>
+          <span className="tag tag-amb" title={t("r.np.original", { file: cue.swappedFrom })} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+            {t("r.np.swappedFile")}
+            <button className="b" tabIndex={-1} onClick={() => undoSwap(cue.id)} style={{ background: "transparent", color: "inherit", fontSize: 10.5, fontWeight: 800, textDecoration: "underline", padding: 0 }}>{t("r.np.undo")}</button>
           </span>
         )}
         <span style={{ flex: 1 }} />
         {run && (
           <>
             {run.vamping && (
-              <button className="b btn" tabIndex={-1} onClick={() => releaseVamp(run.cueId)} style={{ height: 34, background: "var(--cy)", color: "var(--oncy)", fontWeight: 800 }}>RELEASE VAMP · V</button>
+              <button className="b btn" tabIndex={-1} onClick={() => releaseVamp(run.cueId)} style={{ height: 34, background: "var(--cy)", color: "var(--oncy)", fontWeight: 800 }}>{t("r.np.releaseVamp")}</button>
             )}
             <button className="b btn" tabIndex={-1} onClick={() => toggleUnder(run.cueId)}
               style={{ height: 34, fontWeight: 800, background: run.under ? "var(--amb)" : "var(--p3)", color: run.under ? "var(--onamb)" : "var(--amb)" }}>
-              {run.under ? "BACK UP · U" : `UNDER ${String(underDb).replace("-", "−")} dB · U`}
+              {run.under ? t("r.np.backUp") : t("r.np.underBtn", { db: String(underDb).replace("-", "−") })}
             </button>
-            <button className="b btn" tabIndex={-1} onClick={() => stopCue(run.cueId)} style={{ height: 34 }}>Stop this · S</button>
+            <button className="b btn" tabIndex={-1} onClick={() => stopCue(run.cueId)} style={{ height: 34 }}>{t("r.np.stopThis")}</button>
           </>
         )}
 
@@ -78,9 +80,9 @@ export function NowPlaying({ run, standbyId, onFocus }: {
 
       <div style={{ display: "flex", alignItems: "baseline", gap: 16, minWidth: 0 }}>
         <span className="mono" style={{ fontSize: 34, fontWeight: 600, color: "var(--acc)" }}>{cue?.number ?? "—"}</span>
-        <span className="cond clamp1" style={{ fontSize: 42, fontWeight: 800, lineHeight: 1.05, flex: 1 }}>{cue?.name ?? "End of show"}</span>
+        <span className="cond clamp1" style={{ fontSize: 42, fontWeight: 800, lineHeight: 1.05, flex: 1 }}>{cue?.name ?? t("run.endOfShow")}</span>
         {cue && (
-          <button className="b btn" tabIndex={-1} onClick={() => useUi.getState().openDialog({ kind: "swap", cueId: cue.id })} style={{ height: 30, color: "var(--redtx)", alignSelf: "center" }} title="Emergency swap: replace this cue's audio">Swap…</button>
+          <button className="b btn" tabIndex={-1} onClick={() => useUi.getState().openDialog({ kind: "swap", cueId: cue.id })} style={{ height: 30, color: "var(--redtx)", alignSelf: "center" }} title={t("r.swapTitle")}>{t("r.np.swapBtn")}</button>
         )}
       </div>
 
@@ -95,7 +97,7 @@ export function NowPlaying({ run, standbyId, onFocus }: {
             </span>
             {run.nextMarker && (
               <span className="mono" style={{ marginLeft: "auto", padding: "6px 12px", borderRadius: 8, background: "var(--lxbg)", color: "var(--lx)", fontSize: 18, fontWeight: 600 }}>
-                {run.nextMarker[0]} in {fmtTime(run.nextMarker[1])}
+                {t("r.np.markerIn", { name: run.nextMarker[0], t: fmtTime(run.nextMarker[1]) })}
               </span>
             )}
           </div>
@@ -112,18 +114,18 @@ export function NowPlaying({ run, standbyId, onFocus }: {
 
       {(others.length > 1 || pending.length > 0) && (
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-          {others.length > 1 && <span className="k">Also playing</span>}
+          {others.length > 1 && <span className="k">{t("r.np.alsoPlaying")}</span>}
           {others.length > 1 && others.filter((o) => o.instance !== run?.instance).map((o) => (
-            <button key={o.instance} className="b btn" onClick={() => onFocus(o.instance)} style={{ height: 28, fontSize: 12.5 }} title="Show this one in the card">
+            <button key={o.instance} className="b btn" onClick={() => onFocus(o.instance)} style={{ height: 28, fontSize: 12.5 }} title={t("r.np.showInCard")}>
               <span className="mono">{o.number}</span> {o.name} <span className="mono" style={{ color: "var(--dim)" }}>−{fmtTime(o.remaining)}</span>
             </button>
           ))}
-          {pending.length > 0 && <span className="k" style={{ marginLeft: others.length > 1 ? 8 : 0 }}>Fires by itself</span>}
+          {pending.length > 0 && <span className="k" style={{ marginLeft: others.length > 1 ? 8 : 0 }}>{t("r.np.firesItself")}</span>}
           {pending.map((p, i) => {
             const c = findCue(show, p.cueId);
             return (
               <span key={i} className="mono" style={{ fontSize: 12.5, padding: "4px 8px", borderRadius: 6, background: "var(--p3)", color: "var(--acc)" }}>
-                {c?.number} {p.kind === "preWait" ? "pre-wait" : ""} in {fmtTime(p.inSecs)}
+                {t(p.kind === "preWait" ? "r.np.preWaitIn" : "r.np.pendingIn", { n: c?.number ?? "", t: fmtTime(p.inSecs) })}
               </span>
             );
           })}
@@ -134,10 +136,11 @@ export function NowPlaying({ run, standbyId, onFocus }: {
 }
 
 function Notes({ cue }: { cue: Cue }) {
+  const t = useT();
   const items: [string, string, string][] = [
-    ["Sound", cue.notes.sound, "var(--ambtx)"],
-    ["Light", cue.notes.lx, "var(--lx)"],
-    ["Stage", cue.notes.stage, "var(--st)"],
+    [t("r.notes.sound"), cue.notes.sound, "var(--ambtx)"],
+    [t("r.notes.lx"), cue.notes.lx, "var(--lx)"],
+    [t("r.notes.stage"), cue.notes.stage, "var(--st)"],
   ];
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>

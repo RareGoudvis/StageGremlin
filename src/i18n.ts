@@ -1,11 +1,18 @@
-// A small translation table: English and Dutch (Flemish) for the main labels.
-// Use `useT()` in components: const t = useT(); t("go"). Missing Dutch strings fall back to English.
+// A small translation table: English and Dutch (Flemish).
+// Use `useT()` in components: const t = useT(); t("go"). Outside components (menus, toasts): tr("go").
+// Placeholders: t("sel.count", { n: 3 }) fills {n} in the text. Missing Dutch strings fall back to English.
+// The core labels are below; each area of the app keeps its own table in src/lang/ (merged here).
 
 import { useSettings } from "./settingsStore";
+import * as buildLang from "./lang/build";
+import * as runLang from "./lang/run";
+import * as settingsLang from "./lang/settings";
+import * as miscLang from "./lang/misc";
+import * as inspLang from "./lang/inspector";
 
 export type Lang = "en" | "nl";
 
-const en = {
+const core = {
   // top bar and modes
   "mode.build": "BUILD", "mode.preflight": "PREFLIGHT", "mode.run": "RUN", "mode.background": "BACKGROUND",
   "top.time": "Time", "top.show": "Show", "top.notSaved": "not saved yet", "top.booth": "BOOTH", "top.settings": "Settings",
@@ -186,9 +193,11 @@ const en = {
   "dumbo.fixFirst": "Fix these first, then Dumbo mode.",
 } as const;
 
+const en = { ...core, ...buildLang.en, ...runLang.en, ...settingsLang.en, ...miscLang.en, ...inspLang.en };
+
 export type TKey = keyof typeof en;
 
-const nl: Partial<Record<TKey, string>> = {
+const coreNl: Partial<Record<TKey, string>> = {
   "mode.build": "BOUWEN", "mode.preflight": "CHECK", "mode.run": "SHOW", "mode.background": "ACHTERGROND",
   "top.time": "Uur", "top.show": "Show", "top.notSaved": "nog niet bewaard", "top.booth": "REGIE", "top.settings": "Instellingen",
   "top.left": "te gaan",
@@ -358,14 +367,25 @@ const nl: Partial<Record<TKey, string>> = {
   "dumbo.fixFirst": "Los deze eerst op, dan Dumbo-modus.",
 };
 
+const nl: Partial<Record<TKey, string>> = { ...coreNl, ...buildLang.nl, ...runLang.nl, ...settingsLang.nl, ...miscLang.nl, ...inspLang.nl };
+
 const dict: Record<Lang, Partial<Record<TKey, string>>> = { en, nl };
 
-export function translate(lang: Lang, key: TKey): string {
-  return dict[lang][key] ?? en[key];
+/** Values for {placeholders} in a text. */
+export type TVars = Record<string, string | number>;
+
+export function translate(lang: Lang, key: TKey, vars?: TVars): string {
+  const text: string = dict[lang][key] ?? en[key];
+  return vars ? text.replace(/\{(\w+)\}/g, (m, k: string) => (k in vars ? String(vars[k]) : m)) : text;
+}
+
+/** Translate outside a component (menus, toasts, dialogs opened from code). */
+export function tr(key: TKey, vars?: TVars): string {
+  return translate(useSettings.getState().ui.lang, key, vars);
 }
 
 /** Returns t(key) for the current language; re-renders when the language changes. */
 export function useT() {
   const lang = useSettings((s) => s.ui.lang);
-  return (key: TKey) => translate(lang, key);
+  return (key: TKey, vars?: TVars) => translate(lang, key, vars);
 }

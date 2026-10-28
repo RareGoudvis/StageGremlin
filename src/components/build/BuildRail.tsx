@@ -17,7 +17,7 @@ export function BuildRail() {
   });
   const label = { fontSize: 11, fontWeight: 700, letterSpacing: ".04em" };
   return (
-    <nav aria-label="Build" style={{ width: 76, flex: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, padding: "14px 0", borderRight: "1px solid var(--line)", background: "var(--p1)" }}>
+    <nav aria-label={t("b.rail.aria")} style={{ width: 76, flex: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, padding: "14px 0", borderRight: "1px solid var(--line)", background: "var(--p1)" }}>
       <button className="b" aria-pressed={binOpen} onClick={() => useUi.getState().setBinOpen(!binOpen)} title={t("rail.mediaHint")} style={item(binOpen)}>
         <FolderIcon /><span style={label}>{t("rail.media")}</span>
       </button>

@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { useDoc } from "../../store";
 import { useUi } from "../../uiStore";
 import { ACTIONS, conflictsFor, keyFor, keyName, useSettings, type Action } from "../../settingsStore";
-import { useT, type Lang } from "../../i18n";
+import { useT, type Lang, type TKey } from "../../i18n";
 import { enableDumbo } from "../../lib/media";
 import { Chips, NumField, Row, Slider } from "../controls";
 import { CalibrationCard, OutputPicker } from "../../views/PreflightView";
@@ -21,9 +21,9 @@ export function AudioPage() {
       <OutputPicker />
       <OutputPicker preview />
       <CalibrationCard />
-      <Card title="Limiter ceiling" note="Every cue and pad leaves the laptop no louder than this (true peak). Saved with the show. Not covered by it: background music (plays on the Windows default device at its own level), the headphone preview (its own device, never the hall) and AUDAC/Streambox (outside StageGremlin).">
-        <Row label="Ceiling">
-          <NumField label="Limiter ceiling" unit="dBTP" value={settings.limiterCeilingDb} min={-12} max={0} step={0.5} onChange={(v) => set({ limiterCeilingDb: v })} />
+      <Card title={t("s.aud.ceiling")} note={t("s.aud.ceilingNote")}>
+        <Row label={t("s.aud.ceilingRow")}>
+          <NumField label={t("s.aud.ceiling")} unit="dBTP" value={settings.limiterCeilingDb} min={-12} max={0} step={0.5} onChange={(v) => set({ limiterCeilingDb: v })} />
         </Row>
       </Card>
     </>
@@ -43,32 +43,32 @@ export function RunBoothPage() {
       {/* Dumbo mode is the big one: dark card, one switch. */}
       <section style={{ background: "#17180F", color: "#F4F3EE", borderRadius: 14, padding: 22, display: "flex", alignItems: "center", gap: 18 }}>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 20, fontWeight: 800 }}>Dumbo mode</span>
+          <span style={{ fontSize: 20, fontWeight: 800 }}>{t("s.run.dumbo")}</span>
           <span style={{ fontSize: 14, color: "#C9CBBE", lineHeight: 1.5 }}>{t("set.dumboText")}</span>
         </div>
         <button className="b" aria-pressed={ui.dumbo} onClick={() => (ui.dumbo ? update({ dumbo: false }) : enableDumbo())}
           style={{ width: 96, height: 48, borderRadius: 12, fontSize: 16, fontWeight: 800, letterSpacing: ".06em", background: ui.dumbo ? "#B8EA2A" : "#2A2C24", color: ui.dumbo ? "#172000" : "#F4F3EE" }}>
-          {ui.dumbo ? "ON" : "OFF"}
+          {ui.dumbo ? t("s.onTag") : t("s.offTag")}
         </button>
       </section>
       <Card>
-        <Row label="Pads"><button className="b chip" aria-pressed={ui.dumboPads} onClick={() => update({ dumboPads: !ui.dumboPads })}>{ui.dumboPads ? "Show a row of pads in Dumbo mode" : "No pads in Dumbo mode"}</button></Row>
-        <Row label="Leave with PIN" hint="Optional. Without a PIN, leaving means holding the corner button for 3 seconds.">
-          <input className="input mono" aria-label="Dumbo mode PIN" inputMode="numeric" maxLength={4} placeholder="none" value={pin}
+        <Row label={t("s.run.pads")}><button className="b chip" aria-pressed={ui.dumboPads} onClick={() => update({ dumboPads: !ui.dumboPads })}>{ui.dumboPads ? t("s.run.padsOn") : t("s.run.padsOff")}</button></Row>
+        <Row label={t("s.run.pin")} hint={t("s.run.pinHint")}>
+          <input className="input mono" aria-label={t("s.run.pinLabel")} inputMode="numeric" maxLength={4} placeholder={t("s.run.pinNone")} value={pin}
             onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
             onBlur={() => update({ dumboPin: pin.length === 4 ? pin : "" })} style={{ width: 90, letterSpacing: ".3em", textAlign: "center" }} />
-          {pin.length > 0 && pin.length < 4 && <span style={{ fontSize: 12, color: "var(--amb)" }}>4 digits</span>}
+          {pin.length > 0 && pin.length < 4 && <span style={{ fontSize: 12, color: "var(--amb)" }}>{t("s.run.pin4")}</span>}
         </Row>
       </Card>
-      <Card title="Booth" note="For a dark hall. Also in the BOOTH menu in Run.">
-        <Row label="Background">
+      <Card title={t("s.booth")} note={t("s.booth.note")}>
+        <Row label={t("s.booth.bg")}>
           <button className="b chip" aria-pressed={ui.bgLockDefault} onClick={() => update({ bgLockDefault: !ui.bgLockDefault })}>
-            {ui.bgLockDefault ? "Background music starts locked in Run" : "Background music starts unlocked in Run"}
+            {ui.bgLockDefault ? t("s.booth.bgLocked") : t("s.booth.bgUnlocked")}
           </button>
         </Row>
-        <Row label="Brightness"><Slider label="Brightness" min={35} max={100} step={5} value={booth.dim} format={(v) => `${v}%`} onChange={(dim) => setBooth({ dim })} /></Row>
-        <Row label="Red mode"><button className="b chip" aria-pressed={booth.red} onClick={() => setBooth({ red: !booth.red })}>{booth.red ? "On" : "Off"} · {keyFor("redMode")}</button></Row>
-        <Row label="Big mode" hint="Run shows only GO, what's playing and what's next."><button className="b chip" aria-pressed={booth.big} onClick={() => setBooth({ big: !booth.big })}>{booth.big ? "On" : "Off"} · {keyFor("bigMode")}</button></Row>
+        <Row label={t("s.booth.brightness")}><Slider label={t("s.booth.brightness")} min={35} max={100} step={5} value={booth.dim} format={(v) => `${v}%`} onChange={(dim) => setBooth({ dim })} /></Row>
+        <Row label={t("s.booth.red")}><button className="b chip" aria-pressed={booth.red} onClick={() => setBooth({ red: !booth.red })}>{booth.red ? t("sched.on") : t("sched.off")} · {keyFor("redMode")}</button></Row>
+        <Row label={t("s.booth.big")} hint={t("s.booth.bigHint")}><button className="b chip" aria-pressed={booth.big} onClick={() => setBooth({ big: !booth.big })}>{booth.big ? t("sched.on") : t("sched.off")} · {keyFor("bigMode")}</button></Row>
       </Card>
     </>
   );
@@ -88,19 +88,19 @@ export function LookPage() {
     <>
       <PageTitle note={t("set.storedLaptop")}>{t("set.look")}</PageTitle>
       <Card>
-        <Row label="Language">
-          <Chips<Lang> label="Language" value={ui.lang} onChange={(lang) => update({ lang })} options={[{ value: "en", label: "English" }, { value: "nl", label: "Nederlands" }]} />
+        <Row label={t("s.look.lang")}>
+          <Chips<Lang> label={t("s.look.lang")} value={ui.lang} onChange={(lang) => update({ lang })} options={[{ value: "en", label: "English" }, { value: "nl", label: "Nederlands" }]} />
         </Row>
-        <Row label="Theme" hint={`${keyFor("theme")} cycles the theme anywhere.`}>
-          <Chips label="Theme" value={themePref} onChange={setTheme}
-            options={[{ value: "auto", label: "Auto (light Build, black Run)" }, { value: "light", label: "Light" }, { value: "oled", label: "OLED black" }]} />
+        <Row label={t("s.look.theme")} hint={t("s.look.themeHint", { key: keyFor("theme") })}>
+          <Chips label={t("s.look.theme")} value={themePref} onChange={setTheme}
+            options={[{ value: "auto", label: t("s.look.auto") }, { value: "light", label: t("s.look.light") }, { value: "oled", label: t("s.look.oled") }]} />
         </Row>
-        <Row label="Files show">
-          <Chips label="File display" value={fileDisplay} onChange={(v) => v !== fileDisplay && useDoc.getState().toggleFileDisplay()}
-            options={[{ value: "name", label: "File name" }, { value: "path", label: "Full path" }]} />
+        <Row label={t("s.look.files")}>
+          <Chips label={t("s.look.fileDisplay")} value={fileDisplay} onChange={(v) => v !== fileDisplay && useDoc.getState().toggleFileDisplay()}
+            options={[{ value: "name", label: t("s.look.fileName") }, { value: "path", label: t("s.look.fullPath") }]} />
         </Row>
-        <Row label="UI size">
-          <Slider label="UI size" min={90} max={130} step={5} value={ui.zoom} format={(v) => `${v}%`} onChange={(zoom) => update({ zoom })} />
+        <Row label={t("s.look.size")}>
+          <Slider label={t("s.look.size")} min={90} max={130} step={5} value={ui.zoom} format={(v) => `${v}%`} onChange={(zoom) => update({ zoom })} />
         </Row>
       </Card>
     </>
@@ -131,9 +131,9 @@ export function ShortcutsPage() {
   return (
     <>
       <div style={{ display: "flex", alignItems: "flex-end", gap: 12 }}>
-        <PageTitle note="Click a key, then press the new one. Pads always use 1–9 and 0; pressing Stop all twice is always Panic.">{t("set.shortcuts")}</PageTitle>
+        <PageTitle note={t("s.keys.note")}>{t("set.shortcuts")}</PageTitle>
         <span style={{ flex: 1 }} />
-        <button className="b btn" onClick={() => update({ keys: {} })} disabled={!Object.keys(ui.keys).length}>Reset to defaults</button>
+        <button className="b btn" onClick={() => update({ keys: {} })} disabled={!Object.keys(ui.keys).length}>{t("s.keys.reset")}</button>
       </div>
       <div style={{ display: "flex", flexDirection: "column", border: "1px solid var(--line)", borderRadius: 14, overflow: "hidden", background: "var(--p1)" }}>
         {(Object.keys(ACTIONS) as Action[]).map((a, i) => {
@@ -143,13 +143,13 @@ export function ShortcutsPage() {
           return (
             <div key={a} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 120px 160px", gap: 10, alignItems: "center", padding: "6px 14px", borderTop: i ? "1px solid var(--line)" : "none" }}>
               <span style={{ fontSize: 14 }}>
-                {ACTIONS[a].label}
-                {clash.length > 0 && <span style={{ color: "var(--redtx)", fontSize: 12 }}> · same key as {clash.map((c) => ACTIONS[c].label).join(", ")}</span>}
+                {t(ACTION_LABEL[a])}
+                {clash.length > 0 && <span style={{ color: "var(--redtx)", fontSize: 12 }}>{t("s.keys.same", { list: clash.map((c) => t(ACTION_LABEL[c])).join(", ") })}</span>}
               </span>
-              <span style={{ fontSize: 12, color: "var(--mute)" }}>{ACTIONS[a].where}</span>
+              <span style={{ fontSize: 12, color: "var(--mute)" }}>{t(WHERE_LABEL[ACTIONS[a].where])}</span>
               <button className="b btn mono" data-listening={listening === a ? "" : undefined} onClick={() => setListening(a)}
                 style={{ height: 30, justifyContent: "center", background: listening === a ? "var(--amb)" : clash.length ? "var(--redbg)" : "var(--p3)", color: listening === a ? "var(--onamb)" : clash.length ? "var(--redtx)" : "var(--text)", fontWeight: changed ? 700 : 400 }}>
-                {listening === a ? "press a key…" : key}
+                {listening === a ? t("s.keys.press") : key}
               </button>
             </div>
           );
@@ -158,3 +158,21 @@ export function ShortcutsPage() {
     </>
   );
 }
+
+/** Each shortcut's name, as a translation key (ACTIONS in settingsStore has the English). */
+const ACTION_LABEL: Record<Action, TKey> = {
+  go: "s.act.go", goAlt: "s.act.goAlt", stopAll: "s.act.stopAll", stopCue: "s.act.stopCue",
+  under: "s.act.under", releaseVamp: "s.act.releaseVamp", find: "s.act.find", preview: "s.act.preview",
+  modeBuild: "s.act.modeBuild", modePreflight: "s.act.modePreflight", modeRun: "s.act.modeRun", modeBackground: "s.act.modeBackground",
+  save: "s.act.save", saveAs: "s.act.saveAs", open: "s.act.open", newShow: "s.act.newShow",
+  importAudio: "s.act.importAudio", youtube: "s.act.youtube", undo: "s.act.undo", redo: "s.act.redo",
+  print: "s.act.print", bigMode: "s.act.bigMode", theme: "s.act.theme", redMode: "s.act.redMode",
+  pauseAll: "s.act.pauseAll", bgDuck: "s.act.bgDuck", bgRestore: "s.act.bgRestore", bgPlayPause: "s.act.bgPlayPause",
+  bgNext: "s.act.bgNext", settings: "s.act.settings", cut: "s.act.cut", copy: "s.act.copy",
+  paste: "s.act.paste", duplicate: "s.act.duplicate",
+};
+
+/** Where a shortcut works (ACTIONS[...].where), as a translation key. */
+const WHERE_LABEL: Record<(typeof ACTIONS)[Action]["where"], TKey> = {
+  Run: "s.where.run", "Build, Run": "s.where.buildRun", Everywhere: "s.where.everywhere", Build: "s.where.build", "Build, Preflight": "s.where.buildPreflight",
+};

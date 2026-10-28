@@ -5,6 +5,7 @@ import { create } from "zustand";
 import type { YtFormat, YtItem, YtProgress } from "../types";
 import { call } from "./tauri";
 import { mediaDestDir } from "./fileActions";
+import { tr } from "../i18n";
 
 interface YtStore {
   progress: Record<string, YtProgress>;
@@ -20,7 +21,7 @@ export const useYt = create<YtStore>((set) => ({
     set((s) => ({ progress: { ...s.progress, [p.id]: p } }));
     const w = waiters.get(p.id);
     if (w && p.status === "done" && p.file) { waiters.delete(p.id); w.resolve(p.file); }
-    if (w && p.status === "error") { waiters.delete(p.id); w.reject(new Error(p.error ?? "Download failed")); }
+    if (w && p.status === "error") { waiters.delete(p.id); w.reject(new Error(p.error ?? tr("b.yt.downloadFailed"))); }
   },
   clear: (ids) =>
     set((s) => {
@@ -42,7 +43,7 @@ export async function ytDownload(items: YtItem[], format: YtFormat) {
 export async function ytFetchOne(line: string): Promise<{ file: string; item: YtItem }> {
   const items = await call("yt_resolve", { lines: [line] });
   const item = items.find((i) => !i.error);
-  if (!item) throw new Error(items[0]?.error ?? "Nothing found for that link");
+  if (!item) throw new Error(items[0]?.error ?? tr("b.yt.nothingFound"));
   const done = new Promise<string>((resolve, reject) => waiters.set(item.id, { resolve, reject }));
   await ytDownload([item], "original");
   return { file: await done, item };

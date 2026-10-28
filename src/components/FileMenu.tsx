@@ -24,7 +24,7 @@ export function FileMenuButton() {
   if (renaming) {
     return (
       <input
-        className="input" autoFocus aria-label="Show name" defaultValue={name}
+        className="input" autoFocus aria-label={t("m.file.nameAria")} defaultValue={name}
         onFocus={(e) => e.target.select()}
         onBlur={(e) => { rename(e.target.value); setRenaming(false); }}
         onKeyDown={(e) => {
@@ -69,7 +69,7 @@ export function FileMenuButton() {
       onDoubleClick={() => !locked && setRenaming(true)}
       style={{ display: "flex", alignItems: "center", gap: 8, height: 36, padding: "0 12px", maxWidth: 340, border: "1px solid var(--line)", borderRadius: 8, background: "var(--p1)", color: "var(--text)", fontSize: 14, fontWeight: 600, opacity: 1, cursor: locked ? "default" : "pointer" }}
     >
-      <span className="clamp1">{name || "Show"}</span>
+      <span className="clamp1">{name || t("top.show")}</span>
       <span style={{ color: saved ? "var(--dim)" : "var(--amb)", fontWeight: 400, whiteSpace: "nowrap" }}>· {saved ? t("top.saved") : t("top.unsaved")}</span>
       {!locked && (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>

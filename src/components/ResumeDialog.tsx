@@ -8,6 +8,7 @@ import type { ResumeInfo } from "../types";
 import { basename, call } from "../lib/tauri";
 import { flushShowToEngine } from "../lib/engineSync";
 import { fmtTime } from "../lib/format";
+import { tr, useT } from "../i18n";
 
 let info: ResumeInfo | null = null;
 
@@ -35,6 +36,7 @@ export function useResumeCheck() {
 export function ResumeDialog() {
   const close = useUi((s) => s.closeDialog);
   const [busy, setBusy] = useState(false);
+  const t = useT();
   if (!info) return null;
   const r = info;
   const first = r.running[0];
@@ -52,7 +54,7 @@ export function ResumeDialog() {
       await call("app_resume_dismiss");
       close();
     } catch (e) {
-      toast(`Couldn't resume: ${e}`);
+      toast(tr("r.res.failed", { e: String(e) }));
       setBusy(false);
     }
   };
@@ -63,18 +65,18 @@ export function ResumeDialog() {
 
   return (
     <div className="scrim" style={{ zIndex: 80, padding: "120px 24px" }}>
-      <div role="alertdialog" aria-label="Resume the show" className="dialog" style={{ maxWidth: 580, border: "2px solid var(--amb)" }}>
-        <span className="cond" style={{ fontSize: 30, fontWeight: 800 }}>The app closed unexpectedly during the show</span>
+      <div role="alertdialog" aria-label={t("r.res.aria")} className="dialog" style={{ maxWidth: 580, border: "2px solid var(--amb)" }}>
+        <span className="cond" style={{ fontSize: 30, fontWeight: 800 }}>{t("r.res.title")}</span>
         <span style={{ fontSize: 15, color: "var(--dim)", lineHeight: 1.45 }}>
-          {basename(r.showPath)}, about {ago} minute{ago > 1 ? "s" : ""} ago.{" "}
-          {first ? <>When it closed, <b style={{ color: "var(--text)" }}>{first.name}</b> was at <b className="mono" style={{ color: "var(--text)" }}>{fmtTime(first.position)}</b>{r.running.length > 1 ? ` (and ${r.running.length - 1} more)` : ""}.</> : "Nothing was playing."}
+          {ago > 1 ? t("r.res.agoN", { file: basename(r.showPath), n: ago }) : t("r.res.ago1", { file: basename(r.showPath) })}{" "}
+          {first ? <>{t("r.res.when")} <b style={{ color: "var(--text)" }}>{first.name}</b> {t("r.res.wasAt")} <b className="mono" style={{ color: "var(--text)" }}>{fmtTime(first.position)}</b>{r.running.length > 1 ? t("r.res.more", { n: r.running.length - 1 }) : ""}.</> : t("r.res.nothing")}
         </span>
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 8 }}>
           <button className="b btn cond" disabled={busy} onClick={() => void resume()}
             style={{ height: 60, justifyContent: "center", background: "var(--gobg)", color: "var(--ongo)", fontSize: 20, fontWeight: 800 }}>
-            {first ? `RESUME ${first.name} AT ${fmtTime(first.position)}` : "OPEN THE SHOW IN RUN"}
+            {first ? t("r.res.resume", { name: first.name ?? "", t: fmtTime(first.position) }) : t("r.res.openRun")}
           </button>
-          <button className="b btn" disabled={busy} onClick={() => void dismiss()} style={{ height: 60 }}>Dismiss</button>
+          <button className="b btn" disabled={busy} onClick={() => void dismiss()} style={{ height: 60 }}>{t("r.res.dismiss")}</button>
         </div>
       </div>
     </div>

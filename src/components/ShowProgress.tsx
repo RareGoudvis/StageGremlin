@@ -6,9 +6,11 @@ import { useEngine } from "../engineStore";
 import { fmtTime } from "../lib/format";
 import { cueRunLen, mainRunning } from "../lib/showMath";
 import { goQueue } from "../types";
+import { useT } from "../i18n";
 
 export function ShowProgress() {
   const show = useDoc((s) => s.show);
+  const t = useT();
   const playhead = useEngine((s) => s.state?.playhead ?? null);
   const running = useEngine((s) => s.state?.running);
 
@@ -37,15 +39,15 @@ export function ShowProgress() {
 
   return (
     <div style={{ flex: "none", display: "flex", alignItems: "center", gap: 12, padding: "0 16px", height: 22, borderBottom: "1px solid var(--line)", background: "var(--bg)" }}>
-      <span className="k" style={{ fontSize: 10 }}>Show</span>
-      <div style={{ position: "relative", flex: 1, height: 6, background: "var(--p3)", borderRadius: 3, overflow: "hidden" }} aria-label="Show progress">
+      <span className="k" style={{ fontSize: 10 }}>{t("top.show")}</span>
+      <div style={{ position: "relative", flex: 1, height: 6, background: "var(--p3)", borderRadius: 3, overflow: "hidden" }} aria-label={t("m.progress.aria")}>
         <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${frac * 100}%`, background: "var(--acc)", borderRadius: 3 }} />
         {sectionStarts.map((x, i) => (
           <span key={i} style={{ position: "absolute", top: 0, bottom: 0, left: `${x * 100}%`, width: 2, background: "var(--bg)" }} />
         ))}
       </div>
       <span className="mono" style={{ fontSize: 11.5, color: "var(--dim)", whiteSpace: "nowrap" }}>
-        {fmtTime(done)} / {fmtTime(total)} · {fmtTime(total - done)} left
+        {fmtTime(done)} / {fmtTime(total)} · {fmtTime(total - done)} {t("top.left")}
       </span>
     </div>
   );

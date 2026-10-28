@@ -29,7 +29,7 @@ export function BuildView() {
     <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
       <BuildRail />
       {binOpen && <MediaBin />}
-      <section aria-label="Show" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", minHeight: 0 }}>
+      <section aria-label={t("top.show")} style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", minHeight: 0 }}>
         {multi && tab === "cues" ? <SelectionBar /> : <BuildToolbar />}
         {tab === "cues" ? <CueList /> : <PadGrid />}
         {tab === "cues" && (

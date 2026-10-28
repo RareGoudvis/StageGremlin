@@ -170,10 +170,11 @@ export function CueList() {
 }
 
 function DropLine() {
-  return <div aria-hidden="true" style={{ height: 3, margin: "-1px 0 -2px 20px", borderRadius: 2, background: "var(--acc)", position: "relative", zIndex: 2 }} />;
+  return <div aria-hidden="true" style={{ height: 3, margin: "-4.5px 0 1.5px 20px", borderRadius: 2, background: "var(--acc)", position: "relative", zIndex: 2 }} />;
 }
 
 function SectionHeader({ section, open }: { section: Section; open: boolean }) {
+  const t = useT();
   const [editing, setEditing] = useState(false);
   const total = section.cues.reduce((a, c) => a + (c.attach ? 0 : cueRunLen(c)), 0);
   const count = section.cues.filter((c) => !c.attach).length;
@@ -192,7 +193,7 @@ function SectionHeader({ section, open }: { section: Section; open: boolean }) {
         onClick={() => useDoc.getState().setCollapsed(section.id, open)}
         style={{ display: "flex", alignItems: "center", gap: 10, background: "transparent", padding: "2px 2px", flex: editing ? "none" : 1, minWidth: 0, textAlign: "left" }}
         onDoubleClick={() => setEditing(true)}
-        title="Click to fold, double-click to rename, right-click for more"
+        title={t("i.section.hint")}
       >
         <Chevron open={open} />
         {section.color && <span style={{ width: 10, height: 10, borderRadius: 5, background: section.color, flex: "none" }} />}
@@ -201,14 +202,14 @@ function SectionHeader({ section, open }: { section: Section; open: boolean }) {
       </button>
       {editing && (
         <input
-          className="input" autoFocus defaultValue={section.name} aria-label="Section name"
+          className="input" autoFocus defaultValue={section.name} aria-label={t("i.section.name")}
           onBlur={(e) => rename(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") rename((e.target as HTMLInputElement).value); if (e.key === "Escape") setEditing(false); }}
           style={{ flex: 1, fontWeight: 700 }}
         />
       )}
       <span className="mono" style={{ fontSize: 11.5, color: "var(--mute)", whiteSpace: "nowrap" }}>
-        {count} cue{count === 1 ? "" : "s"} · {fmtTime(total)}
+        {t(count === 1 ? "i.section.one" : "i.section.n", { n: count })} · {fmtTime(total)}
       </span>
     </div>
   );

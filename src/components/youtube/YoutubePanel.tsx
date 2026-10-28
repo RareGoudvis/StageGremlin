@@ -16,6 +16,7 @@ import { useYt, ytDownload } from "../../lib/youtube";
 import { fmtTime } from "../../lib/format";
 import { ToolInstall } from "../ToolInstall";
 import { useSettings } from "../../settingsStore";
+import { tr, useT } from "../../i18n";
 
 interface Row extends YtItem { checked: boolean; replace: string; busy?: boolean }
 
@@ -23,6 +24,7 @@ interface Row extends YtItem { checked: boolean; replace: string; busy?: boolean
 export interface AddTarget { afterId: string | null; sectionId?: string }
 
 export function YoutubePanel({ target }: { target: AddTarget }) {
+  const t = useT();
   const tools = useTools((s) => s.status);
   const progress = useYt((s) => s.progress);
   const [text, setText] = useState("");
@@ -46,7 +48,7 @@ export function YoutubePanel({ target }: { target: AddTarget }) {
       const items = await call("yt_resolve", { lines });
       setRows(items.map((i) => ({ ...i, checked: !i.error, replace: "" })));
     } catch (e) {
-      toast(`Couldn't look those up: ${e}`);
+      toast(tr("b.yt.lookupFailedMany", { e: String(e) }));
     } finally {
       setResolving(false);
     }
@@ -61,7 +63,7 @@ export function YoutubePanel({ target }: { target: AddTarget }) {
       const [item] = await call("yt_resolve", { lines: [line] });
       setRows((rs) => rs.map((r, i) => (i === idx ? { ...item, checked: !item.error, replace: "", playlist: r.playlist } : r)));
     } catch (e) {
-      toast(`Couldn't look that up: ${e}`);
+      toast(tr("b.yt.lookupFailed", { e: String(e) }));
       setRows((rs) => rs.map((r, i) => (i === idx ? { ...r, busy: false } : r)));
     }
   };
@@ -72,7 +74,7 @@ export function YoutubePanel({ target }: { target: AddTarget }) {
     try {
       await ytDownload(chosen, format);
     } catch (e) {
-      toast(`Download failed to start: ${e}`);
+      toast(tr("b.yt.startFailed", { e: String(e) }));
       setDownloading(null);
     }
   };
@@ -91,20 +93,20 @@ export function YoutubePanel({ target }: { target: AddTarget }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <span style={{ fontSize: 12.5, color: "var(--mute)" }}>
-        YouTube's terms of service don't allow downloading videos; whether you do it for your school show is your call.
+        {t("b.yt.terms")}
       </span>
-      <ToolInstall what="ytDlp" why="It does the downloading." />
+      <ToolInstall what="ytDlp" why={t("b.yt.why")} />
 
       {!downloading && (
         <>
           <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <span className="k">One per line: a video link, a playlist link, or “artist – title”</span>
+            <span className="k">{t("b.yt.lines")}</span>
             <textarea className="textarea mono" rows={5} value={text} onChange={(e) => setText(e.target.value)}
               placeholder={"https://www.youtube.com/watch?v=…\nhttps://www.youtube.com/playlist?list=…\nK3 – Oya lele"} style={{ fontSize: 13 }} />
           </label>
           <div style={{ display: "flex", gap: 8 }}>
             <button className="b btn btn-go" disabled={!ytOk || resolving || !text.trim()} onClick={() => void resolve()}>
-              {resolving ? "Looking up…" : rows.length ? "Look up again" : "Look up"}
+              {resolving ? t("b.yt.lookingUp") : rows.length ? t("b.yt.lookAgain") : t("b.yt.lookUp")}
             </button>
           </div>
         </>
@@ -113,16 +115,16 @@ export function YoutubePanel({ target }: { target: AddTarget }) {
       {rows.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
           <div style={{ display: "grid", gridTemplateColumns: "34px minmax(0, 2fr) minmax(0, 1fr) 60px minmax(0, 1.6fr)", gap: 10, padding: "8px 12px", background: "var(--p2)" }} className="k">
-            <span /> <span>Title</span> <span>Channel</span> <span>Length</span> <span>{downloading ? "Progress" : "Wrong one? Paste another link"}</span>
+            <span /> <span>{t("b.yt.title")}</span> <span>{t("b.yt.channel")}</span> <span>{t("b.yt.length")}</span> <span>{downloading ? t("b.yt.progress") : t("b.yt.wrongOne")}</span>
           </div>
           {rows.map((r, i) => {
             const p = progress[r.id];
             const showPlaylist = r.playlist && r.playlist !== rows[i - 1]?.playlist;
             return (
               <div key={r.id}>
-                {showPlaylist && <div className="cond" style={{ padding: "8px 12px 2px", fontSize: 12, fontWeight: 800, letterSpacing: ".1em", color: "var(--acc)", textTransform: "uppercase" }}>Playlist · {r.playlist}</div>}
+                {showPlaylist && <div className="cond" style={{ padding: "8px 12px 2px", fontSize: 12, fontWeight: 800, letterSpacing: ".1em", color: "var(--acc)", textTransform: "uppercase" }}>{t("b.yt.playlist", { name: r.playlist ?? "" })}</div>}
                 <div style={{ display: "grid", gridTemplateColumns: "34px minmax(0, 2fr) minmax(0, 1fr) 60px minmax(0, 1.6fr)", gap: 10, padding: "6px 12px", alignItems: "center", borderTop: "1px solid var(--line)", opacity: r.error ? 0.7 : 1 }}>
-                  <input type="checkbox" aria-label={`Include ${r.title}`} checked={r.checked} disabled={!!r.error || !!downloading}
+                  <input type="checkbox" aria-label={t("b.yt.include", { title: r.title })} checked={r.checked} disabled={!!r.error || !!downloading}
                     onChange={(e) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, checked: e.target.checked } : x)))} />
                   <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
                     <span className="clamp1" style={{ fontSize: 14, fontWeight: 600 }}>{r.title || r.input}</span>
@@ -131,13 +133,13 @@ export function YoutubePanel({ target }: { target: AddTarget }) {
                   <span className="clamp1" style={{ fontSize: 13, color: "var(--dim)" }}>{r.channel}</span>
                   <span className="mono" style={{ fontSize: 12.5 }}>{fmtTime(r.duration)}</span>
                   {downloading ? (
-                    downloading.includes(r.id) ? <ProgressCell status={p?.status ?? "queued"} percent={p?.percent ?? 0} error={p?.error ?? null} /> : <span className="mute" style={{ fontSize: 12 }}>skipped</span>
+                    downloading.includes(r.id) ? <ProgressCell status={p?.status ?? "queued"} percent={p?.percent ?? 0} error={p?.error ?? null} /> : <span className="mute" style={{ fontSize: 12 }}>{t("b.yt.skipped")}</span>
                   ) : (
                     <span style={{ display: "flex", gap: 6 }}>
-                      <input className="input mono" aria-label="Replacement link" placeholder="link or artist – title" value={r.replace} style={{ flex: 1, height: 28, fontSize: 12 }}
+                      <input className="input mono" aria-label={t("b.yt.replacement")} placeholder={t("b.yt.replacePh")} value={r.replace} style={{ flex: 1, height: 28, fontSize: 12 }}
                         onChange={(e) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, replace: e.target.value } : x)))}
                         onKeyDown={(e) => e.key === "Enter" && void reResolve(i)} />
-                      <button className="b btn" style={{ height: 28, fontSize: 12 }} disabled={!r.replace.trim() || r.busy} onClick={() => void reResolve(i)}>{r.busy ? "…" : "Replace"}</button>
+                      <button className="b btn" style={{ height: 28, fontSize: 12 }} disabled={!r.replace.trim() || r.busy} onClick={() => void reResolve(i)}>{r.busy ? "…" : t("b.yt.replace")}</button>
                     </span>
                   )}
                 </div>
@@ -150,29 +152,30 @@ export function YoutubePanel({ target }: { target: AddTarget }) {
       {rows.length > 0 && !downloading && (
         <>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <span className="k">Format</span>
-            <select className="select" aria-label="Format" value={format} onChange={(e) => setFormat(e.target.value as YtFormat)} style={{ width: 260 }}>
-              <option value="original">Original (m4a) — best quality, fastest</option>
-              <option value="mp3">MP3 (needs ffmpeg)</option>
-              <option value="wav">WAV (needs ffmpeg, large files)</option>
+            <span className="k">{t("b.yt.format")}</span>
+            <select className="select" aria-label={t("b.yt.format")} value={format} onChange={(e) => setFormat(e.target.value as YtFormat)} style={{ width: 260 }}>
+              <option value="original">{t("b.yt.fmtOriginal")}</option>
+              <option value="mp3">{t("b.yt.fmtMp3")}</option>
+              <option value="wav">{t("b.yt.fmtWav")}</option>
             </select>
             <span style={{ flex: 1 }} />
-            <span className="mono" style={{ fontSize: 12.5, color: "var(--dim)" }}>{chosen.length} chosen · {fmtTime(total)}</span>
+            <span className="mono" style={{ fontSize: 12.5, color: "var(--dim)" }}>{t("b.yt.chosen", { n: chosen.length, t: fmtTime(total) })}</span>
             <button className="b btn btn-go" style={{ height: 38 }} disabled={!chosen.length || needFfmpeg} onClick={() => void download()}>
-              Download {chosen.length} and add as cues
+              {t("b.yt.download", { n: chosen.length })}
             </button>
           </div>
-          {needFfmpeg && <ToolInstall what="ffmpeg" why="MP3 and WAV need it; Original doesn't." />}
+          {needFfmpeg && <ToolInstall what="ffmpeg" why={t("b.yt.ffmpegWhy")} />}
         </>
       )}
-      {finished && <span style={{ fontSize: 14, color: "var(--acc)", fontWeight: 600 }}>Done. The downloads are in the show as new cues and are being analysed.</span>}
+      {finished && <span style={{ fontSize: 14, color: "var(--acc)", fontWeight: 600 }}>{t("b.yt.done")}</span>}
     </div>
   );
 }
 
 function ProgressCell({ status, percent, error }: { status: string; percent: number; error: string | null }) {
-  if (status === "error") return <span style={{ fontSize: 12, color: "var(--redtx)" }}>{error ?? "failed"}</span>;
-  const label = status === "done" ? "done" : status === "converting" ? "converting…" : status === "queued" ? "waiting…" : `${Math.round(percent)}%`;
+  const t = useT();
+  if (status === "error") return <span style={{ fontSize: 12, color: "var(--redtx)" }}>{error ?? t("b.yt.failed")}</span>;
+  const label = status === "done" ? t("b.yt.stDone") : status === "converting" ? t("b.yt.converting") : status === "queued" ? t("b.yt.waiting") : `${Math.round(percent)}%`;
   return (
     <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <span style={{ flex: 1, height: 6, borderRadius: 3, background: "var(--p3)", overflow: "hidden" }}>

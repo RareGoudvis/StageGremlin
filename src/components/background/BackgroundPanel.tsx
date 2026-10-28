@@ -58,6 +58,7 @@ export function BackgroundButton() {
 }
 
 export function BackgroundPanel({ onClose }: { onClose: () => void }) {
+  const t = useT();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -65,10 +66,10 @@ export function BackgroundPanel({ onClose }: { onClose: () => void }) {
   }, [onClose]);
   return (
     <div className="scrim" style={{ position: "fixed" }} onClick={onClose}>
-      <div className="dialog" role="dialog" aria-label="Background music" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560, borderColor: "var(--cyline)" }}>
+      <div className="dialog" role="dialog" aria-label={t("set.background")} onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560, borderColor: "var(--cyline)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 18, fontWeight: 800, flex: 1 }}>Background music</span>
-          <button className="b btn btn-ghost" onClick={onClose}>Close · Esc</button>
+          <span style={{ fontSize: 18, fontWeight: 800, flex: 1 }}>{t("set.background")}</span>
+          <button className="b btn btn-ghost" onClick={onClose}>{t("close")} · Esc</button>
         </div>
         <BackgroundSettings />
       </div>
@@ -78,6 +79,7 @@ export function BackgroundPanel({ onClose }: { onClose: () => void }) {
 
 /** The settings themselves, without the dialog around them (also shown in Settings › Background). */
 export function BackgroundSettings() {
+  const t = useT();
   const st = useBackground();
   const sources = useEnabledSources();
   const [config, setConfig] = useState<BgConfig | null>(null);
@@ -103,7 +105,7 @@ export function BackgroundSettings() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <span className="k">Source · opens the player window to sign in and pick a playlist</span>
+          <span className="k">{t("s.bgset.source")}</span>
           <div className="chips">
             {sources.map((s) => (
               <button key={s.id} className="b chip" aria-pressed={st?.source === s.id} onClick={() => openSource(s.id)}>
@@ -114,16 +116,16 @@ export function BackgroundSettings() {
           {st?.open && (
             <div style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13 }}>
               <span className="clamp1" style={{ flex: 1, color: "var(--dim)" }}>
-                {st.title ? `${st.title}${st.artist ? " · " + st.artist : ""}` : "Nothing playing yet"}
+                {st.title ? `${st.title}${st.artist ? " · " + st.artist : ""}` : t("s.bgset.nothingYet")}
               </span>
               {st.visible
-                ? <button className="b btn" onClick={() => bgDo(bg.hide(), setErr)}>Hide window</button>
-                : st.source && <button className="b btn" onClick={() => openSource(st.source!)}>Show window</button>}
+                ? <button className="b btn" onClick={() => bgDo(bg.hide(), setErr)}>{t("s.bgset.hide")}</button>
+                : st.source && <button className="b btn" onClick={() => openSource(st.source!)}>{t("s.bgset.show")}</button>}
             </div>
           )}
           {st?.open && !st.sessionFound && (
             <span style={{ fontSize: 12.5, padding: "6px 8px", borderRadius: 6, background: "var(--ambbg)", color: "var(--ambtx)" }}>
-              Windows volume control not found yet. Start a song in the player; if this stays, Duck and fades won't work.
+              {t("s.bgset.noSession")}
             </span>
           )}
           {(st?.error ?? err) && (
@@ -133,17 +135,17 @@ export function BackgroundSettings() {
 
         {config && (
           <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <span className="k">Ducking</span>
-            <Num label="Duck level" unit="dB" value={config.duckDb} min={-60} max={0} step={1} onChange={(v) => save({ ...config, duckDb: v })} />
-            <Num label="Duck time" unit="s" value={config.duckTime} min={0} max={10} step={0.1} onChange={(v) => save({ ...config, duckTime: v })} />
-            <Num label="Restore time" unit="s" value={config.restoreTime} min={0} max={15} step={0.1} onChange={(v) => save({ ...config, restoreTime: v })} />
-            <Num label="Restore hold" unit="s" value={config.restoreHold} min={0} max={10} step={0.5} onChange={(v) => save({ ...config, restoreHold: v })} />
+            <span className="k">{t("s.bgset.ducking")}</span>
+            <Num label={t("s.bgset.duckLevel")} unit="dB" value={config.duckDb} min={-60} max={0} step={1} onChange={(v) => save({ ...config, duckDb: v })} />
+            <Num label={t("s.bgset.duckTime")} unit="s" value={config.duckTime} min={0} max={10} step={0.1} onChange={(v) => save({ ...config, duckTime: v })} />
+            <Num label={t("s.bgset.restoreTime")} unit="s" value={config.restoreTime} min={0} max={15} step={0.1} onChange={(v) => save({ ...config, restoreTime: v })} />
+            <Num label={t("s.bgset.restoreHold")} unit="s" value={config.restoreHold} min={0} max={10} step={0.5} onChange={(v) => save({ ...config, restoreHold: v })} />
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5 }}>
               <input type="checkbox" checked={config.autoDuck} onChange={(e) => save({ ...config, autoDuck: e.target.checked })} />
-              Auto-duck: cues with "Duck background" duck the music while they play
+              {t("s.bgset.autoDuck")}
             </label>
 
-            <span className="k">Level offset per source</span>
+            <span className="k">{t("s.bgset.offsets")}</span>
             {sources.map((s) => (
               <Num key={s.id} label={s.label} unit="dB" value={config.offsets[s.id]} min={-24} max={0} step={0.5}
                 onChange={(v) => save({ ...config, offsets: { ...config.offsets, [s.id]: v } })} />

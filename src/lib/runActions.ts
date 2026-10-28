@@ -6,17 +6,18 @@ import { goQueue } from "../types";
 import { findCue, moveBefore } from "./showOps";
 import { call } from "./tauri";
 import { flushShowToEngine } from "./engineSync";
+import { tr } from "../i18n";
 
 export async function go() {
   try {
     const r = await call("engine_go");
-    if (r === "endOfShow") toast("End of show: nothing is standing by");
+    if (r === "endOfShow") toast(tr("r.act.endOfShow"));
   } catch (e) {
-    toast(`GO failed: ${e}`);
+    toast(tr("r.act.goFailed", { e: String(e) }));
   }
 }
 
-export const pauseAll = () => void call("engine_pause_all").catch((e) => toast(`Pause failed: ${e}`));
+export const pauseAll = () => void call("engine_pause_all").catch((e) => toast(tr("r.act.pauseFailed", { e: String(e) })));
 export const stopAll = () => void call("engine_stop_all");
 export const panic = () => void call("engine_panic");
 export const stopCue = (cueId: string) => void call("engine_stop_cue", { cueId });
@@ -46,16 +47,16 @@ export async function makeNext(cueId: string, standbyId: string | null) {
   const q = goQueue(show).map((c) => c.id);
   const jumps = q.indexOf(cueId) - q.indexOf(standbyId!);
   const ok = await ask({
-    title: `Make ${cue.number} next?`,
+    title: tr("r.act.makeNextTitle", { n: cue.number }),
     body: jumps > 0
-      ? `“${cue.number} ${cue.name}” jumps over ${jumps} cue${jumps === 1 ? "" : "s"} and moves in front of ${standby.number} ${standby.name}. The others keep their order.`
-      : `“${cue.number} ${cue.name}” moves back in front of ${standby.number} ${standby.name}.`,
-    confirmLabel: `Make ${cue.number} next`,
+      ? tr(jumps === 1 ? "r.act.jumps1" : "r.act.jumpsN", { cue: `${cue.number} ${cue.name}`, n: jumps, standby: `${standby.number} ${standby.name}` })
+      : tr("r.act.movesBack", { cue: `${cue.number} ${cue.name}`, standby: `${standby.number} ${standby.name}` }),
+    confirmLabel: tr("r.act.makeNextConfirm", { n: cue.number }),
   });
   if (!ok) return;
   useDoc.getState().edit((s) => moveBefore(s, cueId, standbyId!), { allowInRun: true });
   // The engine must know the new order before we point its playhead at the moved cue.
   await flushShowToEngine();
   await call("engine_set_playhead", { cueId });
-  toast(`${cue.name} is standing by`);
+  toast(tr("r.act.standingBy", { name: cue.name }));
 }

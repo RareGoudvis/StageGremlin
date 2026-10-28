@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import type { Cue } from "../../types";
 import { fmtSecs, fmtTime } from "../../lib/format";
+import { useT } from "../../i18n";
 
 type Handle = "in" | "out" | "fadeIn" | "fadeOut";
 const MIN_LEN = 0.5; // never trim a cue shorter than half a second
@@ -16,6 +17,7 @@ export function Waveform({ cue, waveform, onChange }: {
   /** `key` lets the store merge one drag into a single undo step. */
   onChange: (patch: Partial<Cue>, key: string) => void;
 }) {
+  const t = useT();
   const boxRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [width, setWidth] = useState(0);
@@ -95,7 +97,7 @@ export function Waveform({ cue, waveform, onChange }: {
   if (!cue.loudness) {
     return (
       <div style={{ height: H, borderRadius: 10, background: "var(--p2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--mute)", fontSize: 13 }}>
-        Waveform appears after analysis
+        {t("b.wave.afterAnalysis")}
       </div>
     );
   }
@@ -104,7 +106,7 @@ export function Waveform({ cue, waveform, onChange }: {
   const fadeOutX = x(tOut - cue.fadeOut);
   const dragText = drag
     ? drag.handle === "in" ? `IN ${fmtTime(tIn)}` : drag.handle === "out" ? `OUT ${fmtTime(tOut)}`
-      : drag.handle === "fadeIn" ? `Fade in ${fmtSecs(cue.fadeIn)}` : `Fade out ${fmtSecs(cue.fadeOut)}`
+      : drag.handle === "fadeIn" ? t("b.wave.fadeInAt", { t: fmtSecs(cue.fadeIn) }) : t("b.wave.fadeOutAt", { t: fmtSecs(cue.fadeOut) })
     : null;
 
   const handleStyle = (left: number, top: boolean, color: string): CSSProperties => ({
@@ -122,7 +124,7 @@ export function Waveform({ cue, waveform, onChange }: {
         style={{ position: "relative", height: H, borderRadius: 10, background: "var(--p2)", border: "1px solid var(--line)" }}
       >
         <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: H, borderRadius: 10 }} />
-        {!waveform && <span className="mono pulse" style={{ position: "absolute", left: 10, top: 8, fontSize: 11, color: "var(--mute)" }}>loading waveform…</span>}
+        {!waveform && <span className="mono pulse" style={{ position: "absolute", left: 10, top: 8, fontSize: 11, color: "var(--mute)" }}>{t("b.loadingWave")}</span>}
         {/* Fade envelope: up from IN to the fade-in point, flat, down to OUT. */}
         <svg width={width} height={H} style={{ position: "absolute", inset: 0, pointerEvents: "none" }} aria-hidden="true">
           <polyline
@@ -135,10 +137,10 @@ export function Waveform({ cue, waveform, onChange }: {
         </svg>
         <span style={{ position: "absolute", left: x(tIn) - 1, top: 0, bottom: 0, width: 2, background: "var(--hl)" }} />
         <span style={{ position: "absolute", left: x(tOut) - 1, top: 0, bottom: 0, width: 2, background: "var(--hl)" }} />
-        <button className="b" aria-label="Trim in" title="Drag: trim in" onPointerDown={startDrag("in")} style={handleStyle(x(tIn), false, "var(--hl)")} />
-        <button className="b" aria-label="Trim out" title="Drag: trim out" onPointerDown={startDrag("out")} style={handleStyle(x(tOut), false, "var(--hl)")} />
-        <button className="b" aria-label="Fade in length" title="Drag: fade in" onPointerDown={startDrag("fadeIn")} style={handleStyle(fadeInX, true, "var(--amb)")} />
-        <button className="b" aria-label="Fade out length" title="Drag: fade out" onPointerDown={startDrag("fadeOut")} style={handleStyle(fadeOutX, true, "var(--amb)")} />
+        <button className="b" aria-label={t("b.wave.trimIn")} title={t("b.wave.dragIn")} onPointerDown={startDrag("in")} style={handleStyle(x(tIn), false, "var(--hl)")} />
+        <button className="b" aria-label={t("b.wave.trimOut")} title={t("b.wave.dragOut")} onPointerDown={startDrag("out")} style={handleStyle(x(tOut), false, "var(--hl)")} />
+        <button className="b" aria-label={t("b.wave.fadeInLen")} title={t("b.wave.dragFadeIn")} onPointerDown={startDrag("fadeIn")} style={handleStyle(fadeInX, true, "var(--amb)")} />
+        <button className="b" aria-label={t("b.wave.fadeOutLen")} title={t("b.wave.dragFadeOut")} onPointerDown={startDrag("fadeOut")} style={handleStyle(fadeOutX, true, "var(--amb)")} />
         {dragText && (
           <span className="mono" style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)", padding: "4px 10px", borderRadius: 7, background: "var(--hl)", color: "var(--bg)", fontSize: 13, fontWeight: 600, pointerEvents: "none" }}>
             {dragText}
@@ -147,7 +149,7 @@ export function Waveform({ cue, waveform, onChange }: {
       </div>
       <div className="mono" style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--mute)" }}>
         <span>0:00</span>
-        <span>kept {fmtTime(tOut - tIn)}</span>
+        <span>{t("b.wave.kept", { t: fmtTime(tOut - tIn) })}</span>
         <span>{fmtTime(dur)}</span>
       </div>
     </div>

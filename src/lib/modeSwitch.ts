@@ -4,12 +4,12 @@
 import { useDoc, type Mode } from "../store";
 import { toast } from "../uiStore";
 import { canEnterRun } from "./media";
+import { tr, type TKey } from "../i18n";
 
 const DOUBLE_PRESS_MS = 1500;
 let armed: { mode: Mode; at: number } | null = null;
 
 const KEY_FOR: Record<Mode, string> = { build: "Ctrl+1", preflight: "Ctrl+2", run: "Ctrl+3", background: "Ctrl+4" };
-const NAME: Record<Mode, string> = { build: "Build", preflight: "Preflight", run: "Run", background: "Background" };
 
 /** From the keyboard (Ctrl+1/2/3). */
 export function requestModeByKey(mode: Mode) {
@@ -23,7 +23,7 @@ export function requestModeByKey(mode: Mode) {
     useDoc.getState().setMode(mode);
   } else {
     armed = { mode, at: now };
-    toast(`Press ${KEY_FOR[mode]} again to leave Run`);
+    toast(tr("m.mode.pressAgain", { key: KEY_FOR[mode] }));
   }
 }
 
@@ -31,7 +31,8 @@ export function requestModeByKey(mode: Mode) {
 export function requestModeByClick(mode: Mode) {
   const cur = useDoc.getState().mode;
   if (cur === mode) return;
-  if (cur === "run") toast(`Hold ${NAME[mode]} for a second (or press ${KEY_FOR[mode]} twice) to leave Run`);
+  // The mode's name as on its button (mode.build = BUILD / BOUWEN).
+  if (cur === "run") toast(tr("m.mode.holdToLeave", { mode: tr(`mode.${mode}` as TKey), key: KEY_FOR[mode] }));
   else if (mode !== "run" || canEnterRun()) useDoc.getState().setMode(mode);
 }
 

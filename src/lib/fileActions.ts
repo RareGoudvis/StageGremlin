@@ -10,34 +10,37 @@ import { addPads, findAnyCue, freePadKey, insertCues, locate, updateAnyCue } fro
 import {
   basename, call, dirname, isAudioPath, isTauri, needsConversion, pickAudioFiles, pickSavePath, pickShowToOpen, stripExt,
 } from "./tauri";
+import { tr } from "../i18n";
 
 const doc = () => useDoc.getState();
 const isDirty = () => doc().show !== doc().savedShow;
 
-async function okToDiscard(what: string): Promise<boolean> {
+/** `next`: what happens after discarding: a new show, or opening another one. */
+async function okToDiscard(next: "new" | "open"): Promise<boolean> {
   if (!isDirty()) return true;
+  const name = doc().show.name;
   return ask({
-    title: "Unsaved changes",
-    body: `“${doc().show.name}” has changes that are not saved. ${what} anyway and lose them?`,
-    confirmLabel: `Discard and ${what.toLowerCase()}`,
+    title: tr("b.file.unsaved"),
+    body: next === "new" ? tr("b.file.bodyNew", { name }) : tr("b.file.bodyOpen", { name }),
+    confirmLabel: next === "new" ? tr("b.file.confirmNew") : tr("b.file.confirmOpen"),
     danger: true,
   });
 }
 
 export async function fileNew() {
-  if (!(await okToDiscard("Start a new show"))) return;
+  if (!(await okToDiscard("new"))) return;
   doc().loadShow(newShow(), null);
 }
 
 export async function fileOpen() {
-  if (!(await okToDiscard("Open another show"))) return;
+  if (!(await okToDiscard("open"))) return;
   const path = await pickShowToOpen();
   if (path) await openShowFile(path);
 }
 
 /** File › Open recent: open a show we already know the path of. */
 export async function fileOpenRecent(path: string) {
-  if (!(await okToDiscard("Open another show"))) return;
+  if (!(await okToDiscard("open"))) return;
   await openShowFile(path);
 }
 
@@ -46,12 +49,12 @@ async function openShowFile(path: string) {
     const show = await call("show_open", { path });
     doc().loadShow(show, path);
     if (isTauri) rememberRecent(path);
-    toast(`Opened ${basename(path)}`);
+    toast(tr("b.file.opened", { file: basename(path) }));
     // Fill in any cue that was never analysed, and flag formats we can't play.
     const s = doc().show;
     for (const c of [...allCues(s), ...s.pads.map((p) => p.cue)]) if (!c.loudness || needsConversion(c.file)) void analyseCue(c.id);
   } catch (e) {
-    toast(`Could not open the show: ${e}`);
+    toast(tr("b.file.openFailed", { e: String(e) }));
   }
 }
 
@@ -67,10 +70,10 @@ async function saveTo(path: string, quiet = false): Promise<boolean> {
     const saved = await call("show_save", { path, show: sent, fromDir });
     doc().adoptSaved(saved, path, sent);
     if (isTauri && !quiet) rememberRecent(path);
-    if (!quiet) toast(isTauri ? `Saved ${basename(path)}` : `Downloaded ${basename(path)} (the audio files are not in it: import them again after opening)`);
+    if (!quiet) toast(isTauri ? tr("b.file.saved", { file: basename(path) }) : tr("b.file.downloaded", { file: basename(path) }));
     return true;
   } catch (e) {
-    toast(`Save failed: ${e}`);
+    toast(tr("b.file.saveFailed", { e: String(e) }));
     return false;
   } finally {
     saving = false;
@@ -121,7 +124,7 @@ export function importPadFiles(paths: string[]) {
   }
   doc().edit((s) => addPads(s, pads));
   doc().selectPad(pads[pads.length - 1].id);
-  toast(`Added ${pads.length} pad${pads.length > 1 ? "s" : ""}`);
+  toast(pads.length > 1 ? tr("b.file.padsN", { n: pads.length }) : tr("b.file.pads1"));
   for (const p of pads) void analyseCue(p.cue.id);
 }
 
@@ -148,14 +151,16 @@ export function importFiles(paths: string[], sectionId?: string, afterId?: strin
   const audio = paths.filter(isAudioPath);
   const skipped = paths.length - audio.length;
   if (!audio.length) {
-    if (skipped) toast("Those files are not audio (mp3, wav, flac, m4a, aac, ogg, opus)");
+    if (skipped) toast(tr("b.file.notAudio"));
     return;
   }
   const cues: Cue[] = audio.map((file) => newCue({ name: stripExt(basename(file)), file }));
   const after = sectionId ? null : afterId !== undefined ? afterId : lastSelected();
   doc().edit((s) => insertCues(s, cues, after && locate(s, after) ? after : null, sectionId));
   doc().setSelection(cues.map((c) => c.id));
-  toast(`Imported ${cues.length} file${cues.length > 1 ? "s" : ""}` + (skipped ? ` (${skipped} skipped: not audio)` : ""));
+  const n = cues.length;
+  if (skipped) toast(n > 1 ? tr("b.file.impNSkipped", { n, k: skipped }) : tr("b.file.imp1Skipped", { k: skipped }));
+  else toast(n > 1 ? tr("b.file.impN", { n }) : tr("b.file.imp1"));
   for (const c of cues) void analyseCue(c.id);
 }
 
@@ -194,7 +199,7 @@ export async function analyseCue(cueId: string) {
   if (!cue?.file) return;
   if (needsConversion(cue.file)) {
     // Don't even try: the decoder can't read opus/webm. The UI offers "Convert to M4A".
-    doc().setAnalysis(cueId, { state: "error", message: "Can't play this format (opus/webm). Convert it to M4A.", unsupported: true });
+    doc().setAnalysis(cueId, { state: "error", message: tr("b.file.cantPlayOpus"), unsupported: true });
     return;
   }
   doc().setAnalysis(cueId, { state: "busy" });
@@ -210,7 +215,7 @@ export async function analyseCue(cueId: string) {
     const message = String(e);
     // A decode failure means the format is the problem, not a missing file.
     const unsupported = /unsupported|codec|decod/i.test(message);
-    doc().setAnalysis(cueId, { state: "error", message: unsupported ? `Can't play this format: ${message}` : message, unsupported });
+    doc().setAnalysis(cueId, { state: "error", message: unsupported ? tr("b.file.cantPlay", { e: message }) : message, unsupported });
   }
 }
 
@@ -241,10 +246,10 @@ export async function convertCue(cueId: string): Promise<boolean> {
   try {
     const newPath = await call("media_convert", { path: cue.file, destDir: await mediaDestDir() });
     doc().edit((s) => updateAnyCue(s, cueId, { file: newPath }), { allowInRun: true });
-    toast(`Converted ${basename(cue.file)} to M4A`);
+    toast(tr("b.file.converted", { file: basename(cue.file) }));
     await analyseCue(cueId);
   } catch (e) {
-    doc().setAnalysis(cueId, { state: "error", message: `Conversion failed: ${e}`, unsupported: true });
+    doc().setAnalysis(cueId, { state: "error", message: tr("b.file.convertFailed", { e: String(e) }), unsupported: true });
   }
   return true;
 }
@@ -259,10 +264,10 @@ export function ensureWaveform(cueId: string) {
 
 /** File › Export show as zip: the show file plus its media/ folder, for a USB stick or a colleague. */
 export async function exportZip() {
-  if (!isTauri) return toast("Exporting a zip only works in the desktop app");
+  if (!isTauri) return toast(tr("b.file.zipDesktop"));
   // The zip is made from the saved show, so save first.
   if (!doc().path || isDirty()) {
-    const ok = await ask({ title: "Save first?", body: "The zip is made from the saved show file. Save now and continue?", confirmLabel: "Save and export" });
+    const ok = await ask({ title: tr("b.file.saveFirst"), body: tr("b.file.saveFirstBody"), confirmLabel: tr("b.file.saveExport") });
     if (!ok || !(await fileSave())) return;
   }
   const { save } = await import("@tauri-apps/plugin-dialog");
@@ -270,8 +275,8 @@ export async function exportZip() {
   if (!dest) return;
   try {
     await call("show_export_zip", { showPath: doc().path!, dest });
-    toast(`Exported ${basename(dest)}`);
+    toast(tr("b.file.exported", { file: basename(dest) }));
   } catch (e) {
-    toast(`Export failed: ${e}`);
+    toast(tr("b.file.exportFailed", { e: String(e) }));
   }
 }

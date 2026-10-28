@@ -9,7 +9,8 @@ import { translate, type TKey } from "../i18n";
 
 const tr = (key: TKey) => translate(useSettings.getState().ui.lang, key);
 
-const FILTER = [{ name: "StageGremlin settings", extensions: ["json"] }];
+// A function, so the file type name follows the language at the moment the dialog opens.
+const filter = () => [{ name: tr("m.settingsFile"), extensions: ["json"] }];
 
 /** Once at start: say so when the settings came from an older copy. */
 export async function tellCarriedOver() {
@@ -24,7 +25,7 @@ export async function tellCarriedOver() {
 
 export async function exportSettings() {
   const { save } = await import("@tauri-apps/plugin-dialog");
-  const path = await save({ defaultPath: "StageGremlin-settings.json", filters: FILTER });
+  const path = await save({ defaultPath: "StageGremlin-settings.json", filters: filter() });
   if (!path) return;
   try {
     await call("settings_export", { path });
@@ -36,7 +37,7 @@ export async function exportSettings() {
 
 export async function importSettings() {
   const { open } = await import("@tauri-apps/plugin-dialog");
-  const path = await open({ multiple: false, filters: FILTER });
+  const path = await open({ multiple: false, filters: filter() });
   if (!path || Array.isArray(path)) return;
   try {
     await call("settings_import", { path });

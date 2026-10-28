@@ -5,9 +5,11 @@ import { useEngine } from "../../engineStore";
 import { goQueue } from "../../types";
 import { fmtTime } from "../../lib/format";
 import { cueRunLen } from "../../lib/showMath";
+import { useT } from "../../i18n";
 
 export function SectionRail({ focusCueId }: { focusCueId: string | null }) {
   const show = useDoc((s) => s.show);
+  const t = useT();
   const playhead = useEngine((s) => s.state?.playhead ?? null);
   const runningIds = useEngine((s) => s.state?.running.map((r) => r.cueId).join(",") ?? "");
   const running = new Set(runningIds.split(",").filter(Boolean));
@@ -18,8 +20,8 @@ export function SectionRail({ focusCueId }: { focusCueId: string | null }) {
   const current = show.sections.find((s) => s.cues.some((c) => c.id === focusCueId)) ?? show.sections[0];
 
   return (
-    <nav aria-label="Sections" className="scroll" style={{ display: "flex", flexDirection: "column", gap: 4, minHeight: 0, paddingRight: 2 }}>
-      <span className="k" style={{ color: "var(--acc)", padding: "2px 4px 6px" }}>Sections</span>
+    <nav aria-label={t("run.sections")} className="scroll" style={{ display: "flex", flexDirection: "column", gap: 4, minHeight: 0, paddingRight: 2 }}>
+      <span className="k" style={{ color: "var(--acc)", padding: "2px 4px 6px" }}>{t("run.sections")}</span>
       {show.sections.map((sec) => {
         const cues = sec.cues.filter((c) => !c.attach);
         const len = cues.reduce((a, c) => a + cueRunLen(c), 0);
@@ -29,7 +31,7 @@ export function SectionRail({ focusCueId }: { focusCueId: string | null }) {
           return (
             <div key={sec.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", borderRadius: 8, background: done ? "var(--p1)" : "var(--p2)", color: done ? "var(--mute)" : "var(--text)" }}>
               <span className="cond clamp1" style={{ flex: 1, fontSize: 13, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase" }}>{sec.name}</span>
-              <span className="mono" style={{ fontSize: 11, color: "var(--mute)" }}>{done ? "done" : `${cues.length} · ${fmtTime(len)}`}</span>
+              <span className="mono" style={{ fontSize: 11, color: "var(--mute)" }}>{done ? t("r.rail.done") : `${cues.length} · ${fmtTime(len)}`}</span>
             </div>
           );
         }

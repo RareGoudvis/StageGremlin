@@ -3,11 +3,13 @@
 //   top:    fade-in / fade-out handles (amber dots), vamp A / B (cyan), markers (lilac flags)
 // Click the waveform to put the preview cursor there; double-click to add a marker.
 // All values are seconds in the file; pixels only appear when reading the pointer.
+// (Translations use `tx`, because `t` is the time in seconds all over this file.)
 
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent } from "react";
 import type { Cue } from "../../types";
 import { fadeShape } from "../../lib/dspMath";
 import { fmtSecs, fmtTime } from "../../lib/format";
+import { useT } from "../../i18n";
 
 const H = 220;          // total height
 const TOP = 30;         // space for the top row of flags
@@ -34,6 +36,7 @@ export function WaveEditor({ cue, waveform, set, attached, setAttachedAt, cursor
   /** Right-click at time t (seconds in the file). */
   onMenu: (e: MouseEvent, t: number) => void;
 }) {
+  const tx = useT();
   const boxRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [width, setWidth] = useState(0);
@@ -147,7 +150,7 @@ export function WaveEditor({ cue, waveform, set, attached, setAttachedAt, cursor
   if (!cue.loudness) {
     return (
       <div style={{ height: H, borderRadius: 12, background: "var(--p1)", border: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--mute)" }}>
-        The waveform appears once the file has been analysed.
+        {tx("b.wave.afterAnalysisLong")}
       </div>
     );
   }
@@ -179,12 +182,12 @@ export function WaveEditor({ cue, waveform, set, attached, setAttachedAt, cursor
     switch (drag.kind.k) {
       case "in": return `IN ${fmtTime(tIn)}`;
       case "out": return `OUT ${fmtTime(tOut)}`;
-      case "fadeIn": return `Fade in ${fmtSecs(cue.fadeIn)}`;
-      case "fadeOut": return `Fade out ${fmtSecs(cue.fadeOut)}`;
-      case "vampA": return `Loop A ${fmtTime(cue.vamp?.a ?? 0)}`;
-      case "vampB": return `Loop B ${fmtTime(cue.vamp?.b ?? 0)}`;
+      case "fadeIn": return tx("b.wave.fadeInAt", { t: fmtSecs(cue.fadeIn) });
+      case "fadeOut": return tx("b.wave.fadeOutAt", { t: fmtSecs(cue.fadeOut) });
+      case "vampA": return tx("b.wave.loopAAt", { t: fmtTime(cue.vamp?.a ?? 0) });
+      case "vampB": return tx("b.wave.loopBAt", { t: fmtTime(cue.vamp?.b ?? 0) });
       case "marker": return `${cue.markers[drag.kind.i]?.label} ${fmtTime(cue.markers[drag.kind.i]?.t ?? 0)}`;
-      case "attach": { const id = drag.kind.id; const a = attached.find((c) => c.id === id); return a ? `${a.number} at ${fmtTime(a.at)}` : ""; }
+      case "attach": { const id = drag.kind.id; const a = attached.find((c) => c.id === id); return a ? tx("b.wave.attachAt", { n: a.number, t: fmtTime(a.at) }) : ""; }
     }
   })() : null;
 
@@ -198,7 +201,7 @@ export function WaveEditor({ cue, waveform, set, attached, setAttachedAt, cursor
       onContextMenu={(e) => onMenu(e, r1(tAt(e.clientX)))}
       onDoubleClick={(e) => {
         const t = r1(tAt(e.clientX));
-        const markers = [...cue.markers, { t, label: `marker ${cue.markers.length + 1}` }].sort((a, b) => a.t - b.t);
+        const markers = [...cue.markers, { t, label: tx("b.markerN", { n: cue.markers.length + 1 }) }].sort((a, b) => a.t - b.t);
         set({ markers });
       }}
       style={{ position: "relative", height: H, borderRadius: 12, background: "var(--p1)", border: "1px solid var(--line)", overflow: "hidden", cursor: "crosshair" }}
@@ -210,7 +213,7 @@ export function WaveEditor({ cue, waveform, set, attached, setAttachedAt, cursor
         <span style={{ position: "absolute", top: TOP, height: WAVE_H, left: x(cue.vamp.a), width: x(cue.vamp.b) - x(cue.vamp.a), background: "var(--cy)", opacity: cue.vamp.on ? 0.22 : 0.08 }} />
       )}
       <canvas ref={canvasRef} style={{ position: "absolute", left: 0, top: TOP, width: "100%", height: WAVE_H, pointerEvents: "none" }} />
-      {!waveform && <span className="mono pulse" style={{ position: "absolute", left: 12, top: TOP + 8, fontSize: 12, color: "var(--mute)" }}>loading waveform…</span>}
+      {!waveform && <span className="mono pulse" style={{ position: "absolute", left: 12, top: TOP + 8, fontSize: 12, color: "var(--mute)" }}>{tx("b.loadingWave")}</span>}
 
       <svg width={width} height={H} style={{ position: "absolute", inset: 0, pointerEvents: "none" }} aria-hidden="true">
         <polyline points={env.join(" ")} fill="none" stroke="var(--amb)" strokeWidth={2.2} strokeLinejoin="round" />
@@ -224,26 +227,26 @@ export function WaveEditor({ cue, waveform, set, attached, setAttachedAt, cursor
       </svg>
 
       {/* Top row: fade handles, vamp A/B, markers */}
-      <button className="b" aria-label="Fade-in length" title="Drag: fade in" onPointerDown={startDrag({ k: "fadeIn" })} style={handle(x(tIn + cue.fadeIn), TOP - 4, "var(--amb)", true)} />
-      <button className="b" aria-label="Fade-out length" title="Drag: fade out" onPointerDown={startDrag({ k: "fadeOut" })} style={handle(x(tOut - cue.fadeOut), TOP - 4, "var(--amb)", true)} />
+      <button className="b" aria-label={tx("b.wave.fadeInLen")} title={tx("b.wave.dragFadeIn")} onPointerDown={startDrag({ k: "fadeIn" })} style={handle(x(tIn + cue.fadeIn), TOP - 4, "var(--amb)", true)} />
+      <button className="b" aria-label={tx("b.wave.fadeOutLen")} title={tx("b.wave.dragFadeOut")} onPointerDown={startDrag({ k: "fadeOut" })} style={handle(x(tOut - cue.fadeOut), TOP - 4, "var(--amb)", true)} />
       {cue.vamp && (
         <>
-          <button className="b mono" aria-label="Vamp loop start" onPointerDown={startDrag({ k: "vampA" })} style={flag(x(cue.vamp.a), TOP + WAVE_H - 24, "var(--cy)", "var(--oncy)")}>A</button>
-          <button className="b mono" aria-label="Vamp loop end" onPointerDown={startDrag({ k: "vampB" })} style={{ ...flag(x(cue.vamp.b) - 22, TOP + WAVE_H - 24, "var(--cy)", "var(--oncy)"), borderRadius: "6px 0 0 6px" }}>B</button>
+          <button className="b mono" aria-label={tx("b.wave.vampStart")} onPointerDown={startDrag({ k: "vampA" })} style={flag(x(cue.vamp.a), TOP + WAVE_H - 24, "var(--cy)", "var(--oncy)")}>A</button>
+          <button className="b mono" aria-label={tx("b.wave.vampEnd")} onPointerDown={startDrag({ k: "vampB" })} style={{ ...flag(x(cue.vamp.b) - 22, TOP + WAVE_H - 24, "var(--cy)", "var(--oncy)"), borderRadius: "6px 0 0 6px" }}>B</button>
         </>
       )}
       {cue.markers.map((m, i) => (
-        <button key={i} className="b" title="Drag to move · click to rename" onPointerDown={startDrag({ k: "marker", i })} onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
+        <button key={i} className="b" title={tx("b.wave.markerTip")} onPointerDown={startDrag({ k: "marker", i })} onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
           style={flag(x(m.t), 2, "var(--lxbg)", "var(--lx)")}>
           {m.label}
         </button>
       ))}
 
       {/* Bottom row: trim handles and attached cues */}
-      <button className="b mono" aria-label="Trim in" title="Drag: trim in" onPointerDown={startDrag({ k: "in" })} style={flag(x(tIn), H - 26, "var(--hl)", "var(--bg)")}>IN</button>
-      <button className="b mono" aria-label="Trim out" title="Drag: trim out" onPointerDown={startDrag({ k: "out" })} style={{ ...flag(x(tOut) - 38, H - 26, "var(--hl)", "var(--bg)"), borderRadius: "6px 0 0 6px" }}>OUT</button>
+      <button className="b mono" aria-label={tx("b.wave.trimIn")} title={tx("b.wave.dragIn")} onPointerDown={startDrag({ k: "in" })} style={flag(x(tIn), H - 26, "var(--hl)", "var(--bg)")}>IN</button>
+      <button className="b mono" aria-label={tx("b.wave.trimOut")} title={tx("b.wave.dragOut")} onPointerDown={startDrag({ k: "out" })} style={{ ...flag(x(tOut) - 38, H - 26, "var(--hl)", "var(--bg)"), borderRadius: "6px 0 0 6px" }}>OUT</button>
       {attached.map((a) => (
-        <button key={a.id} className="b mono" title={`${a.number} ${a.name}: drag to change when it starts`} onPointerDown={startDrag({ k: "attach", id: a.id })} onClick={(e) => e.stopPropagation()}
+        <button key={a.id} className="b mono" title={tx("b.wave.attachTip", { n: a.number, name: a.name })} onPointerDown={startDrag({ k: "attach", id: a.id })} onClick={(e) => e.stopPropagation()}
           style={flag(x(a.at), H - 52, "var(--amb)", "var(--onamb)")}>
           {a.number}
         </button>

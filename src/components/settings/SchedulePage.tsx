@@ -12,7 +12,7 @@ import { newId } from "../../types";
 import { Chips, Row } from "../controls";
 import { Card, PageTitle } from "./common";
 import { AdminGate } from "./AdminGate";
-import { clearScheduleLog, useScheduleLog } from "../../lib/scheduleLog";
+import { clearScheduleLog, lineText, useScheduleLog } from "../../lib/scheduleLog";
 
 /** Monday first, as on a school timetable. Values are JavaScript's getDay (0 = Sunday). */
 const DAYS: { d: number; label: TKey }[] = [
@@ -85,14 +85,14 @@ function LogCard() {
                 {new Date(l.at).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" })}
               </span>
               <b style={{ flex: "none" }}>{l.entry}</b>
-              <span style={{ color: color[l.level] }}>{l.text}</span>
+              <span style={{ color: color[l.level] }}>{lineText(l)}</span>
             </div>
           ))}
         </div>
       )}
       {lines.length > 0 && (
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="b btn" onClick={() => void navigator.clipboard?.writeText(lines.map((l) => `${new Date(l.at).toLocaleString()} · ${l.entry} · ${l.text}`).join("\n"))}>{t("audac.talkCopy")}</button>
+          <button className="b btn" onClick={() => void navigator.clipboard?.writeText(lines.map((l) => `${new Date(l.at).toLocaleString()} · ${l.entry} · ${lineText(l)}`).join("\n"))}>{t("audac.talkCopy")}</button>
           <button className="b btn btn-ghost" onClick={clearScheduleLog}>{t("sched.logClear")}</button>
         </div>
       )}
@@ -114,7 +114,7 @@ function EntryCard({ e, setup, set, remove }: { e: ScheduleEntry; setup: AudacSe
   return (
     <section style={{ background: "var(--p1)", border: "1px solid var(--line)", borderRadius: 14, padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12, opacity: e.on ? 1 : 0.7 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <button className="b chip" aria-pressed={e.on} onClick={() => set({ on: !e.on })} style={{ width: 56, justifyContent: "center" }}>{e.on ? "ON" : "OFF"}</button>
+        <button className="b chip" aria-pressed={e.on} onClick={() => set({ on: !e.on })} style={{ width: 56, justifyContent: "center" }}>{e.on ? t("s.onTag") : t("s.offTag")}</button>
         <input className="input" aria-label={t("sched.name")} value={e.name} onChange={(ev) => set({ name: ev.target.value })} style={{ flex: 1, fontSize: 16, fontWeight: 700 }} />
         <input className="input mono" type="time" aria-label={t("sched.from")} value={e.from} onChange={(ev) => set({ from: ev.target.value })} style={{ width: 110 }} />
         <span aria-hidden="true">→</span>
@@ -153,8 +153,8 @@ function EntryCard({ e, setup, set, remove }: { e: ScheduleEntry; setup: AudacSe
       {e.zoneVolumes && e.zones.map((z) => {
         const v = volumeFor(e, z);
         return (
-          <Row key={z} label={setup.zones[z - 1]?.name || `Zone ${z}`}>
-            <input type="range" aria-label={`${setup.zones[z - 1]?.name || z} ${t("sched.level")}`} min={0} max={MIN_VOLUME} value={MIN_VOLUME - v}
+          <Row key={z} label={setup.zones[z - 1]?.name || t("s.audac.zoneN", { n: z })}>
+            <input type="range" aria-label={t("s.sched.zoneLevel", { zone: setup.zones[z - 1]?.name || z })} min={0} max={MIN_VOLUME} value={MIN_VOLUME - v}
               onChange={(ev) => set({ zoneVolumes: { ...e.zoneVolumes, [String(z)]: MIN_VOLUME - Number(ev.target.value) } })} style={{ flex: 1 }} />
             <span className="mono" style={{ width: 64, textAlign: "right" }}>−{v} dB</span>
           </Row>
@@ -210,7 +210,7 @@ function EntryCard({ e, setup, set, remove }: { e: ScheduleEntry; setup: AudacSe
           <span className="mono" style={{ fontSize: 13, minWidth: 40 }}>{e.music.boxVolume ?? BOX_VOLUME}%</span>
         </Row>
       )}
-      {problem && <span style={{ fontSize: 12.5, color: "var(--redtx)", fontWeight: 700 }}>{t("sched.lastTime")} {problem}</span>}
+      {problem && <span style={{ fontSize: 12.5, color: "var(--redtx)", fontWeight: 700 }}>{t("sched.lastTime")} {t(problem.key, problem.vars)}</span>}
       <span style={{ fontSize: 12.5, color: "var(--mute)", borderTop: "1px dashed var(--line)", paddingTop: 8 }}>
         {next ? `${t("sched.next")} ${next.toLocaleString(undefined, { weekday: "long", hour: "2-digit", minute: "2-digit" })}` : t("sched.never")}
       </span>

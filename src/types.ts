@@ -2,6 +2,9 @@
 
 export type Curve = "linear" | "sCurve" | "exponential";
 
+/** What starting this cue does to what is already playing (see show::Exclusive). */
+export type Exclusive = "off" | "stop" | "fade" | "crossfade";
+
 export interface Notes { sound: string; lx: string; stage: string }
 
 export type Follow =
@@ -45,7 +48,10 @@ export interface Cue {
   follow: Follow;
   duckBg: boolean;
   underDb: number | null;
-  fadeGo: number | null;
+  /** Stop / fade / crossfade the others when this cue starts. */
+  exclusive: Exclusive;
+  /** Fade or crossfade time for `exclusive`, seconds. */
+  exclusiveSecs: number;
   vamp: Vamp | null;
   markers: Marker[];
   attach: Attach | null;
@@ -184,7 +190,7 @@ export function newCue(partial: Partial<Cue> = {}): Cue {
     eq: defaultEq(), comp: defaultCompressor(),
     fadeIn: 0, fadeOut: 0, stopFade: 1, curve: "sCurve",
     preWait: 0, playCount: 1, follow: { kind: "none" },
-    duckBg: true, underDb: null, fadeGo: null, vamp: null, markers: [], attach: null,
+    duckBg: true, underDb: null, exclusive: "off", exclusiveSecs: 2, vamp: null, markers: [], attach: null,
     loudness: null, swappedFrom: null,
     ...partial,
   };
@@ -345,5 +351,23 @@ export function fillNumbers(show: Show): Show {
   return {
     ...show,
     sections: show.sections.map((s) => (s.cues.some((c) => nums.has(c.id)) ? { ...s, cues: s.cues.map((c) => (nums.has(c.id) ? { ...c, number: nums.get(c.id)! } : c)) } : s)),
+  };
+}
+
+/**
+ * Brings a show from an older file up to date (the Rust side does the same in show::load).
+ * Old "Fade & GO n s" (fadeGo) becomes exclusive "fade" over n s.
+ */
+export function upgradeShow(show: Show): Show {
+  const fix = (c: Cue): Cue => {
+    const old = c as Cue & { fadeGo?: number | null };
+    const { fadeGo, ...rest } = old;
+    if (fadeGo != null && (!c.exclusive || c.exclusive === "off")) return { ...rest, exclusive: "fade", exclusiveSecs: fadeGo };
+    return { ...rest, exclusive: rest.exclusive ?? "off", exclusiveSecs: rest.exclusiveSecs ?? 2 };
+  };
+  return {
+    ...show,
+    sections: show.sections.map((sec) => ({ ...sec, cues: sec.cues.map(fix) })),
+    pads: show.pads.map((p) => ({ ...p, cue: fix(p.cue) })),
   };
 }
