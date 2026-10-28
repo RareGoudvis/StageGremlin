@@ -150,6 +150,24 @@
     return { position: null, duration: null };
   }
 
+  // Signed in? false when the page shows a log-in button, true when it shows the account
+  // (Spotify), null when we can't tell. Best effort: only used to warn, never to block.
+  function signedIn() {
+    try {
+      if (location.hostname.indexOf("spotify.com") >= 0) {
+        if (document.querySelector('[data-testid="login-button"]')) return false;
+        if (document.querySelector('[data-testid="user-widget-link"], [data-testid="user-widget-avatar"]')) return true;
+        return null;
+      }
+      var els = document.querySelectorAll("a, button, tp-yt-paper-button, ytmusic-button-renderer");
+      for (var i = 0; i < els.length && i < 400; i++) {
+        var t = (els[i].textContent || "").trim();
+        if (/^(log ?in|sign ?in|inloggen|aanmelden)$/i.test(t)) return false;
+      }
+    } catch (e) {}
+    return null;
+  }
+
   function report() {
     var t = window.__TAURI_INTERNALS__;
     if (!t || typeof t.invoke !== "function") return;
@@ -168,7 +186,8 @@
       duration: p.duration,
       hasMediaSession: Object.keys(handlers).length > 0,
       url: location.href,
-      tracks: tracks
+      tracks: tracks,
+      signedIn: signedIn()
     };
     try {
       var r = t.invoke("plugin:cueplay-bg|report", { report: payload });
@@ -194,6 +213,29 @@
       setTimeout(report, 100);
     },
     next: function () { callHandler("nexttrack"); setTimeout(report, 300); },
+    // Spotify only: shuffle true/false and repeat "off"/"all"/"one" (null = leave it). Clicks the
+    // page's own buttons until they say what we want (shuffle has 3 steps incl. Smart Shuffle,
+    // repeat has 3 too), at most a few clicks so a changed page can't make us click forever.
+    shuffleRepeat: function (shuffle, repeat) {
+      if (location.hostname.indexOf("spotify.com") < 0) return;
+      var tries = 0;
+      (function step() {
+        tries++;
+        var busy = false;
+        var sb = document.querySelector('[data-testid="control-button-shuffle"]');
+        if (sb && shuffle !== null && shuffle !== undefined) {
+          var on = sb.getAttribute("aria-checked") === "true";
+          if (on !== !!shuffle) { sb.click(); busy = true; }
+        }
+        var rb = document.querySelector('[data-testid="control-button-repeat"]');
+        if (rb && repeat) {
+          var st = rb.getAttribute("aria-checked"); // "false" = off, "true" = all, "mixed" = one
+          var now = st === "mixed" ? "one" : st === "true" ? "all" : "off";
+          if (now !== repeat) { rb.click(); busy = true; }
+        }
+        if (busy && tries < 4) setTimeout(step, 600);
+      })();
+    },
     // Spotify only: play on another Spotify Connect device (e.g. the streambox) by clicking through
     // the player's own device list, like a person would. `name`: part of the device's name; empty =
     // back to this window ("This web browser"). Best effort: Spotify changes its page now and then.

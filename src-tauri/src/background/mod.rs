@@ -161,6 +161,8 @@ pub struct PlayerState {
     pub level_db: f32,
     /// Faded out (crossfaded away or paused with a fade).
     pub held: bool,
+    /// Is someone signed in to the service in this player? None = can't tell (yet).
+    pub signed_in: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -183,6 +185,8 @@ pub struct PageReport {
     pub has_media_session: bool,
     pub url: Option<String>,
     pub tracks: Option<Vec<BgTrack>>,
+    /// See PlayerState::signed_in (inject.js, signedIn).
+    pub signed_in: Option<bool>,
 }
 
 /// Saved per machine in `<dataDir>/background.json` (later per show, under `show.background`).
@@ -224,6 +228,22 @@ const JS_PLAY: &str = "window.__cueplayBg && window.__cueplayBg.play()";
 const JS_PAUSE: &str = "window.__cueplayBg && window.__cueplayBg.pause()";
 const JS_NEXT: &str = "window.__cueplayBg && window.__cueplayBg.next()";
 const JS_PREV: &str = "window.__cueplayBg && window.__cueplayBg.prev()";
+
+/// Spotify: set shuffle (on/off) and repeat ("off", "all", "one"); None leaves that one as it is.
+/// Clicks Spotify's own buttons (inject.js, shuffleRepeat).
+#[tauri::command]
+pub fn bg_shuffle_repeat(app: AppHandle, state: State<'_, BgHandle>, shuffle: Option<bool>, repeat: Option<String>) -> Result<(), String> {
+    if app.get_webview_window(&window::label(BgSource::Spotify)).is_none() {
+        return Err("Open Spotify in the background player first.".into());
+    }
+    let js = format!(
+        "window.__cueplayBg && window.__cueplayBg.shuffleRepeat({}, {})",
+        serde_json::to_string(&shuffle).map_err(|e| e.to_string())?,
+        serde_json::to_string(&repeat).map_err(|e| e.to_string())?
+    );
+    state.lock().evals_on.push((BgSource::Spotify, js));
+    Ok(())
+}
 
 /// Spotify: play on another Spotify Connect device (`name`, part of its name), or back in the
 /// player window itself (empty). Clicks through Spotify's own device list (inject.js, connect).
@@ -331,6 +351,7 @@ impl Inner {
                         duration: p.duration,
                         level_db: self.mixer.level(*src),
                         held: self.mixer.is_held(*src),
+                        signed_in: p.signed_in,
                     })
                 })
                 .collect(),
