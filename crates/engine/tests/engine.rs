@@ -245,7 +245,13 @@ fn under_toggles_and_reports() {
     let mut e = engine();
     e.set_show(s, Some(base));
     e.go();
-    run(&mut e, 0.1);
+    // The file opens on the loader thread; on a busy machine that can take longer than one tick.
+    for _ in 0..200 {
+        run(&mut e, 0.01);
+        if !e.state().running.is_empty() {
+            break;
+        }
+    }
     e.toggle_under(None);
     assert!(e.state().running[0].under);
     e.toggle_under(None);
