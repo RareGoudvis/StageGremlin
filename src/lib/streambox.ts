@@ -50,6 +50,18 @@ export const streambox = {
   report: () => cmd<SendReport>("streambox_sending", {}),
 };
 
+/** The box's name in Spotify's device list: the setting, else its own name (unless that's only an ID), else "Stream_Box". */
+export function connectName(): string {
+  const box = useSettings.getState().ui.streambox;
+  return box.connectName?.trim() || (box.name && !/^[0-9a-f-]{16,}$/i.test(box.name) ? box.name : "Stream_Box");
+}
+
+/** Spotify Connect: play Spotify on the box (true) or back in the background player (false). */
+export async function spotifyToBox(on: boolean): Promise<void> {
+  if (!isTauri) return;
+  await invoke("bg_spotify_connect", { name: on ? connectName() : "" });
+}
+
 /** Live status while mounted (null = not asked yet). `error` says why the box doesn't answer. */
 export function useStreambox(): { status: BoxStatus | null; error: string | null; refresh: () => void } {
   const box = useSettings((s) => s.ui.streambox);

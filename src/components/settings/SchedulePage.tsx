@@ -135,6 +135,13 @@ function EntryCard({ e, setup, set, remove }: { e: ScheduleEntry; setup: AudacSe
             onChange={(ev) => set({ music: { ...e.music, link: ev.target.value } })} style={{ flex: 1, minWidth: 0, fontSize: 12.5 }} />
         )}
       </Row>
+      {e.music.source === "spotify" && (
+        <Row label="" hint={t("sched.onBoxHint")}>
+          <button className="b chip" aria-pressed={!!e.music.onBox} onClick={() => set({ music: { ...e.music, onBox: !e.music.onBox } })} title={t("sched.onBoxHint")}>
+            {e.music.onBox ? `✓ ${t("sched.onBox")}` : t("sched.onBox")}
+          </button>
+        </Row>
+      )}
       <span style={{ fontSize: 12.5, color: "var(--mute)", borderTop: "1px dashed var(--line)", paddingTop: 8 }}>
         {next ? `${t("sched.next")} ${next.toLocaleString(undefined, { weekday: "long", hour: "2-digit", minute: "2-digit" })}` : t("sched.never")}
       </span>

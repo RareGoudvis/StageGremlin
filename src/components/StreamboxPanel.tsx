@@ -5,9 +5,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSettings } from "../settingsStore";
-import { streambox, useStreambox, type SendReport } from "../lib/streambox";
-import { call, isTauri } from "../lib/tauri";
-import { invoke } from "@tauri-apps/api/core";
+import { spotifyToBox, streambox, useStreambox, type SendReport } from "../lib/streambox";
+import { call } from "../lib/tauri";
 import { create } from "zustand";
 import { toast } from "../uiStore";
 import { useT } from "../i18n";
@@ -55,12 +54,10 @@ const useConnect = create<{ onBox: boolean }>(() => ({ onBox: false }));
 /** Spotify Connect: play straight on the box (the laptop plays nothing), or back in the player. */
 function SpotifyConnect() {
   const t = useT();
-  const box = useSettings((s) => s.ui.streambox);
   const onBox = useConnect((s) => s.onBox);
-  const name = box.connectName?.trim() || (box.name && !/^[0-9a-f-]{16,}$/i.test(box.name) ? box.name : "Stream_Box");
   const go = async (toBox: boolean) => {
     try {
-      if (isTauri) await invoke("bg_spotify_connect", { name: toBox ? name : "" });
+      await spotifyToBox(toBox);
       useConnect.setState({ onBox: toBox });
       toast(toBox ? t("sbx.connectAsked") : t("sbx.connectBack"));
     } catch (e) {
