@@ -93,7 +93,8 @@ Use Build mode unless the step says Run.
    preferred device is not found and it plays on the default output; it does **not** stop working.
 2. Pick another output (e.g. your USB headset). Play a cue.
    **Good:** the sound comes out of that device.
-3. **Unplug test** (USB device only): set the USB device as the output, start a long song, then **pull the USB plug**.
+3. **Unplug test** (optional, USB device only — not needed for the Qu-24: its USB-B plug stays put, and if the desk
+   itself dies all hall sound is gone anyway): set the USB device as the output, start a long song, then **pull the USB plug**.
    **Good:** the song carries on from the laptop speakers within a second or two. A message says the output was
    lost, and the log has an "output" line (maybe a "rescue" line). The song does not restart from the beginning.
 4. **Replug**: plug it back in, stop all sound and wait ~5 s.

@@ -62,8 +62,9 @@ npm run build                             # type-check + build the UI
 ## Status (v1.0.0, 27 Oct 2026)
 
 Everything in the brief is written. Tested on the school's Windows laptop with the real AUDAC MTX88 (zones, names,
-schedule, Touch 2 detection), and a real show played over the laptop's aux output. Still untested: the Qu-24 over USB
-(its dropout rescue and switch-back).
+schedule, Touch 2 detection), and a real show played over the laptop's aux output. Still to do: one run on the Qu-24 over USB
+(plays, levels, limiter). USB dropout is not a test goal: the USB-B plug stays put, and if the desk dies all sound is
+gone anyway (owner's call, 28 Oct 2026); the rescue code stays as a harmless safety net.
 `docs/TESTING.md` is the test plan. Code that only runs on Windows (background volume sessions, keep-awake,
 explorer /select, WebView2 data dir, yt-dlp/ffmpeg) compiles but is untested.
 
@@ -95,7 +96,7 @@ Next: run docs/TESTING.md on Windows, fix what breaks; Run keys (Space/Esc/S/U/V
 - Output device: chosen by name (default "Qu-24", per machine in `<dataDir>/settings.json`), falling back to the
   Windows default when missing; switches back while idle. USB dropout mid-show: kira moves running sound to the default
   output itself; src-tauri logs it and, as a safety net, rebuilds + restarts cues at their last positions if sound
-  stalls. Untested on the real Qu-24 (M0/M8 dry run still needed).
+  stalls. Kept as a safety net only; not something to test or build further (see Status).
 - Kira's streaming decoder buffers ~0.34 s ahead, so loop/vamp changes land that late. Fine for songs; very short
   repeating jingles may play one pass too many. If that matters, play short multi-pass cues as static sounds.
 - "GO within 20 ms" needs pre-loading the standing-by cue (open the file and prime the decoder before GO).
