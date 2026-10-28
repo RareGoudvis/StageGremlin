@@ -113,6 +113,10 @@ Build from ``$sha`` (built locally). Not tested on a real show yet — see docs/
 "@
 # 0.x builds were test builds (pre-release); from 1.0 on every build is a full release.
 $pre = if ($version.StartsWith("0.")) { @("--prerelease") } else { @("--latest") }
-gh release create $tag "$out/StageGremlin-portable.zip" "$out/StageGremlin-setup.exe" --target $sha --title "StageGremlin $tag" --notes $notes @pre
+# The notes go through a file: Windows PowerShell 5.1 splits a multi-line text argument, and gh then
+# takes the pieces for file names ("no matches found for `-`").
+$notesFile = Join-Path $env:TEMP "sg-release-notes.md"
+[IO.File]::WriteAllText($notesFile, $notes, (New-Object Text.UTF8Encoding $false))
+gh release create $tag "$out/StageGremlin-portable.zip" "$out/StageGremlin-setup.exe" --target $sha --title "StageGremlin $tag" --notes-file $notesFile @pre
 if ($LASTEXITCODE) { throw "Uploading the release failed." }
 Write-Host "Published $tag"
