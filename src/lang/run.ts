@@ -15,7 +15,7 @@ export const en = {
   // now playing
   "r.np.paused": "PAUSED · P to resume",
   "r.np.loopPass": "loop · pass {n}", "r.np.pass": "pass {n} / {of}",
-  "r.np.under": "UNDER {db} dB", "r.np.underBtn": "UNDER {db} dB · U", "r.np.backUp": "BACK UP · U",
+  "r.np.under": "DUCKED {db} dB", "r.np.underBtn": "DUCK {db} dB · U", "r.np.backUp": "BACK UP · U",
   "r.np.vamping": "VAMPING", "r.np.stopping": "STOPPING", "r.np.releaseVamp": "RELEASE VAMP · V", "r.np.stopThis": "Stop this · S",
   "r.np.original": "Original: {file}", "r.np.swappedFile": "SWAPPED FILE", "r.np.undo": "UNDO", "r.np.swapBtn": "Swap…",
   "r.np.markerIn": "{name} in {t}", "r.np.alsoPlaying": "Also playing", "r.np.showInCard": "Show this one in the card",
@@ -124,6 +124,7 @@ export const en = {
   "r.notes.tab": "Notes", "r.notes.now": "Playing now", "r.notes.standby": "Standby", "r.notes.then": "Then", "r.notes.none": "No notes.",
   "r.notes.empty": "Nothing playing or standing by.",
   "r.later.title": "After that · {n}", "r.later.none": "Nothing after this.", "r.big.notes": "Notes",
+  "r.big.startsIn": "Starts in {t}", "r.dumbo.paused": "PAUSED · press here to carry on", "r.dumbo.release": "RELEASE LOOP · V",
 } as const;
 
 export const nl: Partial<Record<keyof typeof en, string>> = {
@@ -236,4 +237,5 @@ export const nl: Partial<Record<keyof typeof en, string>> = {
   "r.notes.tab": "Notities", "r.notes.now": "Speelt nu", "r.notes.standby": "Klaar", "r.notes.then": "Dan", "r.notes.none": "Geen notities.",
   "r.notes.empty": "Er speelt niets en er staat niets klaar.",
   "r.later.title": "Daarna · {n}", "r.later.none": "Daarna komt er niets meer.", "r.big.notes": "Notities",
+  "r.big.startsIn": "Start over {t}", "r.dumbo.paused": "GEPAUZEERD · druk hier om verder te gaan", "r.dumbo.release": "LUS LOSLATEN · V",
 };

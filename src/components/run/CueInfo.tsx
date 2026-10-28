@@ -2,8 +2,11 @@
 // - CueNotes: a cue's sound / light / stage notes, each in its own colour.
 // - LaterList: every GO cue still to come after the standby cue ("After that"), with its length.
 // - NotesDock: the dock's Notes tab — notes of what plays now, what stands by, and the one after.
+// - PendingLine: cues that start by themselves soon (pre-wait, follow), with a countdown.
+// - PausedOverlay: the amber PAUSED block over a now-playing card (P = pause all).
 
 import { useDoc } from "../../store";
+import { pauseAll } from "../../lib/runActions";
 import { useEngine } from "../../engineStore";
 import type { Cue } from "../../types";
 import { goQueue, trimmedLen } from "../../types";
@@ -11,6 +14,51 @@ import { findCue } from "../../lib/showOps";
 import { mainRunning } from "../../lib/showMath";
 import { fmtTime } from "../../lib/format";
 import { useT } from "../../i18n";
+
+/** Cues that start by themselves soon: "5 pre-wait in 0:04". Nothing when none are waiting. */
+export function PendingLine({ scale = 1 }: { scale?: number }) {
+  const t = useT();
+  const show = useDoc((s) => s.show);
+  const pending = useEngine((s) => s.state?.pending) ?? [];
+  if (!pending.length) return null;
+  return (
+    <div style={{ display: "flex", gap: 6 * scale, flexWrap: "wrap", alignItems: "center" }}>
+      <span className="k" style={{ fontSize: 11 * scale }}>{t("r.np.firesItself")}</span>
+      {pending.map((p, i) => {
+        const c = findCue(show, p.cueId);
+        return (
+          <span key={i} className="mono" style={{ fontSize: 13 * scale, padding: `${4 * scale}px ${8 * scale}px`, borderRadius: 6 * scale, background: "var(--p3)", color: "var(--acc)" }}>
+            {t(p.kind === "preWait" ? "r.np.preWaitIn" : "r.np.pendingIn", { n: c?.number ?? "", t: fmtTime(p.inSecs) })}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+/** The first cue waiting out its pre-wait (GO was pressed, it hasn't started yet), with seconds left. */
+export function usePreWaiting(): { cue: Cue; inSecs: number } | null {
+  const show = useDoc((s) => s.show);
+  const p = useEngine((s) => s.state?.pending?.find((x) => x.kind === "preWait"));
+  const cue = p ? findCue(show, p.cueId) : null;
+  return p && cue ? { cue, inSecs: p.inSecs } : null;
+}
+
+/**
+ * Everything is paused (P): an amber block across the whole card, impossible to miss in a dark booth.
+ * Clicking it resumes. The card needs position: relative. `text` differs per screen (Dumbo has no P key).
+ */
+export function PausedOverlay({ text, radius = 16, size = 40 }: { text: string; radius?: number; size?: number }) {
+  const paused = useEngine((s) => !!s.state?.paused);
+  if (!paused) return null;
+  return (
+    <div role="alert" onClick={() => pauseAll()} style={{ position: "absolute", inset: 0, zIndex: 5, borderRadius: radius, background: "rgba(0,0,0,.55)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 16 }}>
+      <span className="cond" style={{ padding: "14px 28px", borderRadius: 12, background: "var(--amb)", color: "var(--onamb)", fontSize: size, fontWeight: 800, letterSpacing: ".06em", textAlign: "center" }}>
+        {text}
+      </span>
+    </div>
+  );
+}
 
 /** Sound, light and stage notes of one cue. `scale` makes everything bigger for Big / Dumbo mode. */
 export function CueNotes({ cue, scale = 1, showEmpty }: { cue: Cue; scale?: number; showEmpty?: boolean }) {

@@ -1,7 +1,10 @@
 // Dumbo mode ("Dumbo-modus"): a Run screen for someone who has never run sound.
 // What plays now (timeline + big time left), what's next (its length, its sound note, "starts by itself"
 // when it follows), the rest of the show after it (read only), one huge GO and STOP ALL.
-// Pads only when switched on in Settings. Long names wrap instead of being cut off. Only GO, Stop all (twice = Panic) and pad keys work.
+// Pads only when switched on in Settings. Long names wrap instead of being cut off.
+// It also shows what the helper must know about the state: a cue waiting out its pre-wait ("starts in 0:04"),
+// PAUSED (with a press-to-continue block, since P doesn't work here) and, only while a cue loops on a vamp,
+// a Release loop button (V works too). Only GO, Stop all (twice = Panic) and pad keys work.
 // Leaving: hold the small corner button for 3 s, or type the PIN when one is set in Settings.
 
 import { useEffect, useRef, useState } from "react";
@@ -13,10 +16,10 @@ import { useSettings, isAction } from "../settingsStore";
 import { tr, useT } from "../i18n";
 import { findCue } from "../lib/showOps";
 import { mainRunning } from "../lib/showMath";
-import { firePad, firePadByKey, go, panic, stopAll } from "../lib/runActions";
+import { firePad, firePadByKey, go, panic, releaseVamp, stopAll } from "../lib/runActions";
 import { fmtTime } from "../lib/format";
 import { trimmedLen } from "../types";
-import { LaterList } from "../components/run/CueInfo";
+import { LaterList, PausedOverlay, PendingLine, usePreWaiting } from "../components/run/CueInfo";
 import { GoLockBar, useGoLocked } from "../components/run/GoLock";
 
 const DOUBLE_ESC_MS = 500;
@@ -33,7 +36,9 @@ export function DumboView() {
   const [askPin, setAskPin] = useState(false);
 
   const run = mainRunning(running);
-  const now = run ? findCue(show, run.cueId) : null;
+  const waiting = usePreWaiting();
+  // GO was pressed on a cue with a pre-wait: show it as "starts in 0:04" so the helper sees the press landed.
+  const now = run ? findCue(show, run.cueId) : waiting?.cue ?? null;
   const next = findCue(show, playhead);
   const pads = showPads ? show.pads.filter((p) => p.hotkey) : [];
 
@@ -55,6 +60,8 @@ export function DumboView() {
       (document.activeElement as HTMLElement | null)?.blur?.();
       if (isAction(e, "go") || isAction(e, "goAlt")) {
         if (!e.repeat) void go();
+      } else if (isAction(e, "releaseVamp")) {
+        releaseVamp(null); // only does something while a cue loops on a vamp
       } else if (isAction(e, "stopAll")) {
         const n = performance.now();
         if (n - lastEsc < DOUBLE_ESC_MS) { panic(); lastEsc = 0; } else { stopAll(); lastEsc = n; }
@@ -86,10 +93,20 @@ export function DumboView() {
     <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(0, 1.3fr) minmax(0, 1fr)", gridTemplateRows: `minmax(0, 1fr)${pads.length ? " auto" : ""}`, gap: 18, padding: 18 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 18, minHeight: 0 }}>
         {/* What plays now: name, a big timeline, and the time left. */}
-        <section style={{ flex: "none", borderRadius: 20, background: "var(--p1)", border: `2px solid ${run ? "var(--acc)" : "var(--line)"}`, padding: "20px 28px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 12 }}>
-          <span className="k" style={{ fontSize: 14, color: run ? "var(--acc)" : undefined }}>{run ? t("dumbo.now") : t("dumbo.nothing")}</span>
+        <section style={{ position: "relative", flex: "none", borderRadius: 20, background: "var(--p1)", border: `2px solid ${run || waiting ? "var(--acc)" : "var(--line)"}`, padding: "20px 28px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 12 }}>
+          <PausedOverlay text={t("r.dumbo.paused")} radius={20} size={34} />
+          <span className="k" style={{ fontSize: 14, color: run || waiting ? "var(--acc)" : undefined }}>
+            {run ? t("dumbo.now") : waiting ? t("r.big.startsIn", { t: fmtTime(waiting.inSecs) }) : t("dumbo.nothing")}
+          </span>
           {now && <span className="cond" style={{ fontSize: 44, fontWeight: 800, lineHeight: 1.05, ...twoLines }}>{now.name}</span>}
           {run && <Timeline position={run.position} length={run.length} big />}
+          {run?.vamping && (
+            <button className="b cond" tabIndex={-1} onClick={() => releaseVamp(run.cueId)}
+              style={{ height: 64, borderRadius: 14, background: "var(--cy)", color: "var(--oncy)", fontSize: 26, fontWeight: 800, letterSpacing: ".04em" }}>
+              {t("r.dumbo.release")}
+            </button>
+          )}
+          <PendingLine scale={1.4} />
         </section>
         {/* What GO plays next, its length as an empty timeline, and its sound note. */}
         <section style={{ flex: "none", borderRadius: 20, background: "var(--p2)", padding: "20px 28px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 12 }}>

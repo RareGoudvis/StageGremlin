@@ -5,7 +5,7 @@ import { useDoc } from "../../store";
 import type { Cue, RunningInfo } from "../../types";
 import { findCue } from "../../lib/showOps";
 import { fmtTime } from "../../lib/format";
-import { pauseAll, releaseVamp, stopCue, toggleUnder } from "../../lib/runActions";
+import { releaseVamp, stopCue, toggleUnder } from "../../lib/runActions";
 import { useEngine } from "../../engineStore";
 import { showRunning } from "../../lib/showMath";
 import { openMenu } from "../ContextMenu";
@@ -13,6 +13,7 @@ import { nowPlayingMenu } from "../../lib/menus";
 import { useUi } from "../../uiStore";
 import { undoSwap } from "./SwapDialog";
 import { useT } from "../../i18n";
+import { PausedOverlay } from "./CueInfo";
 
 const WARN_SECS = 10;
 
@@ -25,7 +26,6 @@ export function NowPlaying({ run, standbyId, onFocus }: {
   const t = useT();
   const others = showRunning(useEngine((s) => s.state?.running));
   const pending = useEngine((s) => s.state?.pending) ?? [];
-  const paused = useEngine((s) => !!s.state?.paused);
   const cue = run ? findCue(show, run.cueId) : findCue(show, standbyId);
   const underDb = cue?.underDb ?? show.settings.underDb;
 
@@ -38,14 +38,7 @@ export function NowPlaying({ run, standbyId, onFocus }: {
       flex: "none", borderRadius: 16, background: "var(--p1)", border: `1px solid ${run ? "var(--acc)" : "var(--line)"}`,
       padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10,
     }}>
-      {paused && (
-        // Across the whole card: impossible to miss in a dark booth.
-        <div role="alert" onClick={() => pauseAll()} style={{ position: "absolute", inset: 0, zIndex: 5, borderRadius: 16, background: "rgba(0,0,0,.55)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-          <span className="cond" style={{ padding: "14px 28px", borderRadius: 12, background: "var(--amb)", color: "var(--onamb)", fontSize: 40, fontWeight: 800, letterSpacing: ".06em" }}>
-            {t("r.np.paused")}
-          </span>
-        </div>
-      )}
+      <PausedOverlay text={t("r.np.paused")} />
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", minHeight: 34 }}>
         <span className="k" style={{ color: run ? "var(--acc)" : "var(--mute)" }}>{run ? t("run.nowPlaying") : t("run.silence")}</span>
         {run && (

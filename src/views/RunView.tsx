@@ -29,7 +29,7 @@ import { bg, bgDo } from "../components/background/useBackground";
 import { setLocalOverlay } from "../lib/emergencyKeys";
 import { RunDialogArea } from "../components/RunDialogHost";
 import { tr, useT } from "../i18n";
-import { CueNotes, LaterList } from "../components/run/CueInfo";
+import { CueNotes, LaterList, PausedOverlay, PendingLine, usePreWaiting } from "../components/run/CueInfo";
 import { GoLockBar, useGoLocked } from "../components/run/GoLock";
 
 const DOUBLE_ESC_MS = 500;
@@ -223,23 +223,34 @@ function RehearsalStrip() {
 /**
  * Big mode: GO, what's playing (time left + all its notes), what stands by (all its notes)
  * and the rest of the show underneath, as large as fits. Long names wrap instead of being cut off.
+ * Like Run it shows a cue waiting out its pre-wait ("starts in 0:04"), the PAUSED block and Release vamp.
  */
 function BigRun({ run, playhead }: { run: ReturnType<typeof mainRunning>; playhead: string | null }) {
   const show = useDoc((s) => s.show);
   const t = useT();
-  const now = run ? findCue(show, run.cueId) : null;
+  const waiting = usePreWaiting();
+  // Nothing plays yet but GO was pressed on a cue with a pre-wait: show that cue, so the press clearly landed.
+  const now = run ? findCue(show, run.cueId) : waiting?.cue ?? null;
   const next = findCue(show, playhead);
   const twoLines = { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } as const;
+  const label = run ? t("run.nowPlaying") : waiting ? t("r.big.startsIn", { t: fmtTime(waiting.inSecs) }) : t("r.silence");
   return (
     <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(0, 1fr) 420px", gap: 16, padding: 16 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 14, minHeight: 0 }}>
-        <div style={{ flex: "none", borderRadius: 18, background: "var(--p1)", border: `1px solid ${run ? "var(--acc)" : "var(--line)"}`, padding: "20px 26px", display: "flex", flexDirection: "column", gap: 12, justifyContent: "center" }}>
-          <span className="k" style={{ color: run ? "var(--acc)" : undefined }}>{run ? t("run.nowPlaying") : t("r.silence")}</span>
+        <div style={{ position: "relative", flex: "none", borderRadius: 18, background: "var(--p1)", border: `1px solid ${run || waiting ? "var(--acc)" : "var(--line)"}`, padding: "20px 26px", display: "flex", flexDirection: "column", gap: 12, justifyContent: "center" }}>
+          <PausedOverlay text={t("r.np.paused")} radius={18} size={48} />
+          <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span className="k" style={{ color: run || waiting ? "var(--acc)" : undefined, flex: 1 }}>{label}</span>
+            {run?.vamping && (
+              <button className="b btn" tabIndex={-1} onClick={() => releaseVamp(run.cueId)} style={{ height: 44, padding: "0 18px", fontSize: 16, background: "var(--cy)", color: "var(--oncy)", fontWeight: 800 }}>{t("r.np.releaseVamp")}</button>
+            )}
+          </span>
           <span className="cond" style={{ fontSize: 58, fontWeight: 800, lineHeight: 1.02, ...twoLines }}>
             <span className="mono" style={{ color: "var(--acc)", fontSize: 44 }}>{now?.number ?? ""}</span> {now?.name ?? "—"}
           </span>
           {run && <span className="mono" style={{ fontSize: 96, fontWeight: 600, lineHeight: 1 }}>−{fmtTime(run.remaining)}</span>}
           {now && <CueNotes cue={now} scale={1.5} />}
+          <PendingLine scale={1.4} />
         </div>
         <div style={{ flex: "none", borderRadius: 18, background: "var(--p2)", padding: "16px 24px", display: "flex", flexDirection: "column", gap: 8 }}>
           <span className="k" style={{ color: "var(--acc)" }}>{t("run.standby")}</span>

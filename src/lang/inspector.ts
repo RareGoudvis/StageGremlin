@@ -35,7 +35,7 @@ export const en = {
   "i.withShow": "With the rest of the show", "i.attach": "Attach to", "i.attachHint": "Starts by itself at a moment inside another cue; skips the GO queue",
   "i.attachHasChildren": "Other cues are attached to this one", "i.attachNone": "— not attached (GO cue) —",
   "i.attachAt": "Attach time", "i.attachAtUnit": "s in",
-  "i.background": "Background", "i.bg.ducks": "Ducks the background", "i.bg.leaves": "Leaves it", "i.hpf": "High-pass",
+  "i.background": "Background", "i.bg.ducks": "Lowers the background", "i.bg.leaves": "Leaves it", "i.hpf": "High-pass",
   "i.excl": "When this starts, the others…", "i.excl.off": "Play on", "i.excl.stop": "Stop", "i.excl.fade": "Fade out", "i.excl.cross": "Crossfade",
   "i.excl.offHint": "What is already playing keeps playing.",
   "i.excl.stopHint": "Everything that is playing stops at once when this cue starts.",

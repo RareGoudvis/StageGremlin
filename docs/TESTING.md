@@ -62,7 +62,7 @@ Use Build mode unless the step says Run.
    **Good:** it plays 3 times, and the pass counter goes 1/3, 2/3, 3/3. A count of 0 loops until stopped.
 10. **Vamp + V**: set a vamp loop region on a song and play it. Press **V**.
     **Good:** the loop repeats until V, then the song plays on to the end.
-11. **Under + U**: while a cue plays, press **U**, then **U** again.
+11. **Duck + U** (the button reads "DUCK −12 dB · U"; Dutch "ZACHTER"): while a cue plays, press **U**, then **U** again.
     **Good:** the cue drops ~12 dB with a fade, then comes back up.
 12. **Exclusive cues** (Timing › "When this starts, the others…"): set a cue to Stop, then Fade out (2 s), then
     Crossfade (3 s), and fire it each time while another cue plays.
@@ -74,6 +74,10 @@ Use Build mode unless the step says Run.
 12c. **Too fast?** In Run, press GO two cues too far, unfold "Al gespeeld" above the list, and use Spring naar on the
     cue that should have played (or Maak volgende to play it once more).
     **Good:** that cue stands by again and GO plays it; with Maak volgende the show carries on after it.
+12d. **Big mode (Ctrl+B) and Dumbo mode show the state**: give a cue a 5 s pre-wait, a vamp, and press P once in Run.
+    **Good:** after GO on the pre-wait cue, both screens say "Start over 0:05 · <cue>" counting down (not "Er speelt
+    niets"). While paused, an amber GEPAUZEERD block covers the now-playing card (Dumbo: pressing it carries on).
+    While the vamp loops, a cyan LUS LOSLATEN · V button shows; it (or V) lets the song play on to its end.
 13. **Save / reopen**: save the show as `test.sg` in a new folder, close the app, start it again and open it.
     **Good:** everything is back as it was. Next to the `.sg` there is a `media/` folder with copies of all
     audio files, and a `backups/` folder after the second save.
