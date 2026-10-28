@@ -120,6 +120,10 @@ export const en = {
   "r.res.ago1": "{file}, about 1 minute ago.", "r.res.agoN": "{file}, about {n} minutes ago.",
   "r.res.when": "When it closed,", "r.res.wasAt": "was at", "r.res.more": " (and {n} more)", "r.res.nothing": "Nothing was playing.",
   "r.res.resume": "RESUME {name} AT {t}", "r.res.openRun": "OPEN THE SHOW IN RUN", "r.res.dismiss": "Dismiss",
+  "r.next.played": "Already played · {n}", "r.next.playedHint": "GO pressed too early? Skip back, or Make next to play one again", "r.next.playedTag": "Played",
+  "r.notes.tab": "Notes", "r.notes.now": "Playing now", "r.notes.standby": "Standby", "r.notes.then": "Then", "r.notes.none": "No notes.",
+  "r.notes.empty": "Nothing playing or standing by.",
+  "r.later.title": "After that · {n}", "r.later.none": "Nothing after this.", "r.big.notes": "Notes",
 } as const;
 
 export const nl: Partial<Record<keyof typeof en, string>> = {
@@ -228,4 +232,8 @@ export const nl: Partial<Record<keyof typeof en, string>> = {
   "r.res.ago1": "{file}, ongeveer 1 minuut geleden.", "r.res.agoN": "{file}, ongeveer {n} minuten geleden.",
   "r.res.when": "Toen de app sloot, stond", "r.res.wasAt": "op", "r.res.more": " (en nog {n})", "r.res.nothing": "Er speelde niets.",
   "r.res.resume": "{name} HERVATTEN OP {t}", "r.res.openRun": "DE SHOW OPENEN IN SHOW", "r.res.dismiss": "Laat maar",
+  "r.next.played": "Al gespeeld · {n}", "r.next.playedHint": "Te vroeg op GO gedrukt? Spring terug, of Maak volgende om er één opnieuw te spelen", "r.next.playedTag": "Gespeeld",
+  "r.notes.tab": "Notities", "r.notes.now": "Speelt nu", "r.notes.standby": "Klaar", "r.notes.then": "Dan", "r.notes.none": "Geen notities.",
+  "r.notes.empty": "Er speelt niets en er staat niets klaar.",
+  "r.later.title": "Daarna · {n}", "r.later.none": "Daarna komt er niets meer.", "r.big.notes": "Notities",
 };

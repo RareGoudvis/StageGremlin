@@ -5,11 +5,13 @@ import { useDoc } from "../../store";
 import { useT } from "../../i18n";
 import { findCue } from "../../lib/showOps";
 import { go, panic, stopAll } from "../../lib/runActions";
+import { GoLockBar, useGoLocked } from "./GoLock";
 
 export function GoBlock({ standbyId }: { standbyId: string | null }) {
   const standby = useDoc((s) => findCue(s.show, standbyId));
   const stopFade = useDoc((s) => s.show.settings.stopAllFade);
   const ready = !!standby;
+  const locked = useGoLocked();
   const t = useT();
 
   return (
@@ -21,8 +23,10 @@ export function GoBlock({ standbyId }: { standbyId: string | null }) {
         style={{
           height: 230, borderRadius: 16, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, padding: 12,
           background: ready ? "var(--gobg)" : "var(--p3)", color: ready ? "var(--ongo)" : "var(--mute)",
+          position: "relative", overflow: "hidden", opacity: locked ? 0.55 : 1,
         }}
       >
+        <GoLockBar />
         <span className="cond" style={{ fontSize: 96, fontWeight: 800, lineHeight: 0.85, letterSpacing: ".02em" }}>{t("go")}</span>
         <span className="clamp1" style={{ fontSize: 15, fontWeight: 700, maxWidth: "100%" }}>
           {standby ? `${standby.number} ${standby.name}` : t("run.endOfShow")}

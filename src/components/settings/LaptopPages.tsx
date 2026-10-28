@@ -60,6 +60,7 @@ export function RunBoothPage() {
           {pin.length > 0 && pin.length < 4 && <span style={{ fontSize: 12, color: "var(--amb)" }}>{t("s.run.pin4")}</span>}
         </Row>
       </Card>
+      <GoLockCard />
       <Card title={t("s.booth")} note={t("s.booth.note")}>
         <Row label={t("s.booth.bg")}>
           <button className="b chip" aria-pressed={ui.bgLockDefault} onClick={() => update({ bgLockDefault: !ui.bgLockDefault })}>
@@ -176,3 +177,29 @@ const ACTION_LABEL: Record<Action, TKey> = {
 const WHERE_LABEL: Record<(typeof ACTIONS)[Action]["where"], TKey> = {
   Run: "s.where.run", "Build, Run": "s.where.buildRun", Everywhere: "s.where.everywhere", Build: "s.where.build", "Build, Preflight": "s.where.buildPreflight",
 };
+
+/**
+ * GO lock-out: after a GO, GO does nothing for this long (stops a nervous double tap, or a helper who
+ * presses again "to be sure"). Saved in the show (show.settings.doubleGoMs), so it can't change in Run.
+ */
+const GO_LOCK_PRESETS = [300, 1000, 2000, 5000];
+
+function GoLockCard() {
+  const t = useT();
+  const { settings, set } = useShowSetting();
+  const inRun = useDoc((s) => s.mode === "run");
+  const ms = settings.doubleGoMs;
+  return (
+    <Card title={t("s.golock.title")} note={inRun ? t("set.showLocked") : t("s.golock.note")}>
+      <fieldset disabled={inRun} style={{ border: 0, padding: 0, margin: 0, minWidth: 0, display: "flex", flexDirection: "column", gap: 12, opacity: inRun ? 0.6 : 1 }}>
+        <Row label={t("s.golock.label")}>
+          <Chips<number> label={t("s.golock.label")} value={ms} onChange={(v) => set({ doubleGoMs: v })}
+            options={GO_LOCK_PRESETS.map((v) => ({ value: v, label: `${v / 1000} s` }))} />
+          <NumField label={t("s.golock.label")} unit="s" value={ms / 1000} min={0} max={10} step={0.5} digits={1}
+            onChange={(v) => set({ doubleGoMs: Math.round(v * 1000) })} />
+        </Row>
+        <span style={{ fontSize: 13, color: "var(--dim)", lineHeight: 1.5 }}>{t("s.golock.help")}</span>
+      </fieldset>
+    </Card>
+  );
+}

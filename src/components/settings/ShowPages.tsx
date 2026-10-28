@@ -26,12 +26,6 @@ export function LevelsPage() {
         <Help>{t("s.lvl.underHelp")}</Help>
         <Row label={t("s.lvl.underFade")}><NumField label={t("s.lvl.underFade")} unit="s" value={settings.underFade} min={0} max={5} onChange={(v) => set({ underFade: v })} /></Row>
       </Card>
-      <Card title={t("s.lvl.safety")}>
-        <Row label={t("s.lvl.doubleGo")}>
-          <NumField label={t("s.lvl.doubleGoLabel")} unit="ms" value={settings.doubleGoMs} min={0} max={2000} step={50} digits={0} onChange={(v) => set({ doubleGoMs: Math.round(v) })} />
-        </Row>
-        <Help>{t("s.lvl.doubleGoHelp")}</Help>
-      </Card>
     </>
   );
 }

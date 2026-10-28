@@ -101,6 +101,9 @@ export const en = {
   "s.bgset.offsets": "Level offset per source",
   // Background screen: decks
   "s.deck.sourceOf": "Deck {l} source", "s.deck.levelOf": "Deck {l} level",
+  "s.golock.title": "GO lock-out", "s.golock.label": "Lock GO for",
+  "s.golock.note": "Saved in the show file.",
+  "s.golock.help": "After every GO, the GO button and Space do nothing for this long; the button goes pale and a bar runs out. 0.3 s only stops a nervous double tap. 2–5 s helps a helper who presses again \"to be sure\". Stop all and Panic always work.",
 } as const;
 
 export const nl: Partial<Record<keyof typeof en, string>> = {
@@ -189,4 +192,7 @@ export const nl: Partial<Record<keyof typeof en, string>> = {
   "s.bgset.autoDuck": "Vanzelf zachter: cues met \"Achtergrond zachter\" zetten de muziek zachter zolang ze spelen",
   "s.bgset.offsets": "Niveauverschil per bron",
   "s.deck.sourceOf": "Bron deck {l}", "s.deck.levelOf": "Niveau deck {l}",
+  "s.golock.title": "GO-vergrendeling", "s.golock.label": "GO vergrendelen",
+  "s.golock.note": "Bewaard in het showbestand.",
+  "s.golock.help": "Na elke GO doen de GO-knop en de spatiebalk zo lang niets; de knop wordt bleek en een balk loopt leeg. 0,3 s houdt enkel een zenuwachtige dubbele tik tegen. 2–5 s helpt een helper die \"voor de zekerheid\" nog eens drukt. Alles stop en Paniek werken altijd.",
 };

@@ -1,6 +1,7 @@
 // Dumbo mode ("Dumbo-modus"): a Run screen for someone who has never run sound.
-// Only four things: what plays now (timeline + big time left), what's next (its length, its sound note,
-// "starts by itself" when it follows), one huge GO and STOP ALL. Pads only when switched on in Settings. Only GO, Stop all (twice = Panic) and pad keys work.
+// What plays now (timeline + big time left), what's next (its length, its sound note, "starts by itself"
+// when it follows), the rest of the show after it (read only), one huge GO and STOP ALL.
+// Pads only when switched on in Settings. Long names wrap instead of being cut off. Only GO, Stop all (twice = Panic) and pad keys work.
 // Leaving: hold the small corner button for 3 s, or type the PIN when one is set in Settings.
 
 import { useEffect, useRef, useState } from "react";
@@ -15,6 +16,8 @@ import { mainRunning } from "../lib/showMath";
 import { firePad, firePadByKey, go, panic, stopAll } from "../lib/runActions";
 import { fmtTime } from "../lib/format";
 import { trimmedLen } from "../types";
+import { LaterList } from "../components/run/CueInfo";
+import { GoLockBar, useGoLocked } from "../components/run/GoLock";
 
 const DOUBLE_ESC_MS = 500;
 const HOLD_MS = 3000;
@@ -76,29 +79,36 @@ export function DumboView() {
   // Next starts by itself when what plays now has a follow: then the helper must NOT press GO.
   const autoNext = !!now && !!next && now.follow.kind !== "none";
   const nextLen = next ? trimmedLen(next) : null;
+  const locked = useGoLocked();
+  const twoLines = { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } as const;
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(0, 1.3fr) minmax(0, 1fr)", gridTemplateRows: `minmax(0, 1fr)${pads.length ? " auto" : ""}`, gap: 18, padding: 18 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 18, minHeight: 0 }}>
         {/* What plays now: name, a big timeline, and the time left. */}
-        <section style={{ flex: 1, borderRadius: 20, background: "var(--p1)", border: `2px solid ${run ? "var(--acc)" : "var(--line)"}`, padding: "24px 28px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 14, minHeight: 0 }}>
+        <section style={{ flex: "none", borderRadius: 20, background: "var(--p1)", border: `2px solid ${run ? "var(--acc)" : "var(--line)"}`, padding: "20px 28px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 12 }}>
           <span className="k" style={{ fontSize: 14, color: run ? "var(--acc)" : undefined }}>{run ? t("dumbo.now") : t("dumbo.nothing")}</span>
-          {now && <span className="cond clamp1" style={{ fontSize: 48, fontWeight: 800, lineHeight: 1.05 }}>{now.name}</span>}
+          {now && <span className="cond" style={{ fontSize: 44, fontWeight: 800, lineHeight: 1.05, ...twoLines }}>{now.name}</span>}
           {run && <Timeline position={run.position} length={run.length} big />}
         </section>
         {/* What GO plays next, its length as an empty timeline, and its sound note. */}
-        <section style={{ flex: 1, borderRadius: 20, background: "var(--p2)", padding: "24px 28px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 14, minHeight: 0 }}>
+        <section style={{ flex: "none", borderRadius: 20, background: "var(--p2)", padding: "20px 28px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 12 }}>
           <span className="k" style={{ fontSize: 14, color: "var(--acc)" }}>{t("dumbo.next")}</span>
-          <span className="cond clamp1" style={{ fontSize: 48, fontWeight: 800, lineHeight: 1.05 }}>{next ? next.name : t("dumbo.end")}</span>
+          <span className="cond" style={{ fontSize: 44, fontWeight: 800, lineHeight: 1.05, ...twoLines }}>{next ? next.name : t("dumbo.end")}</span>
           {next && nextLen != null && <Timeline position={0} length={nextLen} />}
           {autoNext && <span style={{ fontSize: 22, fontWeight: 700, color: "var(--acc)" }}>{t("i.dumbo.auto")}</span>}
-          {next?.notes.sound && <span style={{ fontSize: 26, lineHeight: 1.25, color: "var(--ambtx)" }}>{next.notes.sound}</span>}
+          {next?.notes.sound && <span style={{ fontSize: 24, lineHeight: 1.25, color: "var(--ambtx)" }}>{next.notes.sound}</span>}
         </section>
+        {/* Everything still to come after "next", so the helper sees the whole rest of the show. */}
+        <div style={{ flex: 1, minHeight: 120, display: "flex" }}>
+          <LaterList standbyId={playhead} scale={1.2} />
+        </div>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14, minHeight: 0 }}>
         <button className="b" tabIndex={-1} onClick={() => void go()}
-          style={{ flex: 1, borderRadius: 26, background: next ? "var(--gobg)" : "var(--p3)", color: next ? "var(--ongo)" : "var(--mute)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          style={{ flex: 1, borderRadius: 26, background: next ? "var(--gobg)" : "var(--p3)", color: next ? "var(--ongo)" : "var(--mute)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, position: "relative", overflow: "hidden", opacity: locked ? 0.55 : 1 }}>
+          <GoLockBar />
           <span className="cond" style={{ fontSize: "min(22vh, 220px)", fontWeight: 800, lineHeight: 0.85 }}>{t("go")}</span>
           <span style={{ fontSize: 22, fontWeight: 700, padding: "0 16px", textAlign: "center" }}>{t("dumbo.hint")}</span>
         </button>

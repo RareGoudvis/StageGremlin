@@ -1,16 +1,17 @@
-// The dock under GO: Pads / Background / AUDAC (when an MTX is set up) / Log.
+// The dock under GO: Pads / Notes (now, standby, the one after) / Background / AUDAC (when an MTX is set up) / Log.
 
 import { useEffect, useRef, useState } from "react";
 import { useEngine } from "../../engineStore";
 import type { LogEntry } from "../../types";
 import { PadsDock } from "./PadsDock";
+import { NotesDock } from "./CueInfo";
 import { BackgroundDock } from "../background/BackgroundDock";
 import { AudacPanel } from "../audac/AudacPanel";
 import { useAudac, useAudacConfigured } from "../../lib/audac";
 import { useSettings } from "../../settingsStore";
 import { useT } from "../../i18n";
 
-type Tab = "pads" | "bg" | "audac" | "log";
+type Tab = "pads" | "notes" | "bg" | "audac" | "log";
 
 export function Dock() {
   const [tab, setTab] = useState<Tab>("pads");
@@ -21,6 +22,7 @@ export function Dock() {
   const othersOn = !!useAudac()?.others?.length;
   const tabs: { id: Tab; label: string }[] = [
     { id: "pads", label: t("r.dock.pads") },
+    { id: "notes", label: t("r.notes.tab") },
     { id: "bg", label: t("r.dock.bg") },
     ...(audacOn ? [{ id: "audac" as const, label: othersOn ? "AUDAC !" : "AUDAC" }] : []),
     { id: "log", label: t("r.dock.log") },
@@ -46,6 +48,7 @@ export function Dock() {
         ))}
       </div>
       {tab === "pads" && <PadsDock />}
+      {tab === "notes" && <NotesDock />}
       {tab === "bg" && <BackgroundDock />}
       {tab === "audac" && <div style={{ flex: 1, minHeight: 0, padding: 8, display: "flex", flexDirection: "column" }}><AudacPanel inRun /></div>}
       {tab === "log" && <Log />}

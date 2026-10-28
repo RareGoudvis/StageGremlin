@@ -29,6 +29,8 @@ import { bg, bgDo } from "../components/background/useBackground";
 import { setLocalOverlay } from "../lib/emergencyKeys";
 import { RunDialogArea } from "../components/RunDialogHost";
 import { tr, useT } from "../i18n";
+import { CueNotes, LaterList } from "../components/run/CueInfo";
+import { GoLockBar, useGoLocked } from "../components/run/GoLock";
 
 const DOUBLE_ESC_MS = 500;
 
@@ -218,28 +220,36 @@ function RehearsalStrip() {
   );
 }
 
-/** Big mode: only GO, what's playing and what's next, as large as possible. */
+/**
+ * Big mode: GO, what's playing (time left + all its notes), what stands by (all its notes)
+ * and the rest of the show underneath, as large as fits. Long names wrap instead of being cut off.
+ */
 function BigRun({ run, playhead }: { run: ReturnType<typeof mainRunning>; playhead: string | null }) {
   const show = useDoc((s) => s.show);
   const t = useT();
   const now = run ? findCue(show, run.cueId) : null;
   const next = findCue(show, playhead);
+  const twoLines = { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } as const;
   return (
     <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(0, 1fr) 420px", gap: 16, padding: 16 }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 16, minHeight: 0 }}>
-        <div style={{ flex: 1, borderRadius: 18, background: "var(--p1)", border: `1px solid ${run ? "var(--acc)" : "var(--line)"}`, padding: "24px 28px", display: "flex", flexDirection: "column", gap: 14, justifyContent: "center", minHeight: 0 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14, minHeight: 0 }}>
+        <div style={{ flex: "none", borderRadius: 18, background: "var(--p1)", border: `1px solid ${run ? "var(--acc)" : "var(--line)"}`, padding: "20px 26px", display: "flex", flexDirection: "column", gap: 12, justifyContent: "center" }}>
           <span className="k" style={{ color: run ? "var(--acc)" : undefined }}>{run ? t("run.nowPlaying") : t("r.silence")}</span>
-          <span className="cond clamp1" style={{ fontSize: 72, fontWeight: 800, lineHeight: 1 }}>
-            <span className="mono" style={{ color: "var(--acc)", fontSize: 56 }}>{now?.number ?? ""}</span> {now?.name ?? "—"}
+          <span className="cond" style={{ fontSize: 58, fontWeight: 800, lineHeight: 1.02, ...twoLines }}>
+            <span className="mono" style={{ color: "var(--acc)", fontSize: 44 }}>{now?.number ?? ""}</span> {now?.name ?? "—"}
           </span>
-          {run && <span className="mono" style={{ fontSize: 110, fontWeight: 600, lineHeight: 1 }}>−{fmtTime(run.remaining)}</span>}
-          {now?.notes.sound && <span style={{ fontSize: 26, color: "var(--ambtx)" }}>{now.notes.sound}</span>}
+          {run && <span className="mono" style={{ fontSize: 96, fontWeight: 600, lineHeight: 1 }}>−{fmtTime(run.remaining)}</span>}
+          {now && <CueNotes cue={now} scale={1.5} />}
         </div>
-        <div style={{ borderRadius: 18, background: "var(--p2)", padding: "18px 24px", display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ flex: "none", borderRadius: 18, background: "var(--p2)", padding: "16px 24px", display: "flex", flexDirection: "column", gap: 8 }}>
           <span className="k" style={{ color: "var(--acc)" }}>{t("run.standby")}</span>
-          <span className="cond clamp1" style={{ fontSize: 40, fontWeight: 800 }}><span className="mono" style={{ fontSize: 30 }}>{next?.number ?? ""}</span> {next?.name ?? t("run.endOfShow")}</span>
-          {next?.notes.sound && <span style={{ fontSize: 20, color: "var(--ambtx)" }}>{next.notes.sound}</span>}
-          {next?.notes.lx && <span style={{ fontSize: 18, color: "var(--lx)" }}>LX · {next.notes.lx}</span>}
+          <span className="cond" style={{ fontSize: 38, fontWeight: 800, lineHeight: 1.05, ...twoLines }}>
+            <span className="mono" style={{ fontSize: 28 }}>{next?.number ?? ""}</span> {next?.name ?? t("run.endOfShow")}
+          </span>
+          {next && <CueNotes cue={next} scale={1.3} />}
+        </div>
+        <div style={{ flex: "1 1 0", minHeight: 120, display: "flex" }}>
+          <LaterList standbyId={playhead} scale={1.15} />
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -252,10 +262,12 @@ function BigRun({ run, playhead }: { run: ReturnType<typeof mainRunning>; playhe
 
 function BigGo({ ready }: { ready: boolean }) {
   const t = useT();
+  const locked = useGoLocked();
   return (
     <>
       <button className="b" tabIndex={-1} onClick={() => void go()}
-        style={{ flex: 1, borderRadius: 22, background: ready ? "var(--gobg)" : "var(--p3)", color: ready ? "var(--ongo)" : "var(--mute)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        style={{ flex: 1, borderRadius: 22, background: ready ? "var(--gobg)" : "var(--p3)", color: ready ? "var(--ongo)" : "var(--mute)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden", opacity: locked ? 0.55 : 1 }}>
+        <GoLockBar />
         <span className="cond" style={{ fontSize: 150, fontWeight: 800, lineHeight: 0.9 }}>{t("go")}</span>
       </button>
       <button className="b cond" tabIndex={-1} onClick={stopAll} style={{ height: 90, borderRadius: 14, background: "var(--p3)", color: "var(--amb)", fontSize: 26, fontWeight: 800 }}>{t("stopAll")}</button>

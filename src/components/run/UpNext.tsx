@@ -1,7 +1,9 @@
 // Scrollable "up next" list under the now-playing card: the cue standing by and
 // everything after it. Each row can Skip to (move the playhead) or Make next (move the cue).
+// Above it, folded: the cues already played, so a GO pressed too early can be put right
+// (Skip to goes back to it; Make next plays it once more, then the show carries on).
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDoc } from "../../store";
 import type { Cue } from "../../types";
 import { goQueue, trimmedLen } from "../../types";
@@ -15,6 +17,12 @@ import { Search } from "../Icons";
 import { openMenu } from "../ContextMenu";
 import { upNextMenu } from "../../lib/menus";
 import { useT } from "../../i18n";
+
+/** The GO cues before the standby cue (all of them at the end of the show). */
+export function playedCues(queue: Cue[], playhead: string | null): Cue[] {
+  const i = playhead ? queue.findIndex((c) => c.id === playhead) : queue.length;
+  return queue.slice(0, i < 0 ? queue.length : i);
+}
 
 /** The cues the list shows, filtered by the search text. Shared with RunView's ↑/↓ keys. */
 export function upNextCues(queue: Cue[], playhead: string | null, query: string): Cue[] {
@@ -38,6 +46,10 @@ export function UpNext({ playhead, selectedId, onSelect, search, setSearch, sear
   const t = useT();
   const queue = goQueue(show);
   const rows = upNextCues(queue, playhead, search);
+  const played = search ? [] : playedCues(queue, playhead);
+  const [showPlayed, setShowPlayed] = useState(false);
+  // Played cues first (when unfolded), then standby and the rest. `isPlayed` dims a row.
+  const items = [...(showPlayed ? played.map((c) => ({ c, isPlayed: true })) : []), ...rows.map((c) => ({ c, isPlayed: false }))];
   const total = upNextCues(queue, playhead, "").reduce((a, c) => a + cueRunLen(c), 0);
   const sectionOf = new Map(show.sections.flatMap((s) => s.cues.map((c) => [c.id, s.name] as const)));
   const childrenOf = (id: string) => show.sections.flatMap((s) => s.cues).filter((c) => c.attach?.to === id);
@@ -48,10 +60,16 @@ export function UpNext({ playhead, selectedId, onSelect, search, setSearch, sear
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // A new cue stands by: bring the top of the list (the standby row) back into view.
+  // A new cue stands by: bring the standby row back to the top of the list.
   useEffect(() => {
-    if (listRef.current) listRef.current.scrollTop = 0;
+    const row = playhead && listRef.current?.querySelector(`[data-upnext="${playhead}"]`);
+    if (row) row.scrollIntoView({ block: "start" });
+    else if (listRef.current) listRef.current.scrollTop = 0;
   }, [playhead]);
+  // Unfolding "Already played": show them (they sit above the standby row).
+  useEffect(() => {
+    if (showPlayed && listRef.current) listRef.current.scrollTop = 0;
+  }, [showPlayed]);
 
   useEffect(() => {
     if (searchOpen) searchRef.current?.focus();
@@ -88,7 +106,16 @@ export function UpNext({ playhead, selectedId, onSelect, search, setSearch, sear
         )}
       </div>
       <div ref={listRef} className="scroll" style={{ flex: 1, minHeight: 0, padding: 6 }}>
-        {rows.map((c, i) => {
+        {played.length > 0 && (
+          <button className="b" tabIndex={-1} aria-expanded={showPlayed} onClick={() => setShowPlayed(!showPlayed)} title={t("r.next.playedHint")}
+            style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 10, background: "transparent", color: "var(--dim)", fontSize: 13, fontWeight: 700, textAlign: "left" }}>
+            <span style={{ width: 14 }}>{showPlayed ? "▾" : "▸"}</span>
+            {t("r.next.played", { n: played.length })}
+            <span style={{ fontWeight: 400, color: "var(--mute)" }}>· {t("r.next.playedHint")}</span>
+          </button>
+        )}
+        {items.map(({ c, isPlayed }, idx) => {
+          const i = idx - (showPlayed ? played.length : 0);
           const sec = sectionOf.get(c.id);
           const header = sec !== lastSection ? sec : undefined;
           lastSection = sec;
@@ -104,12 +131,12 @@ export function UpNext({ playhead, selectedId, onSelect, search, setSearch, sear
                 onClick={() => onSelect(c.id)}
                 onContextMenu={(e) => { onSelect(c.id); openMenu(e, upNextMenu(c, playhead)); }}
                 style={{
-                  display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10,
+                  display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10, opacity: isPlayed ? 0.6 : 1,
                   background: standby ? "var(--p2)" : selected ? "var(--p2)" : "transparent",
                   boxShadow: standby ? "inset 0 0 0 1px var(--acc)" : selected ? "inset 0 0 0 1px var(--hl)" : "none",
                 }}
               >
-                <span className="k" style={{ width: 58, color: standby ? "var(--acc)" : undefined }}>{standby ? t("run.standby") : i === 1 && !search ? t("run.then") : ""}</span>
+                <span className="k" style={{ width: 58, color: standby ? "var(--acc)" : undefined }}>{standby ? t("run.standby") : isPlayed ? t("r.next.playedTag") : i === 1 && !search ? t("run.then") : ""}</span>
                 <span className="mono" style={{ fontSize: 17, fontWeight: 600, width: 40 }}>{c.number}</span>
                 <span style={{ width: 4, alignSelf: "stretch", borderRadius: 2, background: c.color ?? "var(--line)" }} />
                 <span style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0, gap: 1 }}>
@@ -145,7 +172,7 @@ export function UpNext({ playhead, selectedId, onSelect, search, setSearch, sear
                 {!standby && (
                   <>
                     <button className="b btn" tabIndex={-1} onClick={(e) => { e.stopPropagation(); skipTo(c.id); }} style={{ height: 34 }} title={t("r.next.skipTitle")}>{t("run.skipTo")}</button>
-                    <button className="b btn" tabIndex={-1} onClick={(e) => { e.stopPropagation(); void makeNext(c.id, playhead); }} style={{ height: 34, color: "var(--acc)", fontWeight: 700 }} title={t("r.next.makeNextTitle")}>{t("run.makeNext")}</button>
+                    {playhead && <button className="b btn" tabIndex={-1} onClick={(e) => { e.stopPropagation(); void makeNext(c.id, playhead); }} style={{ height: 34, color: "var(--acc)", fontWeight: 700 }} title={t("r.next.makeNextTitle")}>{t("run.makeNext")}</button>}
                   </>
                 )}
               </div>

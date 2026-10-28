@@ -7,11 +7,20 @@ import { findCue, moveBefore } from "./showOps";
 import { call } from "./tauri";
 import { flushShowToEngine } from "./engineSync";
 import { tr } from "../i18n";
+import { create } from "zustand";
+
+/**
+ * GO lock-out: after a GO that fired, the engine ignores GO for show.settings.doubleGoMs.
+ * The UI keeps the same window here so the GO buttons can show it (greyed, a bar running out).
+ * `at` / `ms`: when the last GO fired (performance.now) and how long the lock lasts.
+ */
+export const useGoLock = create<{ at: number; ms: number }>(() => ({ at: 0, ms: 0 }));
 
 export async function go() {
   try {
     const r = await call("engine_go");
     if (r === "endOfShow") toast(tr("r.act.endOfShow"));
+    if (r === "fired") useGoLock.setState({ at: performance.now(), ms: useDoc.getState().show.settings.doubleGoMs });
   } catch (e) {
     toast(tr("r.act.goFailed", { e: String(e) }));
   }

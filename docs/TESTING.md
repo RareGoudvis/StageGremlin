@@ -69,6 +69,11 @@ Use Build mode unless the step says Run.
     **Good:** Stop cuts the other at once without a click; Fade out fades it over 2 s while the new one starts at full
     level; Crossfade fades the other out while the new one fades in over the same 3 s. An old show with "Fade & GO"
     opens with those cues set to Fade out, same time.
+12b. **GO lock-out** (Settings › Show & regie › GO-vergrendeling = 2 s): press GO twice quickly, then wait.
+    **Good:** the second press does nothing; the GO button is pale with a bar running out, then works again.
+12c. **Too fast?** In Run, press GO two cues too far, unfold "Al gespeeld" above the list, and use Spring naar on the
+    cue that should have played (or Maak volgende to play it once more).
+    **Good:** that cue stands by again and GO plays it; with Maak volgende the show carries on after it.
 13. **Save / reopen**: save the show as `test.sg` in a new folder, close the app, start it again and open it.
     **Good:** everything is back as it was. Next to the `.sg` there is a `media/` folder with copies of all
     audio files, and a `backups/` folder after the second save.
