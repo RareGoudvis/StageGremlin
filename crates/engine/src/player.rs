@@ -27,12 +27,14 @@ use serde::Serialize;
 use crate::dsp::{LimiterBuilder, MeterReading, MeterShared};
 use crate::loader::{Data, Loader};
 use std::collections::HashSet;
-use crate::show::{Curve, Cue, Follow, PadMode, Show};
+use crate::show::{Curve, Cue, Exclusive, Follow, PadMode, Show};
 use crate::tone::{self, ToneKind};
 use kira::sound::static_sound::StaticSoundHandle;
 
 /// Panic stops everything this fast: no fade, but no click either.
 const PANIC_FADE: f64 = 0.005;
+/// "Stop the others" on an exclusive cue: just long enough not to click.
+const EXCLUSIVE_STOP_FADE: f64 = 0.02;
 
 fn tween(secs: f64, curve: Curve) -> Tween {
     Tween {
@@ -246,7 +248,8 @@ impl<B: Backend> Engine<B> {
     }
 
     /// Replaces the show (the UI calls this after every edit and on open).
-    pub fn set_show(&mut self, show: Show, base_dir: Option<PathBuf>) {
+    pub fn set_show(&mut self, mut show: Show, base_dir: Option<PathBuf>) {
+        show.upgrade(); // a crash-resume file or an old UI may still carry "Fade & GO"
         // The limiter picks up the (possibly changed) ceiling on its next audio block.
         self.meter.set_ceiling_db(show.settings.limiter_ceiling_db as f32);
         if (show.settings.master_db - self.master_db).abs() > 1e-6 {
@@ -290,7 +293,13 @@ impl<B: Backend> Engine<B> {
     fn go_cue(&mut self, id: &str, kind: &str) {
         let Some(cue) = self.show.cue(id).cloned() else { return };
         self.playhead = self.show.next_in_queue(id).map(|c| c.id.clone());
-        if let Some(fade) = cue.fade_go {
+        // Exclusive cue: what is already playing stops or fades, and timers waiting on it are cancelled.
+        let fade = match cue.exclusive {
+            Exclusive::Off => None,
+            Exclusive::Stop => Some(EXCLUSIVE_STOP_FADE),
+            Exclusive::Fade | Exclusive::Crossfade => Some(cue.exclusive_secs.max(EXCLUSIVE_STOP_FADE)),
+        };
+        if let Some(fade) = fade {
             for r in self.running.iter_mut().filter(|r| !r.stopping) {
                 r.sound.stop(tween(fade, r.cue.curve));
                 r.stopping = true;
@@ -422,8 +431,15 @@ impl<B: Backend> Engine<B> {
         if from > start {
             data = data.start_position((from - start).min(len));
         }
-        if cue.fade_in > 0.0 && from <= start {
-            data = data.fade_in_tween(tween(cue.fade_in, cue.curve));
+        // A crossfade cue fades in over the crossfade time (or its own fade-in, if that is longer).
+        // Only when it starts as a GO/follow cue: attached cues and pads never crossfade.
+        let fade_in = if cue.exclusive == Exclusive::Crossfade && parent.is_none() && pad.is_none() {
+            cue.fade_in.max(cue.exclusive_secs)
+        } else {
+            cue.fade_in
+        };
+        if fade_in > 0.0 && from <= start {
+            data = data.fade_in_tween(tween(fade_in, cue.curve));
         }
         let vamping = cue.vamp.is_some_and(|v| v.on && v.b > v.a);
         if vamping {

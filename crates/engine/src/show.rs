@@ -139,6 +139,21 @@ pub enum Curve {
     Exponential,
 }
 
+/// What starting this cue (GO or a follow) does to everything that is already playing.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum Exclusive {
+    /// The others keep playing.
+    #[default]
+    Off,
+    /// The others stop at once (a few ms de-click fade).
+    Stop,
+    /// The others fade out over `exclusive_secs`.
+    Fade,
+    /// The others fade out and this cue fades in, both over `exclusive_secs`.
+    Crossfade,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Notes {
@@ -274,7 +289,13 @@ pub struct Cue {
     pub duck_bg: bool,
     /// Level for Under (U), dB relative to normal. None = show default.
     pub under_db: Option<f64>,
-    /// GO on this cue fades out everything else over this many seconds. None = off.
+    /// What starting this cue does to the sounds already playing.
+    pub exclusive: Exclusive,
+    /// Fade / crossfade time for `exclusive`, in seconds.
+    pub exclusive_secs: f64,
+    /// Old "Fade & GO" seconds. Only read from older show files; `Show::upgrade` turns it into
+    /// `exclusive: Fade`. Never written.
+    #[serde(skip_serializing)]
     pub fade_go: Option<f64>,
     pub vamp: Option<Vamp>,
     pub markers: Vec<Marker>,
@@ -311,6 +332,8 @@ impl Default for Cue {
             follow: Follow::None,
             duck_bg: true,
             under_db: None,
+            exclusive: Exclusive::Off,
+            exclusive_secs: 2.0,
             fade_go: None,
             vamp: None,
             markers: vec![],
@@ -372,6 +395,20 @@ impl Cue {
 }
 
 impl Show {
+    /// Brings a show from an older file up to date. Safe to call more than once.
+    /// Old "Fade & GO n s" becomes "exclusive: fade the others over n s".
+    pub fn upgrade(&mut self) {
+        let cues = self.sections.iter_mut().flat_map(|s| s.cues.iter_mut()).chain(self.pads.iter_mut().map(|p| &mut p.cue));
+        for cue in cues {
+            if let Some(secs) = cue.fade_go.take() {
+                if cue.exclusive == Exclusive::Off {
+                    cue.exclusive = Exclusive::Fade;
+                    cue.exclusive_secs = secs;
+                }
+            }
+        }
+    }
+
     pub fn cues(&self) -> impl Iterator<Item = &Cue> {
         self.sections.iter().flat_map(|s| s.cues.iter())
     }
@@ -483,7 +520,9 @@ pub enum ShowFileError {
 
 pub fn load(path: &Path) -> Result<Show, ShowFileError> {
     let text = std::fs::read_to_string(path)?;
-    Ok(serde_json::from_str(&text)?)
+    let mut show: Show = serde_json::from_str(&text)?;
+    show.upgrade();
+    Ok(show)
 }
 
 /// Saves the show next to its media. Files that live outside `<show folder>/media`

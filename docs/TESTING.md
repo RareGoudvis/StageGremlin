@@ -64,8 +64,11 @@ Use Build mode unless the step says Run.
     **Good:** the loop repeats until V, then the song plays on to the end.
 11. **Under + U**: while a cue plays, press **U**, then **U** again.
     **Good:** the cue drops ~12 dB with a fade, then comes back up.
-12. **Fade & GO**: give a cue "Fade & GO" and fire it while another plays.
-    **Good:** the running cue fades out while the new one starts.
+12. **Exclusive cues** (Timing › "When this starts, the others…"): set a cue to Stop, then Fade out (2 s), then
+    Crossfade (3 s), and fire it each time while another cue plays.
+    **Good:** Stop cuts the other at once without a click; Fade out fades it over 2 s while the new one starts at full
+    level; Crossfade fades the other out while the new one fades in over the same 3 s. An old show with "Fade & GO"
+    opens with those cues set to Fade out, same time.
 13. **Save / reopen**: save the show as `test.sg` in a new folder, close the app, start it again and open it.
     **Good:** everything is back as it was. Next to the `.sg` there is a `media/` folder with copies of all
     audio files, and a `backups/` folder after the second save.

@@ -68,7 +68,7 @@ schedule, Touch 2 detection), and a real show played over the laptop's aux outpu
 explorer /select, WebView2 data dir, yt-dlp/ffmpeg) compiles but is untested.
 
 - Engine (tested on kira's mock backend): playhead, GO + double-press guard, pre-wait, follow, passes, attached cues,
-  vamp/release, under, Fade & GO, pads, rehearsal start-at, pause all, master fader, calibration tones, limiter with
+  vamp/release, under, exclusive cues (stop / fade / crossfade the others; old Fade & GO opens as fade), pads, rehearsal start-at, pause all, master fader, calibration tones, limiter with
   live ceiling, peak + short-term loudness meters, pre-opening the next cues' files, save/open/backups/export zip.
 - Shell: engine thread, output device by name + fallback, headphone preview engine, crash resume file, USB-dropout
   rescue, YouTube (yt-dlp/ffmpeg install, resolve, download, convert), media watcher, per-machine settings.

@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use cueplay_engine::kira::backend::mock::{MockBackend, MockBackendSettings};
 use cueplay_engine::kira::AudioManagerSettings;
-use cueplay_engine::show::{self, Attach, Cue, Follow, Section, Show};
+use cueplay_engine::show::{self, Attach, Cue, Exclusive, Follow, Section, Show};
 use cueplay_engine::{analysis, Engine, GoResult};
 
 const RATE: u32 = 48_000;
@@ -467,4 +467,64 @@ fn rehearsal_start_schedules_attached_cues_and_follows_from_the_start_point() {
     assert!(!st.running.iter().any(|r| r.cue_id == b.id), "follow not yet: 4 s after cue start = 2 s after a start at 2.0");
     run(&mut e, 1.0);
     assert!(e.state().running.iter().any(|r| r.cue_id == b.id), "follow trigger fired, shortened by the start offset");
+}
+
+/// GO on b with the given exclusive mode, while a is playing; returns which cues still run
+/// shortly after, and well after the fade time.
+fn exclusive_after_go(mode: Exclusive) -> (Vec<String>, Vec<String>, String, String) {
+    let dir = tempfile::tempdir().unwrap();
+    let a = cue(dir.path(), "a", 5.0);
+    let mut b = cue(dir.path(), "b", 5.0);
+    b.exclusive = mode;
+    b.exclusive_secs = 0.5;
+    let (s, base) = show_with(dir.path(), vec![a.clone(), b.clone()]);
+    let mut e = engine();
+    e.set_show(s, Some(base));
+    e.go();
+    run(&mut e, 0.2);
+    e.go();
+    run(&mut e, 0.1);
+    let soon = e.state().running.iter().map(|r| r.cue_id.clone()).collect();
+    run(&mut e, 0.8);
+    let later = e.state().running.iter().map(|r| r.cue_id.clone()).collect();
+    (soon, later, a.id, b.id)
+}
+
+#[test]
+fn exclusive_off_keeps_the_others_playing() {
+    let (_, later, a, b) = exclusive_after_go(Exclusive::Off);
+    assert!(later.contains(&a) && later.contains(&b));
+}
+
+#[test]
+fn exclusive_stop_cuts_the_others_at_once() {
+    let (soon, _, a, b) = exclusive_after_go(Exclusive::Stop);
+    assert!(!soon.contains(&a), "a stopped within 0.1 s");
+    assert!(soon.contains(&b));
+}
+
+#[test]
+fn exclusive_fade_and_crossfade_fade_the_others_out() {
+    for mode in [Exclusive::Fade, Exclusive::Crossfade] {
+        let (soon, later, a, b) = exclusive_after_go(mode);
+        assert!(soon.contains(&a), "{mode:?}: a is still fading after 0.1 s");
+        assert!(!later.contains(&a), "{mode:?}: a is gone after the 0.5 s fade");
+        assert!(later.contains(&b));
+    }
+}
+
+#[test]
+fn old_fade_and_go_opens_as_exclusive_fade() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("old.sg");
+    let old = r#"{"sections":[{"name":"A","cues":[{"name":"x","fadeGo":4.0},{"name":"y"}]}]}"#;
+    std::fs::write(&path, old).unwrap();
+    let s = show::load(&path).unwrap();
+    let cues: Vec<_> = s.cues().collect();
+    assert_eq!(cues[0].exclusive, Exclusive::Fade);
+    assert_eq!(cues[0].exclusive_secs, 4.0);
+    assert_eq!(cues[0].fade_go, None);
+    assert_eq!(cues[1].exclusive, Exclusive::Off);
+    let saved = serde_json::to_string(&s).unwrap();
+    assert!(!saved.contains("fadeGo"), "the old field is never written back");
 }
