@@ -36,6 +36,13 @@ export function BackgroundView() {
     setFolded(on);
     try { localStorage.setItem("sg.bgFolded", on ? "1" : "0"); } catch { /* not remembered */ }
   };
+  const [boxFolded, setBoxFolded] = useState(() => {
+    try { return localStorage.getItem("sg.boxFolded") === "1"; } catch { return false; }
+  });
+  const foldBox = (on: boolean) => {
+    setBoxFolded(on);
+    try { localStorage.setItem("sg.boxFolded", on ? "1" : "0"); } catch { /* not remembered */ }
+  };
   return (
     <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: `${folded ? "52px" : "300px"} minmax(0, 1fr) 380px`, gap: 12, padding: "12px 14px" }}>
       {folded ? (
@@ -61,8 +68,13 @@ export function BackgroundView() {
         {audacOn ? <AudacPanel big /> : <MainOutput />}
         {hasBox && (
           <>
-            <span className="k" style={{ marginTop: 8 }}>{t("set.streambox").toUpperCase()}</span>
-            <StreamboxPanel />
+            {/* Folds away so the zones get the room; remembered per laptop. */}
+            <button className="b k" aria-expanded={!boxFolded} title={boxFolded ? t("bgv.boxShow") : t("bgv.boxHide")} onClick={() => foldBox(!boxFolded)}
+              style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6, background: "none", border: 0, padding: 0, cursor: "pointer", textAlign: "left" }}>
+              <span style={{ display: "inline-block", width: 12, fontSize: 12 }}>{boxFolded ? "▸" : "▾"}</span>
+              {t("set.streambox").toUpperCase()}
+            </button>
+            {!boxFolded && <StreamboxPanel />}
           </>
         )}
       </section>
