@@ -160,6 +160,15 @@ pub fn get(app: &AppHandle) -> Option<WebviewWindow> {
 /// Makes `source` active, creating its window if needed. An existing window keeps its page (and its
 /// music); only a `link` loads something else in it. `show` brings it to the front (Build);
 /// otherwise it stays (or is created) hidden (Run).
+/// Flags for every WebView2 window (the main one too: windows sharing a browser data folder must
+/// agree on them). The first two are what Tauri sets when none are given. The rest keep a hidden or
+/// minimised window working at full speed: otherwise Windows' browser engine slows its timers to
+/// once a minute after a while, so a schedule started late and Spotify's device list never opened
+/// while the app sat minimised in the taskbar.
+pub const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,CalculateNativeWinOcclusion,IntensiveWakeUpThrottling \
+--autoplay-policy=no-user-gesture-required \
+--disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows";
+
 pub fn open(app: &AppHandle, source: BgSource, show: bool, link: Option<Url>) -> Result<(), String> {
     set_active(Some(source));
     let link_given = link.is_some();
@@ -190,7 +199,8 @@ pub fn open(app: &AppHandle, source: BgSource, show: bool, link: Option<Url>) ->
         .initialization_script(INJECT_JS)
         // Must match the main window (tauri.conf.json): windows sharing one browser data folder
         // must agree on this, or WebView2 refuses to create the second one.
-        .browser_extensions_enabled(true);
+        .browser_extensions_enabled(true)
+        .additional_browser_args(BROWSER_ARGS);
     // uBlock Origin Lite and any other bundled extension (see extensions.rs).
     if let Some(dir) = app.try_state::<crate::extensions::Extensions>().and_then(|e| e.0.clone()) {
         builder = builder.extensions_path(dir);

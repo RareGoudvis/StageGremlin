@@ -78,7 +78,8 @@ pub fn run() {
             // folders of their own: see background/window.rs.)
             let main_webview_dir = portable_dir.as_ref().map(|d| d.join("webview"));
             let main_config = app.config().app.windows.first().cloned().ok_or("no window in tauri.conf.json")?;
-            let mut main = tauri::WebviewWindowBuilder::from_config(app.handle(), &main_config)?;
+            let mut main = tauri::WebviewWindowBuilder::from_config(app.handle(), &main_config)?
+                .additional_browser_args(background::window::BROWSER_ARGS);
             if let Some(dir) = &main_webview_dir {
                 main = main.data_directory(dir.clone());
             }

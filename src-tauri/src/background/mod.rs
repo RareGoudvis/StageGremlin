@@ -22,7 +22,7 @@
 
 mod mixer;
 mod session_volume;
-mod window;
+pub mod window;
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
