@@ -59,6 +59,8 @@ export interface PlayerState {
   levelDb: number;
   /** Faded out (crossfaded away, or paused with a fade). */
   held: boolean;
+  /** Someone signed in to the service in this player? null = can't tell (yet). */
+  signedIn?: boolean | null;
 }
 
 export interface BgTrack { title: string; artist: string | null }

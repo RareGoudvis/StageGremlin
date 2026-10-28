@@ -6,7 +6,8 @@ import { useSettings, type AudacSetup, type ScheduleEntry } from "../../settings
 import { useT, type TKey } from "../../i18n";
 import { MIN_VOLUME, visible } from "../../lib/audac";
 import { nextStart } from "../../lib/audacSchedule";
-import { useEnabledSources } from "../background/useBackground";
+import { bg, bgDo, useBackground, useEnabledSources } from "../background/useBackground";
+import { useEffect, useState } from "react";
 import { newId } from "../../types";
 import { Chips, Row } from "../controls";
 import { Card, PageTitle } from "./common";
@@ -135,6 +136,21 @@ function EntryCard({ e, setup, set, remove }: { e: ScheduleEntry; setup: AudacSe
             onChange={(ev) => set({ music: { ...e.music, link: ev.target.value } })} style={{ flex: 1, minWidth: 0, fontSize: 12.5 }} />
         )}
       </Row>
+      {e.music.source && <SignedInLine source={e.music.source} />}
+      {e.music.source === "spotify" && (
+        <Row label={t("sched.shuffle")}>
+          <Chips<"keep" | "on" | "off"> label={t("sched.shuffle")} value={e.music.shuffle === undefined ? "keep" : e.music.shuffle ? "on" : "off"}
+            onChange={(v) => set({ music: { ...e.music, shuffle: v === "keep" ? undefined : v === "on" } })}
+            options={[{ value: "keep", label: t("sched.asIs") }, { value: "on", label: t("sched.on") }, { value: "off", label: t("sched.off") }]} />
+        </Row>
+      )}
+      {e.music.source === "spotify" && (
+        <Row label={t("sched.repeat")}>
+          <Chips<"keep" | "off" | "all" | "one"> label={t("sched.repeat")} value={e.music.repeat ?? "keep"}
+            onChange={(v) => set({ music: { ...e.music, repeat: v === "keep" ? undefined : v } })}
+            options={[{ value: "keep", label: t("sched.asIs") }, { value: "off", label: t("sched.off") }, { value: "all", label: t("sched.repeatAll") }, { value: "one", label: t("sched.repeatOne") }]} />
+        </Row>
+      )}
       {e.music.source === "spotify" && (
         <Row label="" hint={t("sched.onBoxHint")}>
           <button className="b chip" aria-pressed={!!e.music.onBox} onClick={() => set({ music: { ...e.music, onBox: !e.music.onBox } })} title={t("sched.onBoxHint")}>
@@ -146,5 +162,34 @@ function EntryCard({ e, setup, set, remove }: { e: ScheduleEntry; setup: AudacSe
         {next ? `${t("sched.next")} ${next.toLocaleString(undefined, { weekday: "long", hour: "2-digit", minute: "2-digit" })}` : t("sched.never")}
       </span>
     </section>
+  );
+}
+
+/**
+ * Is the chosen service signed in on this laptop? Shown while setting up a scheduled time, because
+ * that's when someone can still sign in. The player reports it once its page is open.
+ */
+function SignedInLine({ source }: { source: Exclude<ScheduleEntry["music"]["source"], ""> }) {
+  const t = useT();
+  const st = useBackground();
+  const p = st?.players?.find((x) => x.source === source);
+  const [checking, setChecking] = useState(false);
+  useEffect(() => { if (p) setChecking(false); }, [p]);
+  const state = p?.signedIn;
+  const color = state === true ? "var(--acc)" : state === false ? "var(--ambtx)" : "var(--dim)";
+  return (
+    <Row label="" hint={t("sched.signHint")}>
+      <span role="status" style={{ flex: 1, fontSize: 12.5, fontWeight: state === false ? 700 : 500, color }}>
+        {state === true ? `✓ ${t("sched.signedIn")}`
+          : state === false ? `! ${t("sched.notSignedIn")}`
+          : p ? t("sched.signUnknown")
+          : checking ? t("sched.checking") : t("sched.notChecked")}
+      </span>
+      {state === false || (p && state == null) ? (
+        <button className="b btn" onClick={() => bgDo(bg.open(source, true))}>{t("sched.openToSign")}</button>
+      ) : !p ? (
+        <button className="b btn" disabled={checking} onClick={() => { setChecking(true); bgDo(bg.open(source, false)); }}>{t("sched.check")}</button>
+      ) : null}
+    </Row>
   );
 }

@@ -14,6 +14,14 @@ import { toast } from "../uiStore";
 import { audac, audacConnectSaved } from "./audac";
 import { bg } from "../components/background/useBackground";
 import { spotifyToBox } from "./streambox";
+import { isTauri } from "./tauri";
+
+/** A background-player command that only exists in the app (not in a plain browser). */
+async function invokeBg(name: string, args: Record<string, unknown>) {
+  if (!isTauri) return;
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke(name, args).catch(() => {});
+}
 
 const CHECK_EVERY_MS = 10_000;
 /** Give the playlist page this long to load before pressing play. */
@@ -103,6 +111,17 @@ async function start(e: ScheduleEntry) {
     try {
       await bg.open(e.music.source, false, e.music.link || undefined);
       window.setTimeout(() => void bg.command("play").catch(() => {}), PAGE_LOAD_MS);
+      // Shuffle / repeat (Spotify): right after play starts, before any move to the box.
+      if (e.music.source === "spotify" && (e.music.shuffle !== undefined || e.music.repeat)) {
+        window.setTimeout(() => void invokeBg("bg_shuffle_repeat", { shuffle: e.music.shuffle ?? null, repeat: e.music.repeat ?? null }), PAGE_LOAD_MS + 1_500);
+      }
+      // Not signed in: say so (the music won't play), with what to do.
+      window.setTimeout(() => {
+        void bg.getState().then((st) => {
+          const p = st.players?.find((x) => x.source === e.music.source);
+          if (p?.signedIn === false) toast(`Schedule “${e.name}”: ${e.music.source} isn't signed in on this laptop, so no music. Open Background, pick it and sign in once.`);
+        }).catch(() => {});
+      }, PAGE_LOAD_MS + 4_000);
       // Spotify on the Streambox: a freshly loaded player claims the music for itself, so move it to
       // the box after it starts, and once more a bit later in case the page was still settling.
       if (e.music.source === "spotify" && e.music.onBox) {

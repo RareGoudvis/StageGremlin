@@ -150,6 +150,10 @@ export interface ScheduleEntry {
     link: string;
     /** Spotify only: play it on the Streambox (Spotify Connect) instead of on the laptop. */
     onBox?: boolean;
+    /** Spotify only: shuffle on/off (undefined = leave as it is). */
+    shuffle?: boolean;
+    /** Spotify only: repeat off/all/one (undefined = leave as it is). */
+    repeat?: "off" | "all" | "one";
   };
   /** Advanced: a volume per zone (zone number → dB below max) instead of one for all. */
   zoneVolumes?: Record<string, number>;
