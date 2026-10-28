@@ -76,7 +76,7 @@ explorer /select, WebView2 data dir, yt-dlp/ffmpeg) compiles but is untested.
 - Background player: WebView2 window per source, Windows audio-session volume fades, auto-duck, track list, per-show config.
 - UI (v2 layout, docs/ui-v2.md): File menu on the show name (incl. Open recent), Build rail Cues · Pads · Media,
   one toolbar (+ Add, search Ctrl+K, Undo/Redo, View menu), selection bar for 2+ cues, Add window (files / YouTube &
-  lists / pad / section), inspector tabs Basics · Sound · Timing · Notes, bulk edit, cut/copy/paste; cue editor
+  lists / pad / section), inspector tabs Basics · Sound · Timing · File · Notes, bulk edit, cut/copy/paste; cue editor
   (waveform handles, EQ/comp curves, preview), Preflight, Run (rail, now playing, up next, Make next, swap, dock),
   booth modes, print, full-page Settings grouped This laptop / This show / Tools (NL/EN, rebindable shortcuts),
   resume dialog. v2 layout is untested in the real app.
@@ -88,8 +88,8 @@ explorer /select, WebView2 data dir, yt-dlp/ffmpeg) compiles but is untested.
 - Update check (GitHub releases vs the build's own tag, banner outside Run) and the app icon from docs/brand/.
 - Browser mode (no Tauri): real sound through Web Audio (`src/lib/webAudioEngine.ts`); YouTube/background simulated.
 
-Next: run docs/TESTING.md on Windows, fix what breaks; Run keys (Space/Esc/S/U/V) aren't rebindable yet
-(RunView still reads fixed keys); M0 Widevine results decide which background sources stay.
+Next: run docs/TESTING.md on Windows, fix what breaks; M0 Widevine results decide which background sources stay.
+README.md is the public face (screenshots in docs/screenshots/, taken from browser mode with the demo show).
 
 ## Known limitations / next steps
 
