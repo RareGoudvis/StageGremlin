@@ -693,6 +693,12 @@ impl<B: Backend> Engine<B> {
         !self.waiting.is_empty()
     }
 
+    /// True while the loader thread still has files to open, including cues opened ahead of GO.
+    /// Only the tests use it: they wait for the loader so a busy machine can't change their outcome.
+    pub fn loader_busy(&self) -> bool {
+        !self.inflight.is_empty() || !self.waiting.is_empty()
+    }
+
     /// Calibration or line-check tone on the show output.
     /// `hz`: the sine's frequency (ignored for pink noise).
     pub fn start_tone(&mut self, kind: ToneKind, target_lufs: f64, hz: f32) {

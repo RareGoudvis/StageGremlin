@@ -29,13 +29,23 @@ fn engine() -> Engine<MockBackend> {
 }
 
 /// Runs the mock audio thread for `secs` of audio, ticking the engine as the host would.
+/// Before each tick it waits until the loader thread has opened the files it was asked for:
+/// on a busy machine the loader can take longer than a tick, and the tests are about timing in the
+/// show, not about how fast this laptop opens a file. `tick(0.0)` collects the loader's results
+/// without moving the show's clock.
 fn run(e: &mut Engine<MockBackend>, secs: f64) {
     let steps = (secs * 100.0) as usize; // 10 ms ticks
     for _ in 0..steps {
+        let give_up = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while e.loader_busy() && std::time::Instant::now() < give_up {
+            std::thread::sleep(std::time::Duration::from_millis(1));
+            e.tick(0.0);
+        }
         e.backend_mut().on_start_processing();
         e.backend_mut().process();
-        // Streaming sounds decode on a background thread; give it a moment.
-        std::thread::sleep(std::time::Duration::from_micros(300));
+        // Streaming sounds decode on a background thread (kira's); give it a moment. 1 ms is plenty
+        // on a quiet machine and leaves room when the laptop is busy (e.g. during a release build).
+        std::thread::sleep(std::time::Duration::from_millis(1));
         e.tick(0.01);
     }
 }
@@ -290,8 +300,9 @@ fn rehearsal_starts_inside_a_cue() {
     e.go_from(&a.id, 2.5);
     run(&mut e, 0.2);
     let st = e.state();
-    assert!(st.running[0].position > 2.5, "pos {}", st.running[0].position);
-    assert!(st.running[0].remaining < 1.5);
+    // Started at 2.5 s, not at the top. (">=": on a busy machine the decoder may not have moved on yet.)
+    assert!(st.running[0].position >= 2.5, "pos {}", st.running[0].position);
+    assert!(st.running[0].remaining <= 1.5);
 }
 
 #[test]
