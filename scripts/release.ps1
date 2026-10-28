@@ -112,11 +112,12 @@ Build from ``$sha`` (built locally). Not tested on a real show yet — see docs/
 **Installer:** StageGremlin-setup.exe (no admin rights needed).
 "@
 # 0.x builds were test builds (pre-release); from 1.0 on every build is a full release.
-$pre = if ($version.StartsWith("0.")) { @("--prerelease") } else { @("--latest") }
-# The notes go through a file: Windows PowerShell 5.1 splits a multi-line text argument, and gh then
-# takes the pieces for file names ("no matches found for `-`").
+# One plain text flag. (Was "@pre" with an array: PowerShell 5.1 turns the if-result into a single string,
+# and splatting a string hands gh one character per argument: "no matches found for `-`".)
+$releaseFlag = if ($version.StartsWith("0.")) { "--prerelease" } else { "--latest" }
+# The notes go through a file (safer than a long multi-line argument on Windows PowerShell 5.1).
 $notesFile = Join-Path $env:TEMP "sg-release-notes.md"
 [IO.File]::WriteAllText($notesFile, $notes, (New-Object Text.UTF8Encoding $false))
-gh release create $tag "$out/StageGremlin-portable.zip" "$out/StageGremlin-setup.exe" --target $sha --title "StageGremlin $tag" --notes-file $notesFile @pre
+gh release create $tag "$out/StageGremlin-portable.zip" "$out/StageGremlin-setup.exe" --target $sha --title "StageGremlin $tag" --notes-file $notesFile $releaseFlag
 if ($LASTEXITCODE) { throw "Uploading the release failed." }
 Write-Host "Published $tag"
